@@ -1,0 +1,134 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { t, type MessageKey } from '../../i18n/messages';
+import { getAuth } from '../../lib/auth';
+import { SUPPORTED_LOCALES } from '../../lib/locale';
+
+const { user, locale } = Astro.locals;
+if (user?.role !== 'admin') return Astro.redirect('/app');
+
+const { users } = await getAuth().api.listUsers({
+  query: { limit: 200, sortBy: 'createdAt', sortDirection: 'asc' },
+  headers: Astro.request.headers,
+});
+
+const keys: MessageKey[] = ['auth.working', 'admin.create.submit', 'admin.create.done', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail'];
+const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
+---
+
+<AdminLayout title={t(locale, 'admin.title')}>
+  <h1>{t(locale, 'admin.users')}</h1>
+  <p class="hint">{t(locale, 'admin.hint')}</p>
+
+  <section class="card">
+    <table>
+<caption class="sr-only">{t(locale, 'table.sr.users')}</caption>
+      <thead>
+        <tr>
+          <th scope="col">{t(locale, 'admin.col.name')}</th>
+          <th scope="col">{t(locale, 'admin.col.email')}</th>
+          <th scope="col">{t(locale, 'admin.col.type')}</th>
+          <th scope="col">{t(locale, 'admin.col.status')}</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          users.map((row) => (
+            <tr>
+              <td>{row.name}</td>
+              <td>{row.email}</td>
+              <td>{t(locale, row.role === 'admin' ? 'admin.type.admin' : 'admin.type.user')}</td>
+              <td>
+                <span class:list={['badge', row.banned && 'badge-off']}>
+                  {t(locale, row.banned ? 'admin.status.suspended' : 'admin.status.active')}
+                </span>
+              </td>
+              <td>
+                <a href={`/admin/users/${row.id}`}>{t(locale, 'admin.edit.link')}</a>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>{t(locale, 'admin.create.title')}</h2>
+    <div id="error" class="alert" role="alert" hidden></div>
+    <div id="done" class="alert ok" role="status" hidden></div>
+    <form id="create-form" class="form-grid" data-messages={JSON.stringify(messages)} novalidate>
+      <div class="field">
+        <label for="name">{t(locale, 'auth.field.name')}</label>
+        <input id="name" name="name" type="text" autocomplete="off" required />
+      </div>
+      <div class="field">
+        <label for="email">{t(locale, 'auth.field.email')}</label>
+        <input id="email" name="email" type="email" autocomplete="off" required />
+      </div>
+      <div class="field">
+        <label for="password">{t(locale, 'auth.field.password')}</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required />
+        <span class="hint">{t(locale, 'auth.field.passwordHint')}</span>
+      </div>
+      <div class="field">
+        <label for="role">{t(locale, 'admin.create.type')}</label>
+        <select id="role" name="role">
+          <option value="user" selected>{t(locale, 'admin.type.user')}</option>
+          <option value="admin">{t(locale, 'admin.type.admin')}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="locale">{t(locale, 'admin.create.locale')}</label>
+        <select id="locale" name="locale">
+          {SUPPORTED_LOCALES.map((code) => <option value={code} selected={code === 'es-MX'}>{t(locale, `locale.${code}`)}</option>)}
+        </select>
+      </div>
+      <div class="form-actions">
+        <button class="btn" type="submit">{t(locale, 'admin.create.submit')}</button>
+      </div>
+    </form>
+  </section>
+</AdminLayout>
+
+<script>
+  import { authClient } from '../../lib/auth/client';
+  import { authErrorKey } from '../../lib/auth/errors';
+
+  const form = document.querySelector<HTMLFormElement>('#create-form')!;
+  const errorBox = document.querySelector<HTMLElement>('#error')!;
+  const doneBox = document.querySelector<HTMLElement>('#done')!;
+  const button = form.querySelector<HTMLButtonElement>('button')!;
+  const messages = JSON.parse(form.dataset.messages!) as Record<string, string>;
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    errorBox.hidden = true;
+    doneBox.hidden = true;
+    button.disabled = true;
+    button.textContent = messages['auth.working']!;
+
+    const data = new FormData(form);
+    const { error } = await authClient.admin.createUser({
+      name: String(data.get('name')),
+      email: String(data.get('email')),
+      password: String(data.get('password')),
+      role: data.get('role') === 'admin' ? 'admin' : 'user',
+      data: { locale: String(data.get('locale')) },
+    });
+
+    button.disabled = false;
+    button.textContent = messages['admin.create.submit']!;
+    if (error) {
+      const key = authErrorKey(error);
+      errorBox.textContent = messages[key] ?? messages['admin.error.generic']!;
+      if (key === 'auth.error.generic') errorBox.textContent = messages['admin.error.generic']!;
+      errorBox.hidden = false;
+      return;
+    }
+    doneBox.textContent = messages['admin.create.done']!;
+    doneBox.hidden = false;
+    setTimeout(() => location.reload(), 600);
+  });
+</script>

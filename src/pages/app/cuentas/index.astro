@@ -1,0 +1,95 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import Icon from '../../../components/Icon.astro';
+import { t } from '../../../i18n/messages';
+import { getDb } from '../../../lib/auth';
+import { listAccounts } from '../../../lib/accounts/repo';
+import { todayISO } from '../../../lib/date-format';
+import { formatMinor } from '../../../lib/money-format';
+import { listPlans } from '../../../lib/plans/repo';
+import { summarize } from '../../../lib/plans/schedule';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const showArchived = Astro.url.searchParams.get('archivadas') === '1';
+const accounts = await listAccounts(getDb(), workspace.id, showArchived);
+const canWrite = workspace.role !== 'viewer';
+const allPlans = await listPlans(getDb(), workspace.id);
+const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => plan.accountId === accountId), todayISO()).find((entry) => entry.thisMonthMinor > 0);
+---
+
+<AppLayout title={t(locale, 'accounts.title')} active="accounts">
+  <div class="page-head">
+    <h1>{t(locale, 'accounts.title')}</h1>
+    <div class="row-actions">
+      <a class="touch-link" href={showArchived ? '/app/cuentas' : '/app/cuentas?archivadas=1'}>
+        {t(locale, showArchived ? 'accounts.hideArchived' : 'accounts.showArchived')}
+      </a>
+      {
+        canWrite && (
+          <a class="btn btn-link hide-mobile" href="/app/cuentas/nueva">
+            <Icon name="plus" size={18} /> {t(locale, 'accounts.new')}
+          </a>
+        )
+      }
+    </div>
+  </div>
+
+  {
+    accounts.length === 0 ? (
+      <section class="card">
+        <p class="empty">{t(locale, 'accounts.empty')}</p>
+      </section>
+    ) : (
+      <ul class="cards-grid">
+        {accounts.map((account) => {
+          const active = account.cards.filter((card) => !card.archivedAt);
+          const month = thisMonth(account.id);
+          return (
+            <li>
+              <a class:list={['card-item', account.archivedAt && 'is-archived']} href={`/app/cuentas/${account.id}`}>
+                <span class="card-item-head">
+                  <strong>{account.name}</strong>
+                  {account.archivedAt && <span class="badge badge-muted">{t(locale, 'accounts.archivedBadge')}</span>}
+                </span>
+                <span class="muted">
+                  {account.bank}
+                  {account.customerId && <span> · {t(locale, 'accounts.customerId', { id: account.customerId })}</span>}
+                </span>
+                {month && <span class="month-line">{t(locale, 'accounts.list.thisMonth', { amount: formatMinor(month.thisMonthMinor, month.currency, locale) })}</span>}
+                {active.length === 0 ? (
+                  <span class="muted">{t(locale, 'accounts.noCards')}</span>
+                ) : (
+                  <ul class="card-lines">
+                    {active.map((card) => (
+                      <li>
+                        <Icon name="card" size={18} />
+                        <span>
+                          {t(locale, `card.type.${card.kind}${card.isDigital ? '.digital' : ''}`)}
+                          {card.last4 ? ` ···· ${card.last4}` : ''}
+                        </span>
+                        {card.kind === 'credit' && card.paymentDueDay != null && (
+                          <span class="muted">· {t(locale, 'accounts.cardLine.due', { day: String(card.paymentDueDay) })}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    )
+  }
+
+  {
+    canWrite && (
+      <a class="fab" href="/app/cuentas/nueva">
+        <Icon name="plus" size={20} />
+        <span>{t(locale, 'accounts.new')}</span>
+      </a>
+    )
+  }
+</AppLayout>

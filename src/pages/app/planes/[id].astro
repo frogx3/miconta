@@ -1,0 +1,285 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import { messagesFor, t, type MessageKey } from '../../../i18n/messages';
+import { getDb } from '../../../lib/auth';
+import { formatDate, formatRate, todayISO } from '../../../lib/date-format';
+import { naturalEndDate, remainingBalanceMinor, remainingInstallments } from '../../../lib/import/plans';
+import { formatMinor, toInputString } from '../../../lib/money-format';
+import { describeEvent } from '../../../lib/plans/events';
+import { getPlanDetail } from '../../../lib/plans/repo';
+import { buildSchedule, isOpen } from '../../../lib/plans/schedule';
+import { listTags, tagsByPlan } from '../../../lib/plans/tags';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const detail = await getPlanDetail(getDb(), workspace.id, Astro.params.id!);
+if (!detail) return Astro.redirect('/app/planes');
+
+const { plan, card, events, movements } = detail;
+const [allTags, planTagMap] = await Promise.all([listTags(getDb(), workspace.id), tagsByPlan(getDb(), workspace.id)]);
+const planTags = planTagMap.get(plan.id) ?? [];
+const readOnly = workspace.role === 'viewer';
+// Si se llegó desde las planes de una cuenta, la miga de pan regresa por ahí.
+const fromAccount = Astro.url.searchParams.get('cuenta') === card.accountId;
+const money = (minor: number) => formatMinor(minor, plan.currency, locale);
+const tr = (key: string, params?: Record<string, string | number>) => t(locale, key as MessageKey, params);
+const open = isOpen(plan);
+const schedule = buildSchedule(plan, todayISO());
+const paidPct = Math.min(100, (plan.paidInstallments / plan.totalInstallments) * 100);
+const rateInput = new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 2 }).format(plan.interestRateBp / 100);
+const messages = messagesFor(locale, ['validation.', 'common.', 'plan.edit.', 'plan.settle.', 'plan.tags.']);
+const eventFormat = { t: tr, money, date: (iso: string) => formatDate(iso, locale), rate: (bp: number) => formatRate(bp, locale) };
+const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
+---
+
+<AppLayout title={plan.name} active="plans">
+  <Breadcrumb
+    items={
+      fromAccount
+        ? [
+            { label: t(locale, 'accounts.title'), href: '/app/cuentas' },
+            { label: card.accountName, href: `/app/cuentas/${card.accountId}` },
+            { label: t(locale, 'plans.title'), href: `/app/planes?cuenta=${card.accountId}` },
+            { label: plan.name },
+          ]
+        : [{ label: t(locale, 'plans.title'), href: '/app/planes' }, { label: plan.name }]
+    }
+  />
+  <div class="page-head">
+    <h1>{plan.name}</h1>
+    <div class="chips">
+      <span class="chip">{t(locale, `import.plan.type.${plan.type}`)}</span>
+      <span class:list={['badge', plan.status === 'review' && 'badge-warn', plan.status === 'settled_manual' && 'badge-off']}>{t(locale, `plans.status.${plan.status}`)}</span>
+    </div>
+  </div>
+
+  <section class="card" id="plan" data-plan-id={plan.id} data-messages={JSON.stringify(messages)}>
+    <div class="progress-head">
+      <strong>{t(locale, 'plan.progress', { paid: plan.paidInstallments, total: plan.totalInstallments })}</strong>
+      <span class="bar bar-wide" aria-hidden="true"><span style={`width:${paidPct}%`} /></span>
+    </div>
+    <dl class="facts">
+      <dt>{t(locale, 'plan.card')}</dt>
+      <dd>
+        <a href={`/app/cuentas/${card.accountId}`}>{card.name}</a>
+        <span class="muted"> · </span>
+        <a href={`/app/gastos/movimientos?mes=todo&filtro=c:${card.id}`}>{t(locale, 'plan.viewCharges')}</a>
+      </dd>
+      <dt>{t(locale, 'plan.installment')}</dt>
+      <dd>{money(plan.installmentAmountMinor)}</dd>
+      <dt>{t(locale, 'plan.remainingInstallments')}</dt>
+      <dd>{open ? remainingInstallments(plan) : 0}</dd>
+      <dt>{t(locale, 'plan.remainingBalance')}</dt>
+      <dd>
+        {open ? money(remainingBalanceMinor(plan)) : money(0)}
+        {open && plan.reportedBalanceDate && <span class="muted"> · {t(locale, 'plan.balanceBank', { date: formatDate(plan.reportedBalanceDate, locale) })}</span>}
+      </dd>
+      <dt>{t(locale, 'plan.totalAmount')}</dt>
+      <dd>{money(plan.totalAmountMinor)}</dd>
+      {plan.type !== 'msi' && (<><dt>{t(locale, 'plan.interest')}</dt><dd>{formatRate(plan.interestRateBp, locale)}</dd></>)}
+      <dt>{t(locale, 'plan.firstCharge')}</dt>
+      <dd>{formatDate(plan.firstChargeDate, locale)}</dd>
+      <dt>{t(locale, 'plan.naturalEnd')}</dt>
+      <dd>{formatDate(naturalEndDate(plan), locale)}</dd>
+    </dl>
+    {plan.status === 'settled_manual' && plan.settlementNote && <p class="alert note">{t(locale, 'plan.settle.note', { note: plan.settlementNote })}</p>}
+
+    {
+      !readOnly && (
+        <div class="row-actions plan-actions">
+          {open && <button type="button" class="btn btn-ghost btn-small" data-toggle="settle-box">{t(locale, 'plan.actions.settle')}</button>}
+          {plan.status === 'active' && <button type="button" class="btn btn-ghost btn-small" data-status="review">{t(locale, 'plan.actions.review')}</button>}
+          {plan.status === 'review' && <button type="button" class="btn btn-ghost btn-small" data-status="active">{t(locale, 'plan.actions.unreview')}</button>}
+          {plan.status === 'settled_manual' && <button type="button" class="btn btn-ghost btn-small" data-status="active">{t(locale, 'plan.actions.reopen')}</button>}
+        </div>
+      )
+    }
+    <div id="action-error" class="alert" role="alert" hidden></div>
+
+    {
+      !readOnly && open && (
+        <form id="settle-box" class="settle-box" hidden novalidate>
+          <h2>{t(locale, 'plan.settle.title')}</h2>
+          <p class="hint">{t(locale, 'plan.settle.hint')}</p>
+          <div class="field">
+            <label for="settle-comment">{t(locale, 'plan.settle.comment')}</label>
+            <textarea id="settle-comment" name="comment" rows="2" maxlength="500" required />
+            <span class="field-error" data-error-for="comment" />
+          </div>
+          <button class="btn btn-auto" type="submit">{t(locale, 'plan.settle.submit')}</button>
+        </form>
+      )
+    }
+  </section>
+
+  <section class="card" id="tags" data-plan-id={plan.id} data-messages={JSON.stringify(messages)}>
+    <h2>{t(locale, 'plan.tags.title')}</h2>
+    {!readOnly && <p class="hint">{t(locale, 'plan.tags.hint')}</p>}
+    <div id="tags-error" class="alert" role="alert" hidden></div>
+    <ul class="tag-list" id="tag-list">
+      {planTags.map((tag) => (
+        <li class="chip" data-tag={tag.id}>
+          <span>{tag.name}</span>
+          {!readOnly && <button type="button" class="tag-remove" aria-label={t(locale, 'plan.tags.remove', { name: tag.name })}>×</button>}
+        </li>
+      ))}
+    </ul>
+    <p class="muted" id="tags-empty" hidden={planTags.length > 0}>{t(locale, 'plan.tags.none')}</p>
+    {
+      !readOnly && (
+        <form id="tag-form" class="tag-form" novalidate>
+          <label class="sr-only" for="tag-name">{t(locale, 'plan.tags.add')}</label>
+          <input id="tag-name" name="name" type="text" maxlength="30" list="tag-suggestions" placeholder={t(locale, 'plan.tags.add')} autocomplete="off" />
+          <datalist id="tag-suggestions">{allTags.filter((tag) => !planTags.some((own) => own.id === tag.id)).map((tag) => <option value={tag.name} />)}</datalist>
+          <button class="btn btn-auto" type="submit">{t(locale, 'plan.tags.addButton')}</button>
+        </form>
+      )
+    }
+  </section>
+
+  <section class="card">
+    <h2>{t(locale, 'plan.edit.title')}</h2>
+    <p class="hint">{readOnly ? t(locale, 'plan.edit.readOnlyNote') : t(locale, 'plan.edit.hint')}</p>
+    <div id="edit-error" class="alert" role="alert" hidden></div>
+    <div id="edit-done" class="alert ok" role="status" hidden></div>
+    <form id="plan-edit-form" class="form-grid" novalidate>
+      <fieldset disabled={readOnly} class="form-grid contents">
+        <div class="field">
+          <label for="name">{t(locale, 'import.plan.name')}</label>
+          <input id="name" name="name" type="text" value={plan.name} maxlength="80" required />
+          <span class="field-error" data-error-for="name" />
+        </div>
+        <div class="field">
+          <label for="type">{t(locale, 'import.plan.type')}</label>
+          <select id="type" name="type">
+            {(['msi', 'mci', 'fixed'] as const).map((type) => <option value={type} selected={type === plan.type}>{t(locale, `import.plan.type.${type}`)}</option>)}
+          </select>
+          <span class="field-error" data-error-for="type" />
+        </div>
+        <div class="field">
+          <label for="matchText">{t(locale, 'import.plan.matchText')}</label>
+          <input id="matchText" name="matchText" type="text" value={plan.matchText} maxlength="120" required />
+          <span class="hint">{t(locale, 'import.plan.matchTextHint')}</span>
+          <span class="field-error" data-error-for="matchText" />
+        </div>
+        <div class="field">
+          <label for="installmentAmount">{t(locale, 'import.plan.installment')}</label>
+          <input id="installmentAmount" name="installmentAmount" type="text" inputmode="decimal" value={toInputString(plan.installmentAmountMinor, locale, plan.currency)} />
+          <span class="field-error" data-error-for="installmentAmount" />
+        </div>
+        <div class="field">
+          <label for="totalInstallments">{t(locale, 'import.plan.total')}</label>
+          <input id="totalInstallments" name="totalInstallments" type="text" inputmode="numeric" value={plan.totalInstallments} />
+          <span class="field-error" data-error-for="totalInstallments" />
+        </div>
+        <div class="field">
+          <label for="paidInstallments">{t(locale, 'plan.edit.paid')}</label>
+          <input id="paidInstallments" name="paidInstallments" type="text" inputmode="numeric" value={plan.paidInstallments} />
+          <span class="field-error" data-error-for="paidInstallments" />
+        </div>
+        <div class="field">
+          <label for="totalAmount">{t(locale, 'plan.totalAmount')}</label>
+          <input id="totalAmount" name="totalAmount" type="text" inputmode="decimal" value={toInputString(plan.totalAmountMinor, locale, plan.currency)} />
+          <span class="field-error" data-error-for="totalAmount" />
+        </div>
+        <div class="field" data-rate hidden={plan.type === 'msi'}>
+          <label for="interestRate">{t(locale, 'import.plan.rate')}</label>
+          <input id="interestRate" name="interestRate" type="text" inputmode="decimal" value={rateInput} />
+          <span class="field-error" data-error-for="interestRate" />
+        </div>
+        <div class="field">
+          <label for="firstChargeDate">{t(locale, 'plan.firstCharge')}</label>
+          <input id="firstChargeDate" name="firstChargeDate" type="date" value={plan.firstChargeDate} />
+          <span class="field-error" data-error-for="firstChargeDate" />
+        </div>
+        <div class="field wide">
+          <label for="comment">{t(locale, 'plan.edit.comment')}</label>
+          <input id="comment" name="comment" type="text" maxlength="500" />
+          <span class="hint">{t(locale, 'plan.edit.commentHint')}</span>
+          <span class="field-error" data-error-for="comment" />
+        </div>
+      </fieldset>
+      {!readOnly && <div class="form-actions"><button class="btn" type="submit">{t(locale, 'plan.edit.save')}</button></div>}
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{t(locale, 'plan.schedule.title')}</h2>
+    <div class="table-scroll">
+      <table class="import-table">
+<caption class="sr-only">{t(locale, 'table.sr.events')}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t(locale, 'plan.schedule.no')}</th>
+            <th scope="col">{t(locale, 'plan.schedule.date')}</th>
+            <th scope="col" class="num">{t(locale, 'plan.schedule.amount')}</th>
+            <th scope="col">{t(locale, 'plan.schedule.state')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            schedule.map((row) => (
+              <tr class:list={[`state-${row.state}`]}>
+                <td>{row.no}</td>
+                <td class="nowrap">{formatDate(row.date, locale)}</td>
+                <td class="num nowrap">{money(row.amountMinor)}</td>
+                <td><span class:list={['badge', row.state === 'overdue' && 'badge-warn', (row.state === 'upcoming' || row.state === 'waived') && 'badge-muted']}>{t(locale, `plan.schedule.${row.state}`)}</span></td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>{t(locale, 'plan.movements.title')}</h2>
+    {
+      movements.length === 0 ? (
+        <p class="empty">{t(locale, 'plan.movements.empty')}</p>
+      ) : (
+        <div class="table-scroll">
+          <table class="import-table">
+<caption class="sr-only">{t(locale, 'table.sr.linked')}</caption>
+            <tbody>
+              {movements.map((movement) => (
+                <tr>
+                  <td class="nowrap">{formatDate(movement.date, locale)}</td>
+                  <td>{movement.description}</td>
+                  <td class="num nowrap">{money(movement.chargeMinor)}</td>
+                  <td class="nowrap">{movement.planInstallmentNo != null && t(locale, 'plan.movements.installment', { n: movement.planInstallmentNo })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </section>
+
+  <section class="card">
+    <h2>{t(locale, 'plan.history.title')}</h2>
+    <ol class="timeline">
+      {
+        events.map((event) => {
+          const view = describeEvent(event, eventFormat);
+          return (
+            <li>
+              <strong>{view.title}</strong>
+              <span class="muted"> · <time datetime={event.createdAt.toISOString()} data-ts>{new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(event.createdAt)} UTC</time> · {t(locale, 'plan.event.by', { name: event.actorName })}</span>
+              {view.lines.length > 0 && <ul>{view.lines.map((line) => <li>{line}</li>)}</ul>}
+              {view.comment && <p class="comment">“{view.comment}”</p>}
+            </li>
+          );
+        })
+      }
+    </ol>
+  </section>
+</AppLayout>
+
+<script>
+  import '../../../scripts/plan-detail';
+  import '../../../scripts/plan-tags';
+</script>

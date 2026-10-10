@@ -1,0 +1,41 @@
+# build output
+dist/
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folder
+.idea/
+
+# cloudflare / wrangler
+.wrangler/
+.dev.vars
+
+# datos personales de ejemplo
+tests/fixtures/*.csv
+
+# secretos de producción (código de configuración, respaldo del secreto de Better Auth)
+.secrets.production
+
+# respaldos de datos de producción (datos reales)
+backups/
+
+# python
+__pycache__/
+*.pyc

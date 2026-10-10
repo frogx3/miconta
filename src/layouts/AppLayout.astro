@@ -1,0 +1,25 @@
+---
+import Base from './Base.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import { t } from '../i18n/messages';
+import type { NavKey } from '../lib/nav';
+
+interface Props {
+  title: string;
+  active?: NavKey;
+}
+
+const { title, active } = Astro.props;
+const { locale, workspace } = Astro.locals;
+const readOnly = workspace?.role === 'viewer';
+---
+
+<Base title={title}>
+  <SiteHeader area="app" active={active} readOnly={readOnly} />
+  <main class="shell" id="main" tabindex="-1">
+    {readOnly && <p class="alert">{t(locale, 'common.readOnly')}</p>}
+    <slot />
+  </main>
+  <SiteFooter area="app" readOnly={readOnly} />
+</Base>

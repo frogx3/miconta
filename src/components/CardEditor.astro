@@ -1,0 +1,128 @@
+---
+import { t } from '../i18n/messages';
+import { currencyOptions, toInputString } from '../lib/money-format';
+import type { Card } from '../lib/accounts/repo';
+
+interface Props {
+  accountId: string;
+  /** Sin tarjeta = formulario para agregar una nueva. */
+  card?: Card;
+  readOnly?: boolean;
+  /** Una tarjeta con movimientos o planes no se puede quitar, solo archivar. */
+  inUse?: boolean;
+  defaultCurrency: string;
+}
+
+const { accountId, card, readOnly = false, inUse = false, defaultCurrency } = Astro.props;
+const { locale } = Astro.locals;
+
+const currency = card?.currency ?? defaultCurrency;
+const kind = card?.kind ?? 'credit';
+const isDigital = card?.isDigital ?? false;
+const limitValue = card?.creditLimitMinor != null ? toInputString(card.creditLimitMinor, locale, currency) : '';
+const example = toInputString(5_000_000, locale, currency);
+const uid = card?.id ?? 'new';
+const err = (field: string) => `${field}-error-${uid}`;
+---
+
+<form class="card-form" data-card-form data-account-id={accountId} data-card-id={card?.id} data-archived={String(!!card?.archivedAt)} data-last4={card?.last4 ?? ''} novalidate>
+  <div class="form-alert alert" role="alert" tabindex="-1" hidden></div>
+  <fieldset disabled={readOnly} class="card-fields">
+    <div class="card-segments">
+      <div class="field" role="radiogroup" aria-labelledby={`kind-label-${uid}`}>
+        <span class="field-label" id={`kind-label-${uid}`}>{t(locale, 'card.field.kind')}</span>
+        <div class="segmented">
+          {
+            (['credit', 'debit'] as const).map((value) => (
+              <label>
+                <input type="radio" name="kind" value={value} checked={value === kind} />
+                <span>{t(locale, `card.kind.${value}`)}</span>
+              </label>
+            ))
+          }
+        </div>
+        <span class="field-error" id={err('kind')} data-error-for="kind"></span>
+      </div>
+      <div class="field" role="radiogroup" aria-labelledby={`format-label-${uid}`}>
+        <span class="field-label" id={`format-label-${uid}`}>{t(locale, 'card.field.format')}</span>
+        <div class="segmented">
+          <label>
+            <input type="radio" name="isDigital" value="false" checked={!isDigital} />
+            <span>{t(locale, 'card.format.physical')}</span>
+          </label>
+          <label>
+            <input type="radio" name="isDigital" value="true" checked={isDigital} />
+            <span>{t(locale, 'card.format.digital')}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <p class="card-section-title">{t(locale, 'card.section.basics')}</p>
+    <div class="card-grid">
+      <div class="field">
+        <label for={`last4-${uid}`}>{t(locale, 'card.field.last4')}</label>
+        <input id={`last4-${uid}`} name="last4" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" value={card?.last4 ?? ''} placeholder="1234" autocomplete="off" enterkeyhint="next" aria-describedby={err('last4')} />
+        <span class="field-error" id={err('last4')} data-error-for="last4"></span>
+      </div>
+      <div class="field">
+        <label for={`label-${uid}`}>{t(locale, 'card.field.label')}</label>
+        <input id={`label-${uid}`} name="label" type="text" maxlength="40" value={card?.label ?? ''} placeholder={t(locale, 'card.hint.label')} enterkeyhint="next" aria-describedby={err('label')} />
+        <span class="field-error" id={err('label')} data-error-for="label"></span>
+      </div>
+      <div class="field">
+        <label for={`currency-${uid}`}>{t(locale, 'card.field.currency')}</label>
+        <select id={`currency-${uid}`} name="currency" aria-describedby={err('currency')}>
+          {currencyOptions(currency).map((code) => <option value={code} selected={code === currency}>{code}</option>)}
+        </select>
+        <span class="field-error" id={err('currency')} data-error-for="currency"></span>
+      </div>
+    </div>
+
+    <div data-credit-only>
+      <p class="card-section-title">{t(locale, 'card.section.credit')}</p>
+      <div class="card-grid">
+        <div class="field">
+          <label for={`limit-${uid}`}>{t(locale, 'card.field.limit')}</label>
+          <input id={`limit-${uid}`} name="creditLimit" type="text" inputmode="decimal" value={limitValue} autocomplete="off" enterkeyhint="next" aria-describedby={`limit-hint-${uid} ${err('creditLimit')}`} />
+          <span class="hint" id={`limit-hint-${uid}`}>{t(locale, 'card.hint.limit', { example })}</span>
+          <span class="field-error" id={err('creditLimit')} data-error-for="creditLimit"></span>
+        </div>
+        <div class="field">
+          <label for={`cutoff-${uid}`}>{t(locale, 'card.field.cutoff')}</label>
+          <input id={`cutoff-${uid}`} name="cutoffDay" type="number" min="1" max="31" inputmode="numeric" value={card?.cutoffDay ?? ''} enterkeyhint="next" aria-describedby={`cutoff-hint-${uid} ${err('cutoffDay')}`} />
+          <span class="hint" id={`cutoff-hint-${uid}`}>{t(locale, 'card.hint.cutoff')}</span>
+          <span class="field-error" id={err('cutoffDay')} data-error-for="cutoffDay"></span>
+        </div>
+        <div class="field">
+          <label for={`due-${uid}`}>{t(locale, 'card.field.due')}</label>
+          <input id={`due-${uid}`} name="paymentDueDay" type="number" min="1" max="31" inputmode="numeric" value={card?.paymentDueDay ?? ''} enterkeyhint="go" aria-describedby={err('paymentDueDay')} />
+          <span class="field-error" id={err('paymentDueDay')} data-error-for="paymentDueDay"></span>
+        </div>
+      </div>
+    </div>
+  </fieldset>
+  {
+    !readOnly && (
+      <>
+        <div class="form-actions row-actions">
+          <button class="btn btn-auto" type="submit">{t(locale, card ? 'card.save' : 'cards.add')}</button>
+          {card && <button class="btn btn-ghost" type="button" data-archive>{t(locale, card.archivedAt ? 'card.unarchive' : 'card.archive')}</button>}
+          <span class="save-status" role="status" data-status></span>
+        </div>
+        {
+          card && !inUse && (
+            <div class="danger-zone" data-remove-zone>
+              <button class="link-danger" type="button" data-remove-ask>{t(locale, 'card.remove')}</button>
+              <div class="remove-confirm" data-remove-confirm hidden>
+                <span>{t(locale, 'card.remove.ask', { last4: card.last4 ? `···· ${card.last4}` : '' })}</span>
+                <button class="btn btn-danger btn-small" type="button" data-remove>{t(locale, 'card.remove.confirm')}</button>
+                <button class="btn btn-ghost btn-small" type="button" data-remove-cancel>{t(locale, 'card.remove.cancel')}</button>
+              </div>
+            </div>
+          )
+        }
+      </>
+    )
+  }
+</form>

@@ -1,0 +1,42 @@
+---
+import Icon from './Icon.astro';
+import { t } from '../i18n/messages';
+import { navFor } from '../lib/nav';
+
+interface Props {
+  area: 'app' | 'admin';
+  readOnly?: boolean;
+}
+
+const { area, readOnly = false } = Astro.props;
+const { locale } = Astro.locals;
+const items = navFor(area, { readOnly });
+const year = String(new Date().getFullYear());
+---
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <div class="footer-brand">
+      <span class="brand-word">Mi<span class="brand-conta">Conta</span></span>
+      <p class="footer-disclaimer">
+        <Icon name="shield" size={18} />
+        <span>{t(locale, 'footer.disclaimer')}</span>
+      </p>
+    </div>
+    <nav class="footer-nav" aria-label={t(locale, 'footer.nav')}>
+      <ul>
+        {
+          items.map((item) => (
+            <li>
+              <a href={item.href}>
+                <Icon name={item.icon} size={18} />
+                <span>{t(locale, item.label)}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+  <p class="footer-legal">{t(locale, 'footer.rights', { year })}</p>
+</footer>

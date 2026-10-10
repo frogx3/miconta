@@ -1,0 +1,95 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import GoalCard from '../../components/GoalCard.astro';
+import { messagesFor, t } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+import { todayISO } from '../../lib/date-format';
+import { buildGoalViews } from '../../lib/goals/view';
+import { GOAL_TYPES } from '../../lib/goals/validation';
+import { listPlans } from '../../lib/plans/repo';
+import { isOpen } from '../../lib/plans/schedule';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const db = getDb();
+const showArchived = Astro.url.searchParams.get('archivadas') === '1';
+const canWrite = workspace.role !== 'viewer';
+const [views, plans] = await Promise.all([buildGoalViews(db, workspace.id, todayISO(), showArchived), canWrite ? listPlans(db, workspace.id) : Promise.resolve([])]);
+const openPlans = plans.filter(isOpen);
+const active = views.filter((view) => !view.goal.archivedAt);
+const archived = views.filter((view) => view.goal.archivedAt);
+const messages = messagesFor(locale, ['goals.', 'validation.', 'common.']);
+const currency = workspace.defaultCurrency;
+---
+
+<AppLayout title={t(locale, 'goals.title')} active="goals">
+  <h1>{t(locale, 'goals.title')}</h1>
+  <p class="hint">{t(locale, 'goals.hint')}</p>
+
+  <div id="goals" data-messages={JSON.stringify(messages)}>
+    <div id="goals-error" class="alert" role="alert" hidden></div>
+
+    {active.length === 0 && <section class="card"><p class="empty">{t(locale, 'goals.empty')}</p></section>}
+    <div class="goal-list">
+      {active.map((view) => <GoalCard view={view} canWrite={canWrite} />)}
+    </div>
+
+    {
+      archived.length > 0 && (
+        <>
+          <h2>{t(locale, 'goals.archived.badge')}</h2>
+          <div class="goal-list">{archived.map((view) => <GoalCard view={view} canWrite={canWrite} />)}</div>
+        </>
+      )
+    }
+    <p><a class="touch-link" href={showArchived ? '/app/metas' : '/app/metas?archivadas=1'}>{t(locale, showArchived ? 'goals.archived.hide' : 'goals.archived.show')}</a></p>
+
+    {
+      canWrite && (
+        <section class="card" id="goal-new">
+          <h2>{t(locale, 'goals.new')}</h2>
+          <form id="goal-form" class="form-grid" novalidate>
+            <div class="field">
+              <label for="g-type">{t(locale, 'goals.field.type')}</label>
+              <select id="g-type" name="type">
+                {GOAL_TYPES.map((type) => <option value={type}>{t(locale, `goals.type.${type}`)}</option>)}
+              </select>
+              <span class="hint" id="g-type-help"></span>
+              <span class="field-error" data-error-for="type"></span>
+            </div>
+            <div class="field">
+              <label for="g-name">{t(locale, 'goals.field.name')}</label>
+              <input id="g-name" name="name" type="text" maxlength="60" />
+              <span class="field-error" data-error-for="name"></span>
+            </div>
+            <div class="field" data-for="payoff_plan" hidden>
+              <label for="g-plan">{t(locale, 'goals.field.plan')}</label>
+              <select id="g-plan" name="planId">
+                {openPlans.map((plan) => <option value={plan.id}>{plan.name} · {plan.cardName}</option>)}
+              </select>
+              {openPlans.length === 0 && <span class="hint">{t(locale, 'goals.noPlans')}</span>}
+              <span class="field-error" data-error-for="planId"></span>
+            </div>
+            <div class="field narrow" data-for="debt_free payoff_plan savings">
+              <label for="g-date" data-label-savings={t(locale, 'goals.field.dateOptional')} data-label-default={t(locale, 'goals.field.date')}>{t(locale, 'goals.field.date')}</label>
+              <input id="g-date" name="targetDate" type="date" min={todayISO()} />
+              <span class="field-error" data-error-for="targetDate"></span>
+            </div>
+            <div class="field narrow" data-for="ant_spend savings" hidden>
+              <label for="g-amount" data-label-ant={t(locale, 'goals.field.cap', { currency })} data-label-savings={t(locale, 'goals.field.target', { currency })}>{t(locale, 'goals.field.cap', { currency })}</label>
+              <input id="g-amount" name="targetAmount" type="text" inputmode="decimal" />
+              <span class="field-error" data-error-for="targetAmount"></span>
+            </div>
+            <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'goals.create')}</button></div>
+          </form>
+          <script type="application/json" id="type-help" set:html={JSON.stringify(Object.fromEntries(GOAL_TYPES.map((type) => [type, t(locale, `goals.typeHelp.${type}`)])))}></script>
+        </section>
+      )
+    }
+  </div>
+</AppLayout>
+
+<script>
+  import '../../scripts/goals';
+</script>

@@ -1,0 +1,30 @@
+---
+import Base from './Base.astro';
+import BrandIcon from '../components/BrandIcon.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import { t } from '../i18n/messages';
+
+interface Props {
+  title: string;
+  heading?: string;
+  lead?: string;
+}
+
+const { title, heading, lead } = Astro.props;
+const { locale } = Astro.locals;
+---
+
+<Base title={title}>
+  <div class="auth-theme"><ThemeToggle /></div>
+  <main class="auth-wrap">
+    <div class="auth-card">
+      <a class="brand brand-stack" href="/" aria-label={t(locale, 'app.name')}>
+        <BrandIcon size={80} source={240} class="brand-icon-lg" />
+        <span aria-hidden="true">Mi<span class="brand-conta">Conta</span></span>
+      </a>
+      <h1>{heading ?? title}</h1>
+      {lead && <p class="lead">{lead}</p>}
+      <slot />
+    </div>
+  </main>
+</Base>

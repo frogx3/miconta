@@ -1,0 +1,103 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import { messagesFor, t } from '../../../i18n/messages';
+import { getDb } from '../../../lib/auth';
+import { formatDate } from '../../../lib/date-format';
+import { listBatches, previewRevert } from '../../../lib/import/batches';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const db = getDb();
+const batches = await listBatches(db, workspace.id);
+const canWrite = workspace.role !== 'viewer';
+
+// Para la última carga aplicada de cada tarjeta se calcula, sin tocar nada, qué pasaría al deshacerla.
+const previews = new Map(await Promise.all(batches.filter((batch) => batch.isLatest).map(async (batch) => [batch.id, await previewRevert(db, workspace.id, batch.id)] as const)));
+const messages = messagesFor(locale, ['batches.', 'common.']);
+const stamp = (date: Date) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(date);
+---
+
+<AppLayout title={t(locale, 'batches.title')} active="import">
+  <Breadcrumb items={[{ label: t(locale, 'import.title'), href: '/app/importar' }, { label: t(locale, 'batches.title') }]} />
+  <h1>{t(locale, 'batches.title')}</h1>
+  <p class="hint">{t(locale, 'batches.intro')}</p>
+
+  <div id="batches" data-messages={JSON.stringify(messages)}>
+    <div id="batches-error" class="alert" role="alert" hidden></div>
+    <div id="batches-done" class="alert ok" role="status" hidden></div>
+
+    {
+      batches.length === 0 ? (
+        <section class="card"><p class="empty">{t(locale, 'batches.empty')}</p></section>
+      ) : (
+        batches.map((batch) => {
+          const decision = previews.get(batch.id);
+          const reverted = batch.status === 'reverted';
+          return (
+            <section class:list={['card', 'batch', reverted && 'is-reverted']} data-batch={batch.id} data-file={batch.fileName}>
+              <div class="page-head">
+                <div>
+                  <strong>{batch.fileName}</strong>
+                  <div class="muted">
+                    {batch.accountName}{' · '}
+                    <time datetime={batch.createdAt.toISOString()} data-ts>{stamp(batch.createdAt)} UTC</time>{' · '}
+                    {t(locale, 'batches.importedBy', { name: batch.createdByName })}
+                    {batch.cutoffDate && ` · ${t(locale, 'batches.cutoff', { date: formatDate(batch.cutoffDate, locale) })}`}
+                  </div>
+                </div>
+                <span class:list={['badge', reverted && 'badge-off']}>{t(locale, `batches.status.${batch.status}`)}</span>
+              </div>
+
+              <div class="chips">
+                {!reverted && <span class="chip">{t(locale, 'batches.movements', { n: batch.movementCount })}</span>}
+                {(batch.summary?.plansCreated ?? 0) > 0 && <span class="chip">{t(locale, 'batches.plans', { n: batch.summary!.plansCreated! })}</span>}
+                {(batch.summary?.installmentsLinked ?? 0) > 0 && <span class="chip">{t(locale, 'batches.installments', { n: batch.summary!.installmentsLinked! })}</span>}
+              </div>
+
+              {reverted && batch.summary?.revert && (
+                <p class="hint">
+                  {t(locale, 'batches.revertedBy', { name: batch.summary.revert.byName })}
+                  {batch.revertedAt && <>{' · '}<time datetime={batch.revertedAt.toISOString()} data-ts>{stamp(batch.revertedAt)} UTC</time></>}
+                </p>
+              )}
+
+              {!reverted && !batch.isLatest && canWrite && <p class="hint">{t(locale, 'batches.revert.notLatest')}</p>}
+
+              {
+                batch.isLatest && canWrite && decision && (
+                  <>
+                    <button type="button" class="btn btn-ghost btn-small" data-toggle-revert>{t(locale, 'batches.revert')}</button>
+                    <div class="revert-panel" hidden>
+                      <h3>{t(locale, 'batches.revert.title', { file: batch.fileName })}</h3>
+                      {decision.ok ? (
+                        <>
+                          <p>{t(locale, 'batches.revert.summary', { movements: decision.movements, plans: decision.deletePlanIds.length, installments: decision.undo.length })}</p>
+                          {decision.undo.length > 0 && <ul>{decision.undo.map((u) => <li>{u.name}: {u.installmentNo} → {u.restorePaid}</li>)}</ul>}
+                          <p class="hint">{t(locale, 'batches.revert.keeps')}</p>
+                          <button type="button" class="btn btn-danger btn-small" data-confirm-revert>{t(locale, 'batches.revert.confirm')}</button>
+                        </>
+                      ) : decision.reason === 'plans_changed' ? (
+                        <>
+                          <p>{t(locale, 'batches.revert.blocked')}</p>
+                          <ul>{decision.blockers.map((b) => <li><a href={`/app/planes/${b.planId}`}>{b.name}</a>: {t(locale, `batches.revert.why.${b.why}`)}</li>)}</ul>
+                        </>
+                      ) : (
+                        <p>{t(locale, 'batches.revert.notLatest')}</p>
+                      )}
+                    </div>
+                  </>
+                )
+              }
+            </section>
+          );
+        })
+      )
+    }
+  </div>
+</AppLayout>
+
+<script>
+  import '../../../scripts/batch-history';
+</script>

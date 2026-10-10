@@ -1,0 +1,113 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { t, tn } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+import { listAccounts } from '../../lib/accounts/repo';
+import { formatDate, todayISO } from '../../lib/date-format';
+import { formatMinor } from '../../lib/money-format';
+import { listPlans } from '../../lib/plans/repo';
+import { summarize } from '../../lib/plans/schedule';
+import GoalCard from '../../components/GoalCard.astro';
+import { buildGoalViews } from '../../lib/goals/view';
+
+const { user, workspace, locale } = Astro.locals;
+if (!user) return Astro.redirect('/login');
+
+const accounts = workspace ? await listAccounts(getDb(), workspace.id) : [];
+const summaries = workspace ? summarize(await listPlans(getDb(), workspace.id), todayISO()) : [];
+const goalViews = workspace ? (await buildGoalViews(getDb(), workspace.id, todayISO())).slice(0, 4) : [];
+---
+
+<AppLayout title={t(locale, 'app.dashboard.title')} active="dashboard">
+  <h1>{t(locale, 'app.dashboard.welcome', { name: user.name })}</h1>
+
+  {
+    summaries.map((summary) => (
+      <section class="card">
+        <div class="stats">
+          <div class="stat">
+            <span class="muted">{t(locale, 'plans.summary.thisMonth')} · {summary.currency}</span>
+            <strong>{formatMinor(summary.thisMonthMinor, summary.currency, locale)}</strong>
+          </div>
+          <div class="stat">
+            <span class="muted">{t(locale, 'plans.summary.remaining')}</span>
+            <strong>{formatMinor(summary.remainingBalanceMinor, summary.currency, locale)}</strong>
+          </div>
+          {summary.debtFreeDate && (
+            <div class="stat">
+              <span class="muted">{t(locale, 'plans.summary.debtFree')}</span>
+              <strong class="milestone">{formatDate(summary.debtFreeDate, locale)}</strong>
+            </div>
+          )}
+        </div>
+        <a class="touch-link" href="/app/planes">{t(locale, 'app.dashboard.plans')} →</a>
+      </section>
+    ))
+  }
+
+  {
+    goalViews.length > 0 && (
+      <section class="card">
+        <h2>{t(locale, 'goals.dashboard.title')}</h2>
+        <div class="goal-list">{goalViews.map((view) => <GoalCard view={view} compact />)}</div>
+        <a class="touch-link" href="/app/metas">{t(locale, 'goals.dashboard.all')} →</a>
+      </section>
+    )
+  }
+
+  <section class="card">
+    {
+      accounts.length === 0 ? (
+        <>
+          <p class="empty">{t(locale, 'accounts.empty')}</p>
+          {workspace?.role !== 'viewer' && (
+            <a class="btn btn-link" href="/app/cuentas/nueva">
+              {t(locale, 'accounts.new')}
+            </a>
+          )}
+        </>
+      ) : (
+        <>
+          <h2>{t(locale, 'app.dashboard.accountsList')}</h2>
+          <ul class="account-links">
+            {accounts.map((account) => (
+              <li>
+                <a href={`/app/cuentas/${account.id}`}>
+                  <span class="activity-icon"><Icon name="landmark" size={20} /></span>
+                  <span>
+                    <strong>{account.name}</strong>
+                    <span class="muted activity-sub">{account.bank} · {tn(locale, 'app.dashboard.cardsCount', account.cards.filter((card) => !card.archivedAt).length)}</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <div class="row-actions">
+            <a class="touch-link" href="/app/cuentas">{t(locale, 'nav.accounts')} →</a>
+            {workspace?.role !== 'viewer' && summaries.length === 0 && (
+              <a class="btn btn-link" href="/app/importar">
+                <Icon name="upload" size={18} /> {t(locale, 'app.dashboard.import')}
+              </a>
+            )}
+          </div>
+        </>
+      )
+    }
+  </section>
+  {
+    workspace && (
+      <section class="card">
+        <dl class="facts">
+          <dt>{t(locale, 'app.dashboard.workspace')}</dt>
+          <dd>{workspace.name}</dd>
+          <dt>{t(locale, 'app.dashboard.role')}</dt>
+          <dd>{t(locale, `role.${workspace.role}` as 'role.owner')}</dd>
+          <dt>{t(locale, 'app.dashboard.currency')}</dt>
+          <dd>{workspace.defaultCurrency}</dd>
+        </dl>
+      </section>
+    )
+  }
+
+</AppLayout>

@@ -1,0 +1,19 @@
+---
+import Base from './Base.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<Base title={title}>
+  <SiteHeader area="admin" active="users" />
+  <main class="shell" id="main" tabindex="-1">
+    <slot />
+  </main>
+  <SiteFooter area="admin" />
+</Base>

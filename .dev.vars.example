@@ -1,0 +1,7 @@
+# Copia este archivo a .dev.vars para desarrollo local (no se sube a git).
+# Pon un valor largo y aleatorio, p. ej.: openssl rand -base64 32
+BETTER_AUTH_SECRET=cambia-esto-por-un-valor-largo-y-aleatorio
+BETTER_AUTH_URL=http://localhost:4321
+
+# Opcional en local: si lo defines, el primer registro exigirá este código (en producción siempre se exige).
+# SETUP_CODE=

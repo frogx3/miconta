@@ -1,0 +1,21 @@
+---
+import { t } from '../i18n/messages';
+
+interface Props {
+  name: string;
+  /** Si se da, el nombre es un enlace de regreso a la cuenta. */
+  nameHref?: string;
+  /** Dirección que se queda al quitar el filtro. */
+  clearHref: string;
+}
+
+const { name, nameHref, clearHref } = Astro.props;
+const { locale } = Astro.locals;
+---
+
+<p class="filter-chip">
+  <span>{t(locale, 'filter.showing', { name: '' }).replace(/\s+$/, '')}{' '}{nameHref ? <a class="filter-name" href={nameHref}>{name}</a> : <strong>{name}</strong>}</span>
+  <a href={clearHref} class="filter-clear" aria-label={t(locale, 'filter.clear')} title={t(locale, 'filter.clear')}>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+  </a>
+</p>

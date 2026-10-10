@@ -1,0 +1,202 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import AccountForm from '../../../components/AccountForm.astro';
+import CardEditor from '../../../components/CardEditor.astro';
+import Icon from '../../../components/Icon.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import { messagesFor, t, tn } from '../../../i18n/messages';
+import { getDb } from '../../../lib/auth';
+import { formatDate, todayISO } from '../../../lib/date-format';
+import { formatMinor } from '../../../lib/money-format';
+import { accountActivity, cardsInUse, getAccount } from '../../../lib/accounts/repo';
+import { cardFacts } from '../../../lib/accounts/format';
+import { listPlans } from '../../../lib/plans/repo';
+import { summarize } from '../../../lib/plans/schedule';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const db = getDb();
+const account = await getAccount(db, workspace.id, Astro.params.id!);
+if (!account) return Astro.redirect('/app/cuentas');
+const inUse = await cardsInUse(db, workspace.id, account.id);
+const activity = await accountActivity(db, workspace.id, account.id, account.cards.map((card) => card.id));
+// Lo que cuesta esta cuenta: el mismo cálculo del Panel, solo con los planes de esta cuenta.
+const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO());
+
+const readOnly = workspace.role === 'viewer';
+const messages = messagesFor(locale, ['card.', 'cards.', 'validation.', 'common.', 'auth.error.label']);
+const openAdd = !readOnly && (account.cards.length === 0 || Astro.url.searchParams.get('agregar') === '1');
+const scopeLinks = `a:${account.id}`;
+---
+
+<AppLayout title={account.name} active="accounts">
+  <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: account.name }]} />
+  <div class="page-head">
+    <div>
+      <h1>{account.name}</h1>
+      <p class="muted account-sub">
+        {account.bank}
+        {account.customerId && <span> · {t(locale, 'accounts.customerId', { id: account.customerId })}</span>}
+      </p>
+    </div>
+    {account.archivedAt && <span class="badge badge-muted">{t(locale, 'accounts.archivedBadge')}</span>}
+  </div>
+
+  {
+    status.length > 0 && (
+      <section class="card status-card" aria-label={t(locale, 'account.activity.title')}>
+        {status.map((entry) => (
+          <dl class="status-line">
+            <div>
+              <dt>{t(locale, 'account.status.thisMonth')}</dt>
+              <dd>{formatMinor(entry.thisMonthMinor, entry.currency, locale)}{status.length > 1 && <span class="muted"> {entry.currency}</span>}</dd>
+            </div>
+            <div>
+              <dt>{t(locale, 'account.status.remaining')}</dt>
+              <dd>{formatMinor(entry.remainingBalanceMinor, entry.currency, locale)}</dd>
+            </div>
+            {entry.debtFreeDate && (
+              <div>
+                <dt>{t(locale, 'account.status.freedom')}</dt>
+                <dd><span class="milestone">{formatDate(entry.debtFreeDate, locale)}</span></dd>
+              </div>
+            )}
+          </dl>
+        ))}
+      </section>
+    )
+  }
+
+  <section class="card activity" aria-labelledby="activity-title">
+    <h2 id="activity-title">{t(locale, 'account.activity.title')}</h2>
+    {
+      activity.movements > 0 ? (
+        <>
+          <ul class="activity-links compact">
+            {activity.openPlans > 0 && (
+              <li>
+                <a href={`/app/planes?cuenta=${account.id}`}>
+                  <span class="activity-icon"><Icon name="stairs" size={18} /></span>
+                  <span>{tn(locale, 'account.activity.plans', activity.openPlans)}</span>
+                </a>
+              </li>
+            )}
+            <li>
+              <a href={`/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}`}>
+                <span class="activity-icon"><Icon name="list" size={18} /></span>
+                <span>{tn(locale, 'account.activity.movements', activity.movements)}</span>
+              </a>
+            </li>
+            <li>
+              <a href={`/app/gastos?cuenta=${account.id}`}>
+                <span class="activity-icon"><Icon name="chart" size={18} /></span>
+                <span>{t(locale, 'account.activity.spending')}</span>
+              </a>
+            </li>
+          </ul>
+          {!readOnly && (
+            <p class="activity-import">
+              <a class="touch-link" href={`/app/importar?cuenta=${account.id}`}><Icon name="upload" size={18} /> {t(locale, 'account.activity.import')}</a>
+              {activity.lastImport && <span class="muted">{t(locale, 'account.activity.lastImport', { date: formatDate(activity.lastImport, locale) })}</span>}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <p class="empty">{t(locale, 'account.activity.empty')}</p>
+          {!readOnly && <a class="btn btn-link" href={`/app/importar?cuenta=${account.id}`}><Icon name="upload" size={18} /> {t(locale, 'account.activity.import')}</a>}
+        </>
+      )
+    }
+  </section>
+
+  <section class="card" id="cards" data-messages={JSON.stringify(messages)}>
+    <h2>{t(locale, 'cards.title')}</h2>
+    <p class="hint">{t(locale, 'cards.hint')}</p>
+
+    <ul class="card-list">
+      {
+        account.cards.map((card) => {
+          const facts = cardFacts(card, locale);
+          const counts = activity.byCard.get(card.id);
+          return (
+            <li class:list={['card-row', card.archivedAt && 'is-archived']} data-card-row>
+              <div class="card-head">
+                <div class="card-head-main">
+                  <span class="card-row-title">
+                    <Icon name="card" size={20} />
+                    <strong data-fact="type">{facts.type}</strong>
+                    <span class="chip" data-fact="last4">{facts.last4}</span>
+                    <span class="muted" data-fact="label">{facts.label}</span>
+                    {card.archivedAt && <span class="badge badge-muted">{t(locale, 'card.archivedBadge')}</span>}
+                  </span>
+                  <dl class="card-facts">
+                    <div><dt>{t(locale, 'card.fact.currency')}</dt><dd data-fact="currency">{facts.currency}</dd></div>
+                    {facts.isCredit && (
+                      <>
+                        <div><dt>{t(locale, 'card.fact.limit')}</dt><dd data-fact="limit">{facts.limit}</dd></div>
+                        <div><dt>{t(locale, 'card.fact.cutoff')}</dt><dd data-fact="cutoff">{facts.cutoff}</dd></div>
+                        <div><dt>{t(locale, 'card.fact.due')}</dt><dd data-fact="due">{facts.due}</dd></div>
+                      </>
+                    )}
+                  </dl>
+                  {(counts?.openPlans || counts?.movements) && (
+                    <p class="card-quick">
+                      {counts!.openPlans > 0 && <a href={`/app/planes?tarjeta=${card.id}`}>{tn(locale, 'card.links.plans', counts!.openPlans)}</a>}
+                      {counts!.movements > 0 && <a href={`/app/gastos/movimientos?mes=todo&filtro=c:${card.id}`}>{tn(locale, 'card.links.movements', counts!.movements)}</a>}
+                    </p>
+                  )}
+                </div>
+                {!readOnly && (
+                  <button class="card-toggle" type="button" aria-expanded="false" aria-controls={`edit-${card.id}`} data-card-toggle data-open-label={t(locale, 'card.edit')} data-close-label={t(locale, 'card.edit.close')}>
+                    <span>{t(locale, 'card.edit')}</span>
+                    <Icon name="chevron" size={18} />
+                  </button>
+                )}
+              </div>
+              {!readOnly && (
+                <div class="card-edit" id={`edit-${card.id}`} hidden>
+                  <CardEditor accountId={account.id} card={card} inUse={inUse.has(card.id)} defaultCurrency={workspace.defaultCurrency} />
+                </div>
+              )}
+            </li>
+          );
+        })
+      }
+    </ul>
+
+    {account.cards.length === 0 && <p class="empty">{t(locale, 'cards.empty')}</p>}
+
+    {
+      !readOnly && (
+        <details class="card-add" open={openAdd} id="card-add">
+          <summary>
+            <span class="card-add-title"><Icon name="plus" size={20} /> {t(locale, 'cards.add')}</span>
+          </summary>
+          <p class="save-status" role="status" id="added-note" hidden>{t(locale, 'card.added')}</p>
+          <CardEditor accountId={account.id} defaultCurrency={workspace.defaultCurrency} />
+        </details>
+      )
+    }
+  </section>
+
+  <details class="card account-details">
+    <summary>{t(locale, 'account.details')}</summary>
+    <AccountForm mode="edit" account={account} readOnly={readOnly} />
+    {
+      !readOnly && (
+        <div class="account-archive">
+          <p class="hint">{t(locale, 'account.archive.note')}</p>
+          <button id="toggle-archive" class="btn btn-ghost" type="button" data-account-id={account.id} data-archived={String(!!account.archivedAt)}>
+            {t(locale, account.archivedAt ? 'account.unarchive' : 'account.archive')}
+          </button>
+        </div>
+      )
+    }
+  </details>
+</AppLayout>
+
+<script>
+  import '../../../scripts/account-cards';
+</script>

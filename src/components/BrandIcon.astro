@@ -1,0 +1,17 @@
+---
+/** Icono de la marca: versión navy para tema claro y versión blanca para tema oscuro (las alterna el CSS). */
+interface Props {
+  /** Tamaño en px al que se muestra. */
+  size: number;
+  /** Archivo de origen (120 o 240 px de ancho). */
+  source?: 120 | 240;
+  class?: string;
+}
+
+const { size, source = 120, class: className = '' } = Astro.props;
+---
+
+<span class="brand-icon-pic">
+  <img class:list={['brand-icon logo-light', className]} src={`/brand/miconta-icon-${source}.png`} alt="" width={size} height={size} />
+  <img class:list={['brand-icon logo-dark', className]} src={`/brand/miconta-icon-white-${source}.png`} alt="" width={size} height={size} />
+</span>

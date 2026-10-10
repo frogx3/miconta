@@ -1,0 +1,245 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import SpendingTabs from '../../../components/SpendingTabs.astro';
+import FilterChip from '../../../components/FilterChip.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import { getAccount } from '../../../lib/accounts/repo';
+import { messagesFor, t } from '../../../i18n/messages';
+import { getDb } from '../../../lib/auth';
+import { formatMonth, todayISO } from '../../../lib/date-format';
+import { formatMinor, toInputString } from '../../../lib/money-format';
+import { analyzeMonth, annualized, budgetStatus, lastMonths, monthBounds, resolveMonth, shiftMonth, thresholdFor, trend } from '../../../lib/spending/analysis';
+import { getWorkspaceSettings, latestMovementMonth, listCategories, movementsForAnalysis } from '../../../lib/spending/repo';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const db = getDb();
+const latest = await latestMovementMonth(db, workspace.id);
+const month = resolveMonth(Astro.url.searchParams.get('mes'), latest, todayISO());
+const months = lastMonths(month, 6);
+const accountId = Astro.url.searchParams.get('cuenta') ?? '';
+const scopeAccount = accountId ? await getAccount(db, workspace.id, accountId) : null;
+const scope = scopeAccount ? `&cuenta=${scopeAccount.id}` : '';
+const [rows, settings, categories] = await Promise.all([
+  movementsForAnalysis(db, workspace.id, monthBounds(months[0]!).from, monthBounds(month).to, scopeAccount?.id),
+  getWorkspaceSettings(db, workspace.id),
+  listCategories(db, workspace.id),
+]);
+const thresholdOf = (currency: string) => thresholdFor(currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
+const analyses = analyzeMonth(rows, month, thresholdOf);
+const trends = trend(rows, months, thresholdOf);
+const byId = new Map(categories.map((category) => [category.id, category]));
+
+const prev = shiftMonth(month, -1);
+const next = shiftMonth(month, 1);
+const hasNext = latest !== null && next <= latest;
+const canEditSettings = workspace.role === 'owner' || workspace.role === 'admin';
+const percent = (share: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(share);
+const messages = messagesFor(locale, ['spending.settings.', 'validation.', 'common.']);
+const thresholdMinor = thresholdOf(settings.currency);
+---
+
+<AppLayout title={t(locale, 'spending.title')} active="spending">
+  {scopeAccount && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopeAccount.name, href: `/app/cuentas/${scopeAccount.id}` }, { label: t(locale, 'spending.title') }]} />}
+  <h1>{t(locale, 'spending.title')}</h1>
+  <SpendingTabs active="summary" month={month} accountId={scopeAccount?.id} />
+  {scopeAccount && <FilterChip name={scopeAccount.name} nameHref={`/app/cuentas/${scopeAccount.id}`} clearHref={`/app/gastos?mes=${month}`} />}
+
+  {
+    latest === null ? (
+      <section class="card">
+        <p class="empty">{t(locale, 'spending.empty')}</p>
+        {workspace.role !== 'viewer' && (
+          <a class="btn btn-link" href="/app/importar">
+            {t(locale, 'nav.import')}
+          </a>
+        )}
+      </section>
+    ) : (
+      <>
+        <div class="month-nav">
+          <a href={`/app/gastos?mes=${prev}${scope}`} aria-label={t(locale, 'spending.month.prev')}>←</a>
+          <strong>{formatMonth(month, locale)}</strong>
+          {hasNext ? <a href={`/app/gastos?mes=${next}${scope}`} aria-label={t(locale, 'spending.month.next')}>→</a> : <span class="muted">→</span>}
+        </div>
+
+        {analyses.length === 0 && <section class="card"><p class="empty">{t(locale, 'movements.empty')}</p></section>}
+
+        {analyses.map((analysis) => {
+          const money = (minor: number) => formatMinor(minor, analysis.currency, locale);
+          const maxCategory = Math.max(...analysis.byCategory.map((c) => c.amountMinor), 1);
+          const series = trends.find((entry) => entry.currency === analysis.currency)?.points ?? [];
+          const maxSpend = Math.max(...series.map((p) => p.spendMinor), 1);
+          return (
+            <section class="card">
+              <div class="stats">
+                <div class="stat">
+                  <span class="muted">{t(locale, 'spending.tile.spend')} · {analysis.currency}</span>
+                  <strong>{money(analysis.spendMinor)}</strong>
+                  <span class="hint">{t(locale, 'spending.tile.spendHint', { n: analysis.spendCount })}</span>
+                </div>
+                <div class="stat stat-ant">
+                  <span class="muted">{t(locale, 'spending.tile.ant')}</span>
+                  <strong>{money(analysis.antMinor)}</strong>
+                  <span class="hint">{t(locale, 'spending.tile.antHint', { n: analysis.antCount, threshold: money(analysis.thresholdMinor), share: Math.round(analysis.antShare * 100) })}</span>
+                </div>
+                <div class="stat">
+                  <span class="muted">{t(locale, 'spending.tile.year')}</span>
+                  <strong>{money(annualized(analysis.antMinor))}</strong>
+                  <span class="hint">{t(locale, 'spending.tile.yearHint')}</span>
+                </div>
+                {analysis.uncategorizedCount > 0 && (
+                  <div class="stat">
+                    <span class="muted">{t(locale, 'spending.tile.uncategorized')}</span>
+                    <strong>{money(analysis.uncategorizedMinor)}</strong>
+                    <a class="hint" href={`/app/gastos/movimientos?mes=${month}&categoria=none${scope ? `&filtro=a:${scopeAccount!.id}` : ''}`}>{t(locale, 'spending.tile.uncategorizedHint', { n: analysis.uncategorizedCount })}</a>
+                  </div>
+                )}
+                {analysis.financeMinor > 0 && (
+                  <div class="stat">
+                    <span class="muted">{t(locale, 'spending.tile.finance')}</span>
+                    <strong>{money(analysis.financeMinor)}</strong>
+                    <span class="hint">{t(locale, 'spending.tile.financeHint')}</span>
+                  </div>
+                )}
+                {analysis.planChargesMinor > 0 && (
+                  <div class="stat">
+                    <span class="muted">{t(locale, 'spending.tile.plans')}</span>
+                    <strong>{money(analysis.planChargesMinor)}</strong>
+                    <a class="hint" href="/app/planes">{t(locale, 'plans.title')} →</a>
+                  </div>
+                )}
+              </div>
+
+              {
+                (() => {
+                  // Los presupuestos son de la moneda del espacio; en otras monedas no se comparan.
+                  if (analysis.currency !== settings.currency) return null;
+                  const budgeted = categories.filter((c) => c.budgetMinor != null);
+                  if (budgeted.length === 0) return null;
+                  const spentOf = (id: string) => analysis.byCategory.find((entry) => entry.categoryId === id)?.amountMinor ?? 0;
+                  const totalBudget = budgeted.reduce((sum, c) => sum + c.budgetMinor!, 0);
+                  const totalSpent = budgeted.reduce((sum, c) => sum + spentOf(c.id), 0);
+                  const status = budgetStatus(totalSpent, totalBudget);
+                  return (
+                    <div class:list={['stat budget-summary', `budget-${status.state}`]}>
+                      <span class="muted">{t(locale, 'spending.budget.title')}</span>
+                      <strong>{money(totalSpent)} / {money(totalBudget)}</strong>
+                      <span class="hint">{status.remainingMinor >= 0 ? t(locale, 'spending.budget.left', { amount: money(status.remainingMinor) }) : t(locale, 'spending.budget.over', { amount: money(-status.remainingMinor) })}</span>
+                    </div>
+                  );
+                })()
+              }
+              <h2>{t(locale, 'spending.category.title')}</h2>
+              <ul class="category-bars">
+                {analysis.byCategory.map((entry) => {
+                  const category = entry.categoryId ? byId.get(entry.categoryId) : undefined;
+                  return (
+                    <li>
+                      <span class="cat-name">
+                        <span class="dot" style={`background:${category?.color ?? 'var(--muted)'}`} />
+                        <a href={`/app/gastos/movimientos?mes=${month}&categoria=${entry.categoryId ?? 'none'}${scope ? `&filtro=a:${scopeAccount!.id}` : ''}`}>{category?.name ?? t(locale, 'spending.category.none')}</a>
+                      </span>
+                      <span class="bar" aria-hidden="true"><span style={`width:${(entry.amountMinor / maxCategory) * 100}%;background:${category?.color ?? 'var(--muted)'}`} /></span>
+                      <span class="num nowrap">{money(entry.amountMinor)}</span>
+                      <span class="muted nowrap">
+                        {entry.antMinor > 0 ? t(locale, 'spending.category.ant', { amount: money(entry.antMinor) }) : ''}
+                        {category?.budgetMinor != null && analysis.currency === settings.currency && (() => {
+                          const status = budgetStatus(entry.amountMinor, category.budgetMinor);
+                          return <span class:list={['budget-chip', `budget-${status.state}`]}>{t(locale, 'spending.budget.of', { budget: money(category.budgetMinor), percent: String(Math.round(status.ratio * 100)) })}</span>;
+                        })()}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <h2>{t(locale, 'spending.ant.title')}</h2>
+              {analysis.topAnt.length === 0 ? (
+                <p class="empty">{t(locale, 'spending.ant.none')}</p>
+              ) : (
+                <>
+                  <p class="hint">{t(locale, 'spending.ant.hint')}</p>
+                  <div class="table-scroll">
+                    <table class="import-table">
+<caption class="sr-only">{t(locale, 'table.sr.merchants')}</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">{t(locale, 'spending.ant.merchant')}</th>
+                          <th scope="col" class="num">{t(locale, 'spending.ant.count')}</th>
+                          <th scope="col" class="num">{t(locale, 'spending.ant.average')}</th>
+                          <th scope="col" class="num">{t(locale, 'spending.ant.total')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analysis.topAnt.map((merchant) => (
+                          <tr>
+                            <td><a href={`/app/gastos/movimientos?mes=${month}&q=${encodeURIComponent(merchant.key)}${scope ? `&filtro=a:${scopeAccount!.id}` : ''}`}>{merchant.key}</a></td>
+                            <td class="num">{merchant.count}</td>
+                            <td class="num nowrap">{money(merchant.averageMinor)}</td>
+                            <td class="num nowrap"><strong>{money(merchant.amountMinor)}</strong></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              <h2>{t(locale, 'spending.trend.title')}</h2>
+              <div class="table-scroll">
+              <table class="import-table trend">
+<caption class="sr-only">{t(locale, 'table.sr.trend')}</caption>
+                <tbody>
+                  {series.map((point) => (
+                    <tr class:list={[point.month === month && 'is-current']}>
+                      <td class="nowrap"><a href={`/app/gastos?mes=${point.month}${scope}`}>{formatMonth(point.month, locale)}</a></td>
+                      <td class="bar-cell">
+                        <span class="bar two-tone" aria-hidden="true" title={`${t(locale, 'spending.trend.spend')} ${money(point.spendMinor)} · ${t(locale, 'spending.trend.ant')} ${money(point.antMinor)}`}>
+                          <span class="bar-total" style={`width:${(point.spendMinor / maxSpend) * 100}%`}>
+                            <span class="bar-ant" style={`width:${point.spendMinor ? (point.antMinor / point.spendMinor) * 100 : 0}%`} />
+                          </span>
+                        </span>
+                      </td>
+                      <td class="num nowrap">{money(point.spendMinor)}</td>
+                      <td class="num nowrap muted">{point.spendMinor ? `${t(locale, 'spending.trend.ant')} ${percent(point.antMinor / point.spendMinor)}` : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </section>
+          );
+        })}
+
+        <section class="card" id="settings" data-messages={JSON.stringify(messages)}>
+          <h2>{t(locale, 'spending.settings.title')}</h2>
+          <p class="hint">{t(locale, 'spending.settings.hint')}</p>
+          {
+            canEditSettings ? (
+              <>
+                <div id="settings-done" class="alert ok" role="status" hidden />
+                <div id="settings-error" class="alert" role="alert" hidden />
+                <form id="threshold-form" class="threshold-form" novalidate>
+                  <div class="field narrow">
+                    <label for="antThreshold">{t(locale, 'spending.settings.threshold', { currency: settings.currency })}</label>
+                    <input id="antThreshold" name="antThreshold" type="text" inputmode="decimal" value={toInputString(thresholdMinor, locale, settings.currency)} />
+                    <span class="field-error" data-error-for="antThreshold" />
+                  </div>
+                  <button class="btn btn-auto" type="submit">{t(locale, 'spending.settings.save')}</button>
+                </form>
+              </>
+            ) : (
+              <p><strong>{formatMinor(thresholdMinor, settings.currency, locale)}</strong> · <span class="muted">{t(locale, 'spending.settings.ownerOnly')}</span></p>
+            )
+          }
+        </section>
+      </>
+    )
+  }
+</AppLayout>
+
+<script>
+  import '../../../scripts/spending-settings';
+</script>

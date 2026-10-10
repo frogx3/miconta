@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-08T00:00:00Z",
+  "title": "Design System: miconta",
+  "extensions": {
+    "colorMeta": {
+      "navy": {
+        "role": "primary",
+        "displayName": "Azul Tinta",
+        "canonical": "#1D3557",
+        "tonalRamp": [
+          "#0E1A2C",
+          "#1D3557",
+          "#36527A",
+          "#567099",
+          "#7C93B3",
+          "#A5B5CC",
+          "#CFD8E5",
+          "#E8ECF2"
+        ]
+      },
+      "gold": {
+        "role": "secondary",
+        "displayName": "Dorado Peldaño",
+        "canonical": "#C5A047",
+        "tonalRamp": [
+          "#4A3A0F",
+          "#6E5818",
+          "#947726",
+          "#C5A047",
+          "#D3B76E",
+          "#E0CC96",
+          "#EDE0BD",
+          "#F8F2E0"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Papel Cálido",
+        "canonical": "#F6F4EE",
+        "tonalRamp": [
+          "#14202F",
+          "#2C3A4C",
+          "#5B6575",
+          "#8995A4",
+          "#B4BDC8",
+          "#E3DED2",
+          "#EDF0F4",
+          "#F6F4EE"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Peligro",
+        "canonical": "#B3261E",
+        "tonalRamp": [
+          "#3A0D0B",
+          "#6B1712",
+          "#8F1F18",
+          "#B3261E",
+          "#D2574F",
+          "#E8928C",
+          "#F6C7C3",
+          "#FDECEA"
+        ]
+      },
+      "danger-ink": {
+        "role": "neutral",
+        "displayName": "Tinta sobre Peligro",
+        "canonical": "#2A0D0B",
+        "tonalRamp": [
+          "#2A0D0B",
+          "#4A1B17",
+          "#6B2A24",
+          "#8C3A32",
+          "#B3261E",
+          "#D2574F",
+          "#F2A19B",
+          "#FDECEA"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Título de página."
+      },
+      "stat": {
+        "displayName": "Stat",
+        "purpose": "Cifras clave con numerales tabulares."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Tablas, listas y texto corrido."
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "40rem"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal de un formulario.",
+      "html": "<button class=\"ds-btn-primary\">Guardar</button>",
+      "css": ".ds-btn-primary{font-family:Montserrat,system-ui,sans-serif;font-weight:600;padding:.65rem 1rem;border:0;border-radius:8px;background:#1D3557;color:#fff;cursor:pointer}.ds-btn-primary:hover{background:#36527A}.ds-btn-primary:focus-visible{outline:2px solid #1D3557;outline-offset:2px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Acción secundaria.",
+      "html": "<button class=\"ds-btn-ghost\">Cancelar</button>",
+      "css": ".ds-btn-ghost{font-family:Montserrat,system-ui,sans-serif;font-weight:600;padding:.4rem .8rem;border:1px solid #E3DED2;border-radius:8px;background:transparent;color:#14202F;cursor:pointer}.ds-btn-ghost:hover{border-color:#1D3557}.ds-btn-ghost:focus-visible{outline:2px solid #1D3557;outline-offset:2px}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de texto con etiqueta.",
+      "html": "<label class=\"ds-field\">Mensualidad<input class=\"ds-input\" value=\"1,250.00\"></label>",
+      "css": ".ds-field{display:grid;gap:.35rem;font-family:Montserrat,system-ui,sans-serif;font-size:.875rem;font-weight:600;color:#14202F}.ds-input{font:inherit;font-weight:500;padding:.6rem .75rem;border:1px solid #E3DED2;border-radius:8px;background:#F6F4EE;color:#14202F}.ds-input:focus-visible{outline:2px solid #1D3557;outline-offset:2px}"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Dato breve, como los últimos 4 dígitos.",
+      "html": "<span class=\"ds-chip\">•••• 4821</span>",
+      "css": ".ds-chip{font-family:Montserrat,system-ui,sans-serif;font-size:.8125rem;font-variant-numeric:tabular-nums;padding:.1rem .55rem;border:1px solid #E3DED2;border-radius:999px;color:#14202F}"
+    },
+    {
+      "name": "Freed Badge",
+      "kind": "chip",
+      "refersTo": "badge-freed",
+      "description": "Marca de plan liberado.",
+      "html": "<span class=\"ds-badge\">Liberado</span>",
+      "css": ".ds-badge{font-family:Montserrat,system-ui,sans-serif;font-size:.75rem;font-weight:600;padding:.1rem .5rem;border-radius:999px;background:#C5A047;color:#0E1A2C}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Contenedor plano con borde fino.",
+      "html": "<div class=\"ds-card\"><h2>Mes actual</h2><p>$4,320.00</p></div>",
+      "css": ".ds-card{font-family:Montserrat,system-ui,sans-serif;background:#fff;border:1px solid #E3DED2;border-radius:10px;padding:1.25rem;color:#14202F}.ds-card h2{font-size:1.05rem;margin:0 0 .5rem}.ds-card p{margin:0;font-size:1.35rem;font-weight:700;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Progress Bar",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Avance de un plan: pagos hechos en dorado.",
+      "html": "<span class=\"ds-bar\"><span style=\"width:60%\"></span></span>",
+      "css": ".ds-bar{display:block;height:.55rem;min-width:8rem;background:#E3DED2;border-radius:999px;overflow:hidden}.ds-bar>span{display:block;height:100%;background:#C5A047;border-radius:999px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "La escalera hacia la libertad",
+    "overview": "Cada pago es un peldaño y el progreso se lee de un vistazo. Navy como tinta, dorado como marca de lo liberado, plano con líneas finas, Montserrat en todo.",
+    "keyCharacteristics": [
+      "Plano con líneas finas; sin sombras ni degradados.",
+      "Navy como tinta y acción; dorado escaso, solo para progreso y \"liberado\".",
+      "Montserrat en todo, cifras con numerales tabulares.",
+      "Claro por defecto; oscuro profundo cuando el sistema lo pide.",
+      "Acciones y objetivos táctiles pensados para una mano."
+    ],
+    "rules": [
+      {
+        "name": "The Gold Is a Step Rule",
+        "body": "El dorado marca avance conseguido. Si aparece en más del 10% de una pantalla o decora algo sin progreso, sobra.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink-Not-Gold Text Rule",
+        "body": "Ningún texto va en dorado sobre blanco; el dorado es relleno o borde.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "Toda cantidad de dinero o fecha en columnas usa numerales tabulares.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "No hay sombras. Si algo necesita separarse, usa borde, superficie o espacio.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do poner la carga del mes y la fecha de libertad de pagos arriba de cada vista de planes.",
+      "Do usar numerales tabulares para dinero y fechas.",
+      "Do mostrar cada moneda por separado; nunca mezclarlas en un total.",
+      "Do escribir en español de México, tuteando y sin jerga bancaria.",
+      "Do mantener todo flujo clave usable a una mano en 375px de ancho."
+    ],
+    "donts": [
+      "Don't usar dorado como color de texto sobre blanco.",
+      "Don't añadir sombras, degradados ni efectos de vidrio.",
+      "Don't usar rojo como tono general de la deuda; es solo para errores y acciones destructivas.",
+      "Don't introducir una segunda tipografía; la jerarquía sale del peso.",
+      "Don't usar estados que dependan solo del color."
+    ]
+  }
+}

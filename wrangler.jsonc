@@ -1,0 +1,28 @@
+{
+  "name": "miconta",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Registros de la aplicación en el panel de Cloudflare (Workers → miconta → Logs).
+  "observability": { "enabled": true },
+  "vars": {
+    // Registro público cerrado: el primer usuario se crea libremente (admin) y el resto los da de alta un admin.
+    "ALLOW_SIGNUP": "false"
+    // BETTER_AUTH_URL se define en producción (`wrangler secret put` o aquí); en local vive en .dev.vars.
+    // BETTER_AUTH_SECRET es un secreto: `wrangler secret put BETTER_AUTH_SECRET`.
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "miconta",
+      "database_id": "e12ab72f-3278-48b0-9b9a-5694a58e4e0f",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "miconta-files"
+    }
+  ]
+}

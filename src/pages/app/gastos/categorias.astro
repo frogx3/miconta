@@ -1,0 +1,187 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import SpendingTabs from '../../../components/SpendingTabs.astro';
+import { messagesFor, t } from '../../../i18n/messages';
+import { getDb } from '../../../lib/auth';
+import { formatMinor, toInputString } from '../../../lib/money-format';
+import { merchantKey, mergeMerchantKeys } from '../../../lib/spending/categorize';
+import { listCategories, listRules, uncategorizedCharges } from '../../../lib/spending/repo';
+import { CATEGORY_COLORS } from '../../../lib/spending/validation';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const db = getDb();
+const [categories, rules, uncategorized] = await Promise.all([listCategories(db, workspace.id), listRules(db, workspace.id), uncategorizedCharges(db, workspace.id)]);
+const canWrite = workspace.role !== 'viewer';
+
+// Cargos sin categoría agrupados por comercio, para proponer una regla por grupo.
+const keyed = uncategorized.map((row) => ({ ...row, key: merchantKey(row.descriptionNorm) }));
+const merged = mergeMerchantKeys(keyed.map((row) => row.key));
+const groups = new Map<string, { key: string; currency: string; count: number; totalMinor: number }>();
+for (const row of keyed) {
+  const key = merged.get(row.key)!;
+  const id = `${row.currency}|${key}`;
+  const group = groups.get(id) ?? { key, currency: row.currency, count: 0, totalMinor: 0 };
+  group.count++;
+  group.totalMinor += row.chargeMinor;
+  groups.set(id, group);
+}
+const triage = [...groups.values()].sort((a, b) => b.count - a.count || b.totalMinor - a.totalMinor).slice(0, 15);
+
+// Descripciones distintas (con su frecuencia) para contar en vivo cuántas coinciden con una regla.
+const distinct = new Map<string, number>();
+for (const row of uncategorized) distinct.set(row.descriptionNorm, (distinct.get(row.descriptionNorm) ?? 0) + 1);
+
+const config = {
+  canWrite,
+  uncategorized: [...distinct].slice(0, 2000),
+  initialPattern: Astro.url.searchParams.get('patron') ?? '',
+  initialCategory: Astro.url.searchParams.get('categoria') ?? '',
+};
+const messages = messagesFor(locale, ['categories.', 'rules.', 'validation.', 'common.']);
+---
+
+<AppLayout title={t(locale, 'categories.title')} active="spending">
+  <h1>{t(locale, 'spending.title')}</h1>
+  <SpendingTabs active="categories" />
+
+  <div id="categories-app" data-config={JSON.stringify(config)} data-messages={JSON.stringify(messages)}>
+    <div id="app-error" class="alert" role="alert" hidden></div>
+    <div id="app-done" class="alert ok" role="status" hidden></div>
+
+    <section class="card">
+      <h2>{t(locale, 'categories.list.title')}</h2>
+      <p class="hint">{t(locale, 'categories.budgetHint', { currency: workspace.defaultCurrency })}</p>
+      {
+        categories.length === 0 ? (
+          <>
+            <p class="empty">{t(locale, 'categories.empty')}</p>
+            {canWrite && <button type="button" class="btn btn-auto" id="seed-defaults">{t(locale, 'categories.defaults')}</button>}
+          </>
+        ) : (
+          <ul class="category-list">
+            {categories.map((category) => (
+              <li>
+                <form class="category-row" data-id={category.id} data-name={category.name} data-count={category.movementCount} novalidate>
+                  <fieldset disabled={!canWrite} class="category-fields">
+                    <span class="swatches" role="radiogroup" aria-label={t(locale, 'categories.color')}>
+                      {CATEGORY_COLORS.map((color) => (
+                        <label class="swatch"><input type="radio" name={`color-${category.id}`} value={color} checked={color === category.color} /><span style={`background:${color}`} /></label>
+                      ))}
+                    </span>
+                    <input name="name" type="text" value={category.name} maxlength="40" aria-label={t(locale, 'categories.name')} />
+                    <input class="budget-input" name="budget" type="text" inputmode="decimal" value={category.budgetMinor != null ? toInputString(category.budgetMinor, locale, workspace.defaultCurrency) : ''} placeholder={t(locale, 'categories.budget', { currency: workspace.defaultCurrency })} aria-label={t(locale, 'categories.budget', { currency: workspace.defaultCurrency })} />
+                  </fieldset>
+                  <span class="field-error" data-error-for="budget"></span>
+                  <span class="muted nowrap">{t(locale, 'categories.count', { n: category.movementCount })}</span>
+                  {canWrite && (
+                    <span class="row-actions">
+                      <button class="btn btn-ghost btn-small" type="submit">{t(locale, 'categories.save')}</button>
+                      <button class="link-button" type="button" data-delete>{t(locale, 'categories.delete')}</button>
+                    </span>
+                  )}
+                </form>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+
+      {
+        canWrite && (
+          <form id="category-add" class="category-row category-add" novalidate>
+            <h3>{t(locale, 'categories.add')}</h3>
+            <span class="category-fields">
+              <span class="swatches" role="radiogroup" aria-label={t(locale, 'categories.color')}>
+                {CATEGORY_COLORS.map((color, index) => (
+                  <label class="swatch"><input type="radio" name="color-new" value={color} checked={index === 0} /><span style={`background:${color}`} /></label>
+                ))}
+              </span>
+              <input name="name" type="text" maxlength="40" placeholder={t(locale, 'categories.name')} aria-label={t(locale, 'categories.name')} />
+              <input class="budget-input" name="budget" type="text" inputmode="decimal" placeholder={t(locale, 'categories.budget', { currency: workspace.defaultCurrency })} aria-label={t(locale, 'categories.budget', { currency: workspace.defaultCurrency })} />
+            </span>
+            <span class="field-error" data-error-for="budget"></span>
+            <button class="btn btn-ghost btn-small" type="submit">{t(locale, 'categories.add')}</button>
+            <span class="field-error" data-error-for="name"></span>
+          </form>
+        )
+      }
+    </section>
+
+    <section class="card" id="rules-card">
+      <h2>{t(locale, 'rules.title')}</h2>
+      <p class="hint">{t(locale, 'rules.hint')}</p>
+      {
+        rules.length === 0 ? (
+          <p class="empty">{t(locale, 'rules.empty')}</p>
+        ) : (
+          <ul class="rule-list">
+            {rules.map((rule) => (
+              <li>
+                <code>{rule.pattern}</code> →
+                <span class="chip"><span class="dot" style={`background:${rule.categoryColor ?? 'var(--muted)'}`}></span> {rule.categoryName}</span>
+                {canWrite && <button class="link-button" type="button" data-delete-rule={rule.id}>{t(locale, 'rules.delete')}</button>}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+
+      {
+        canWrite && (
+          categories.length === 0 ? (
+            <p class="hint">{t(locale, 'rules.needCategory')}</p>
+          ) : (
+            <>
+              <form id="rule-add" class="form-grid rule-add" novalidate>
+                <div class="field">
+                  <label for="rule-pattern">{t(locale, 'rules.pattern')}</label>
+                  <input id="rule-pattern" name="pattern" type="text" maxlength="60" autocomplete="off" />
+                  <span class="hint" id="rule-matches"></span>
+                  <span class="field-error" data-error-for="pattern"></span>
+                </div>
+                <div class="field">
+                  <label for="rule-category">{t(locale, 'rules.category')}</label>
+                  <select id="rule-category" name="categoryId">
+                    {categories.map((category) => <option value={category.id}>{category.name}</option>)}
+                  </select>
+                  <span class="field-error" data-error-for="categoryId"></span>
+                </div>
+                <label class="check wide"><input type="checkbox" name="applyNow" checked /><span>{t(locale, 'rules.applyNow')}</span></label>
+                <div class="form-actions row-actions">
+                  <button class="btn btn-auto" type="submit">{t(locale, 'rules.add')}</button>
+                  {rules.length > 0 && <button class="btn btn-ghost btn-small" type="button" id="apply-rules">{t(locale, 'rules.apply')}</button>}
+                </div>
+              </form>
+            </>
+          )
+        )
+      }
+    </section>
+
+    <section class="card">
+      <h2>{t(locale, 'triage.title')}</h2>
+      <p class="hint">{t(locale, 'triage.hint')}</p>
+      {
+        triage.length === 0 ? (
+          <p class="empty">{t(locale, 'triage.empty')}</p>
+        ) : (
+          <ul class="triage-list">
+            {triage.map((group) => (
+              <li>
+                <strong>{group.key}</strong>
+                <span class="muted">{t(locale, 'triage.count', { n: group.count, total: formatMinor(group.totalMinor, group.currency, locale) })}</span>
+                {canWrite && categories.length > 0 && <button class="link-button" type="button" data-rule-for={group.key}>{t(locale, 'triage.createRule')}</button>}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+  </div>
+</AppLayout>
+
+<script>
+  import '../../../scripts/spending-categories';
+</script>

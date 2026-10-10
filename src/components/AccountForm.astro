@@ -1,0 +1,110 @@
+---
+import { t, type MessageKey } from '../i18n/messages';
+import type { Account } from '../lib/accounts/repo';
+
+interface Props {
+  mode: 'create' | 'edit';
+  account?: Account;
+  readOnly?: boolean;
+  /** Si se llegó desde otro flujo (p. ej. el asistente de importación), a dónde volver tras crear. */
+  next?: string;
+}
+
+const { mode, account, readOnly = false, next } = Astro.props;
+const { locale } = Astro.locals;
+
+const keys: MessageKey[] = ['auth.working', 'common.saved', 'common.error', 'validation.required', 'validation.too_long'];
+const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
+---
+
+<div id="form-error" class="alert" role="alert" hidden></div>
+
+<form id="account-form" class="form-grid" data-mode={mode} data-account-id={account?.id} data-next={next} data-messages={JSON.stringify(messages)} novalidate>
+  <fieldset disabled={readOnly} class="form-grid contents">
+    <div class="field">
+      <label for="name">{t(locale, 'account.field.name')}</label>
+      <input id="name" name="name" type="text" value={account?.name ?? ''} maxlength="60" placeholder={t(locale, 'account.hint.name')} required />
+      <span class="field-error" data-error-for="name"></span>
+    </div>
+    <div class="field">
+      <label for="bank">{t(locale, 'account.field.bank')}</label>
+      <input id="bank" name="bank" type="text" value={account?.bank ?? ''} maxlength="60" required />
+      <span class="field-error" data-error-for="bank"></span>
+    </div>
+    <div class="field">
+      <label for="customerId">{t(locale, 'account.field.customerId')}</label>
+      <input id="customerId" name="customerId" type="text" value={account?.customerId ?? ''} maxlength="40" autocomplete="off" />
+      <span class="hint">{t(locale, 'account.hint.customerId')}</span>
+      <span class="field-error" data-error-for="customerId"></span>
+    </div>
+  </fieldset>
+  {
+    !readOnly && (
+      <div class="form-actions row-actions">
+        <button class="btn" type="submit">
+          {t(locale, mode === 'create' ? 'account.create.submit' : 'account.edit.save')}
+        </button>
+        <span class="save-status" role="status" data-status></span>
+      </div>
+    )
+  }
+</form>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#account-form');
+  if (form) {
+    const messages = JSON.parse(form.dataset.messages!) as Record<string, string>;
+    const errorBox = document.querySelector<HTMLElement>('#form-error')!;
+    const status = form.querySelector<HTMLElement>('[data-status]')!;
+    const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+    const clearErrors = () => {
+      errorBox.hidden = true;
+      status.textContent = '';
+      form.querySelectorAll<HTMLElement>('[data-error-for]').forEach((el) => (el.textContent = ''));
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearErrors();
+      const label = submit?.textContent ?? '';
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = messages['auth.working']!;
+      }
+
+      const data = Object.fromEntries(new FormData(form)) as Record<string, string>;
+      const creating = form.dataset.mode === 'create';
+      const response = await fetch(creating ? '/api/accounts' : `/api/accounts/${form.dataset.accountId}`, {
+        method: creating ? 'POST' : 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (submit) {
+        submit.disabled = false;
+        submit.textContent = label;
+      }
+
+      if (response.ok) {
+        if (creating) {
+          const { id } = await response.json();
+          return location.assign(form.dataset.next === 'importar' ? `/app/importar?cuenta=${id}` : `/app/cuentas/${id}?agregar=1`);
+        }
+        status.textContent = messages['common.saved']!;
+        return;
+      }
+
+      const result = (await response.json().catch(() => null)) as { code?: string; errors?: { field: string; code: string }[] } | null;
+      if (result?.code === 'VALIDATION' && result.errors) {
+        for (const { field, code } of result.errors) {
+          const slot = form.querySelector<HTMLElement>(`[data-error-for="${field}"]`);
+          if (slot) slot.textContent = messages[`validation.${code}`] ?? messages['common.error']!;
+        }
+        return;
+      }
+      errorBox.textContent = messages['common.error']!;
+      errorBox.hidden = false;
+    });
+  }
+</script>

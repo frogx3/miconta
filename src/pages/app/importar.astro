@@ -1,0 +1,93 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { messagesFor, t } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+import { listAccounts } from '../../lib/accounts/repo';
+import { importCurrency } from '../../lib/import/service';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+if (workspace.role === 'viewer') return Astro.redirect('/app');
+
+const accounts = (await listAccounts(getDb(), workspace.id)).map((account) => {
+  const { currency, mixed } = importCurrency(account, workspace.defaultCurrency);
+  return { id: account.id, name: account.name, currency, mixedCurrencies: mixed };
+});
+const requested = Astro.url.searchParams.get('cuenta');
+const initialAccount = accounts.find((account) => account.id === requested)?.id ?? accounts[0]?.id ?? null;
+
+const config = {
+  locale,
+  initialAccount,
+  accounts,
+  messages: messagesFor(locale, ['import.', 'validation.', 'common.']),
+};
+---
+
+<AppLayout title={t(locale, 'import.title')} active="import">
+  <h1>{t(locale, 'import.title')}</h1>
+  <p class="hint">{t(locale, 'import.intro')}</p>
+  <p><a class="touch-link" href="/app/importar/historial">{t(locale, 'import.history')}</a></p>
+
+  {
+    accounts.length === 0 ? (
+      <section class="card">
+        <p class="empty">{t(locale, 'import.noAccounts')}</p>
+        <a class="btn btn-link" href="/app/cuentas/nueva?next=importar">
+          {t(locale, 'import.createAccount')}
+        </a>
+      </section>
+    ) : (
+      <div id="import-app" data-config={JSON.stringify(config)}>
+        <section class="card" id="step-upload">
+          <div id="upload-error" class="alert" role="alert" hidden></div>
+          <form id="upload-form" class="form-grid" novalidate>
+            <div class="field">
+              <label for="account">{t(locale, 'import.account')}</label>
+              <select id="account" name="account">
+                {accounts.map((account) => (
+                  <option value={account.id} selected={account.id === initialAccount}>
+                    {account.name} · {account.currency}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div class="field">
+              <label for="file">{t(locale, 'import.file')}</label>
+              <div class="file-pick">
+                <input id="file" class="file-input" name="file" type="file" accept=".csv,text/csv,.txt" required />
+                <label class="btn btn-ghost btn-auto" for="file"><Icon name="upload" size={18} /> {t(locale, 'import.file.choose')}</label>
+                <span class="muted" id="file-name" data-none={t(locale, 'import.file.none')}>{t(locale, 'import.file.none')}</span>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn" type="submit">{t(locale, 'import.analyze')}</button>
+            </div>
+          </form>
+        </section>
+
+        <div id="step-review" hidden>
+          <section class="card" id="summary"></section>
+          <section class="card" id="mapping-card"></section>
+          <section class="card" id="matches-card" hidden></section>
+          <section class="card" id="missing-card" hidden></section>
+          <section class="card" id="movements-card"></section>
+          <section class="card" id="confirm-card"></section>
+        </div>
+
+        <section class="card" id="step-done" hidden></section>
+      </div>
+    )
+  }
+</AppLayout>
+
+<script>
+  import '../../scripts/import-wizard';
+
+  const input = document.querySelector<HTMLInputElement>('#file');
+  const name = document.querySelector<HTMLElement>('#file-name');
+  input?.addEventListener('change', () => {
+    if (name) name.textContent = input.files?.[0]?.name ?? name.dataset.none ?? '';
+  });
+</script>

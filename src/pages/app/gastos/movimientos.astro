@@ -1,0 +1,217 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import SpendingTabs from '../../../components/SpendingTabs.astro';
+import { messagesFor, t } from '../../../i18n/messages';
+import FilterChip from '../../../components/FilterChip.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import { listAccounts } from '../../../lib/accounts/repo';
+import { cardDisplay } from '../../../lib/accounts/format';
+import { getDb } from '../../../lib/auth';
+import { formatDate, formatMonth, todayISO } from '../../../lib/date-format';
+import { formatMinor } from '../../../lib/money-format';
+import { isAnt, isFinance, isMonth, isSpend, monthBounds, thresholdFor } from '../../../lib/spending/analysis';
+import { getWorkspaceSettings, listCategories, listCutoffs, listMovements, movementMonths } from '../../../lib/spending/repo';
+import { currentCutoffMonth, recordsByMonth, statementPeriod } from '../../../lib/spending/statement';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const db = getDb();
+const today = todayISO();
+const params = Astro.url.searchParams;
+// `a:<id>` = toda una cuenta; `c:<id>` = una tarjeta.
+const scope = params.get('filtro') ?? '';
+const accountFilter = scope.startsWith('a:') ? scope.slice(2) : '';
+const cardFilter = scope.startsWith('c:') ? scope.slice(2) : '';
+const categoryFilter = params.get('categoria') ?? '';
+const q = (params.get('q') ?? '').slice(0, 60);
+const type = ['hormiga', 'gastos', 'planes', 'intereses', 'abonos'].includes(params.get('tipo') ?? '') ? params.get('tipo')! : 'todos';
+
+const [accounts, categories, settings, months] = await Promise.all([
+  listAccounts(db, workspace.id, true),
+  listCategories(db, workspace.id),
+  getWorkspaceSettings(db, workspace.id),
+  movementMonths(db, workspace.id),
+]);
+const scopedAccount = accounts.find((account) => account.id === accountFilter || account.cards.some((card) => card.id === cardFilter));
+const scopedCard = scopedAccount?.cards.find((card) => card.id === cardFilter);
+
+// Periodo: "Por corte" (por defecto), un mes concreto o todo el historial.
+// El corte es el de la cuenta elegida; sin cuenta, el de la primera con tarjeta de crédito y día de corte.
+const periodParam = params.get('mes') ?? 'corte';
+const period = periodParam === 'todo' || isMonth(periodParam) ? periodParam : 'corte';
+const withCutoff = (account: (typeof accounts)[number]) => account.cards.find((card) => card.kind === 'credit' && card.cutoffDay !== null && !card.archivedAt);
+const cutoffAccount = scopedAccount && withCutoff(scopedAccount) ? scopedAccount : accounts.find((account) => !account.archivedAt && withCutoff(account));
+const cutoffCard = cutoffAccount ? withCutoff(cutoffAccount) : undefined;
+
+let bounds = { from: '0000-01-01', to: '9999-12-31' };
+let periodNote = t(locale, 'movements.range.all');
+if (isMonth(period)) {
+  bounds = monthBounds(period);
+  periodNote = formatMonth(period, locale);
+} else if (period === 'corte') {
+  if (cutoffAccount && cutoffCard) {
+    const records = recordsByMonth(await listCutoffs(db, workspace.id, cutoffAccount.id));
+    const requested = params.get('corte');
+    const month = isMonth(requested) ? requested : currentCutoffMonth(cutoffCard.cutoffDay!, today, false, records);
+    const statement = statementPeriod(cutoffCard.cutoffDay!, cutoffCard.paymentDueDay, month, today, records);
+    bounds = { from: statement.from, to: statement.to };
+    periodNote = t(locale, 'statement.period', { from: formatDate(statement.from, locale), to: formatDate(statement.to, locale) });
+  } else {
+    // Sin tarjeta de crédito con corte no hay corte que usar: se muestra todo el historial.
+    periodNote = t(locale, 'movements.period.noCutoff');
+  }
+}
+const list = await listMovements(db, workspace.id, { fromDate: bounds.from, toDate: bounds.to, cardId: cardFilter || undefined, accountId: accountFilter || undefined, categoryId: categoryFilter || undefined, q: q || undefined });
+const thresholdOf = (currency: string) => thresholdFor(currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
+const scopeLabel = scopedAccount ? (scopedCard ? cardDisplay({ accountName: scopedAccount.name, last4: scopedCard.last4, label: scopedCard.label }) : scopedAccount.name) : '';
+const rows = list.filter((row) => {
+  if (type === 'hormiga') return isAnt(row, thresholdOf(row.currency));
+  if (type === 'gastos') return isSpend(row);
+  if (type === 'planes') return row.planId !== null && row.chargeMinor > 0;
+  if (type === 'intereses') return isFinance(row);
+  if (type === 'abonos') return row.creditMinor > 0;
+  return true;
+});
+
+const byId = new Map(categories.map((category) => [category.id, category]));
+const canWrite = workspace.role !== 'viewer';
+const messages = messagesFor(locale, ['movements.', 'common.']);
+const config = { canWrite, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
+---
+
+<AppLayout title={t(locale, 'movements.title')} active="spending">
+  <h1>{t(locale, 'spending.title')}</h1>
+  {scopedAccount && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopedAccount.name, href: `/app/cuentas/${scopedAccount.id}` }, { label: t(locale, 'movements.title') }]} />}
+  <SpendingTabs active="movements" month={isMonth(period) ? period : undefined} accountId={scopedAccount?.id} />
+  {scopeLabel && <FilterChip name={scopeLabel} nameHref={`/app/cuentas/${scopedAccount!.id}`} clearHref="/app/gastos/movimientos" />}
+
+  <form class="card filters form-grid" method="get" action="/app/gastos/movimientos">
+    {period === 'corte' && params.get('corte') && <input type="hidden" name="corte" value={params.get('corte')!} />}
+    <div class="field">
+      <label for="f-period">{t(locale, 'movements.filter.period')}</label>
+      <select id="f-period" name="mes">
+        <option value="corte" selected={period === 'corte'}>{t(locale, 'movements.period.statement')}</option>
+        {months.map((entry) => <option value={entry} selected={entry === period}>{formatMonth(entry, locale)}</option>)}
+        <option value="todo" selected={period === 'todo'}>{t(locale, 'movements.range.all')}</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-scope">{t(locale, 'movements.filter.scope')}</label>
+      <select id="f-scope" name="filtro">
+        <option value="">{t(locale, 'movements.filter.allAccounts')}</option>
+        {accounts.map((account) => (
+          <optgroup label={account.name}>
+            <option value={`a:${account.id}`} selected={account.id === accountFilter}>{t(locale, 'movements.filter.wholeAccount')}</option>
+            {account.cards.map((card) => (
+              <option value={`c:${card.id}`} selected={card.id === cardFilter}>···· {card.last4 ?? '—'}{card.label ? ` · ${card.label}` : ''}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-category">{t(locale, 'movements.filter.category')}</label>
+      <select id="f-category" name="categoria">
+        <option value="">{t(locale, 'movements.filter.allCategories')}</option>
+        <option value="none" selected={categoryFilter === 'none'}>{t(locale, 'movements.filter.uncategorized')}</option>
+        {categories.map((category) => <option value={category.id} selected={category.id === categoryFilter}>{category.name}</option>)}
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-type">{t(locale, 'movements.filter.type')}</label>
+      <select id="f-type" name="tipo">
+        {([['todos', 'typeAll'], ['hormiga', 'typeAnt'], ['gastos', 'typeSpend'], ['planes', 'typePlans'], ['intereses', 'typeFinance'], ['abonos', 'typeCredits']] as const).map(([value, label]) => (
+          <option value={value} selected={value === type}>{t(locale, `movements.filter.${label}`)}</option>
+        ))}
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-q">{t(locale, 'movements.filter.search')}</label>
+      <input id="f-q" name="q" type="search" value={q} maxlength="60" />
+    </div>
+    <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'movements.filter.apply')}</button></div>
+  </form>
+
+  <p class="muted period-note">{periodNote}{cutoffAccount && period === 'corte' && ` · ${cutoffAccount.name}`}</p>
+
+  <section class="card" id="movements" data-config={JSON.stringify(config)} data-messages={JSON.stringify(messages)}>
+    <div id="movements-error" class="alert" role="alert" hidden></div>
+    {
+      rows.length === 0 ? (
+        <p class="empty">{t(locale, 'movements.empty')}</p>
+      ) : (
+        <>
+          <p class="hint">{t(locale, 'movements.count', { n: rows.length })}{list.length >= 1000 ? ` · ${t(locale, 'movements.truncated')}` : ''}</p>
+
+          {canWrite && (
+            <div id="bulk-bar" class="bulk-bar" hidden>
+              <span id="bulk-label"></span>
+              <select id="bulk-category" aria-label={t(locale, 'movements.bulk.choose')}>
+                <option value="">{t(locale, 'movements.bulk.choose')}</option>
+                <option value="none">{t(locale, 'movements.bulk.none')}</option>
+                {categories.map((category) => <option value={category.id}>{category.name}</option>)}
+              </select>
+              <button type="button" class="btn btn-small" id="bulk-apply">{t(locale, 'movements.bulk.apply')}</button>
+            </div>
+          )}
+
+          <div class="table-scroll">
+            <table class="import-table">
+<caption class="sr-only">{t(locale, 'table.sr.movements')}</caption>
+              <thead>
+                <tr>
+                  {canWrite && <th scope="col"><label class="pick-label"><input type="checkbox" id="select-all" aria-label={t(locale, 'movements.selectAll')} /></label></th>}
+                  <th scope="col">{t(locale, 'movements.col.date')}</th>
+                  <th scope="col">{t(locale, 'movements.col.description')}</th>
+                  <th scope="col" class="num">{t(locale, 'movements.col.amount')}</th>
+                  <th scope="col">{t(locale, 'movements.col.card')}</th>
+                  <th scope="col">{t(locale, 'movements.col.category')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const charge = row.chargeMinor > 0;
+                  const ant = isAnt(row, thresholdOf(row.currency));
+                  return (
+                    <tr data-id={row.id} data-desc={row.descriptionNorm}>
+                      {canWrite && <td>{charge && <label class="pick-label"><input type="checkbox" class="pick" aria-label={row.description} /></label>}</td>}
+                      <td class="nowrap">{formatDate(row.date, locale)}</td>
+                      <td>
+                        {row.description}
+                        {row.reference && <><br /><span class="muted">{row.reference}</span></>}
+                        {row.planId && <a class="badge" href={`/app/planes/${row.planId}`}>{t(locale, 'movements.plan')}</a>}
+                        {isFinance(row) && <span class="badge badge-muted">{t(locale, 'movements.finance')}</span>}
+                        {ant && <span class="badge badge-muted">{t(locale, 'movements.ant')}</span>}
+                      </td>
+                      <td class="num nowrap">{charge ? formatMinor(row.chargeMinor, row.currency, locale) : <span class="credit">+{formatMinor(row.creditMinor, row.currency, locale)}</span>}</td>
+                      <td class="nowrap">{row.accountName}{row.last4 ? ` ···· ${row.last4}` : ''}</td>
+                      <td>
+                        {charge && (canWrite ? (
+                          <>
+                            <select class="row-category" data-current={row.categoryId ?? ''} aria-label={t(locale, 'movements.col.category')}>
+                              <option value="">—</option>
+                              {categories.map((category) => <option value={category.id} selected={category.id === row.categoryId}>{category.name}</option>)}
+                            </select>
+                            <span class="suggest"></span>
+                          </>
+                        ) : (
+                          row.categoryId ? (byId.get(row.categoryId)?.name ?? '') : '—'
+                        ))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {canWrite && categories.length === 0 && <p class="hint">{t(locale, 'movements.noCategories')} <a href="/app/gastos/categorias">{t(locale, 'spending.tab.categories')}</a></p>}
+        </>
+      )
+    }
+  </section>
+</AppLayout>
+
+<script>
+  import '../../../scripts/spending-movements';
+</script>

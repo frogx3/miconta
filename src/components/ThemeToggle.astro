@@ -1,0 +1,11 @@
+---
+import Icon from './Icon.astro';
+import { t } from '../i18n/messages';
+
+const { locale } = Astro.locals;
+---
+
+<button class="icon-btn theme-toggle" type="button" data-theme-toggle title={t(locale, 'theme.toggle')} aria-label={t(locale, 'theme.toggle')}>
+  <span class="theme-moon"><Icon name="moon" /></span>
+  <span class="theme-sun"><Icon name="sun" /></span>
+</button>

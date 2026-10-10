@@ -1,0 +1,161 @@
+---
+import { eq } from 'drizzle-orm';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import { user as userTable } from '../../../db/schema';
+import { t, type MessageKey } from '../../../i18n/messages';
+import { checkDeletion } from '../../../lib/admin/users';
+import { getDb } from '../../../lib/auth';
+import { SUPPORTED_LOCALES } from '../../../lib/locale';
+
+const { user: current, locale } = Astro.locals;
+if (current?.role !== 'admin') return Astro.redirect('/app');
+
+const [target] = await getDb().select().from(userTable).where(eq(userTable.id, Astro.params.id!)).limit(1);
+if (!target) return Astro.redirect('/admin');
+
+const isSelf = target.id === current.id;
+const { deletable } = await checkDeletion(getDb(), target.id);
+const keys: MessageKey[] = ['admin.delete.error', 'auth.working', 'admin.edit.save', 'admin.edit.saved', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail'];
+const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
+---
+
+<AdminLayout title={t(locale, 'admin.edit.title')}>
+  <Breadcrumb items={[{ label: t(locale, 'admin.users'), href: '/admin' }, { label: target.name }]} />
+  <h1>{t(locale, 'admin.edit.title')}</h1>
+
+  <section class="card">
+    <div id="error" class="alert" role="alert" hidden></div>
+    <div id="done" class="alert ok" role="status" hidden></div>
+    <form id="edit-form" class="form-grid" data-user-id={target.id} data-messages={JSON.stringify(messages)} novalidate>
+      <div class="field">
+        <label for="name">{t(locale, 'auth.field.name')}</label>
+        <input id="name" name="name" type="text" value={target.name} required />
+      </div>
+      <div class="field">
+        <label for="email">{t(locale, 'auth.field.email')}</label>
+        <input id="email" name="email" type="email" value={target.email} required />
+      </div>
+      <div class="field">
+        <label for="locale">{t(locale, 'admin.create.locale')}</label>
+        <select id="locale" name="locale">
+          {SUPPORTED_LOCALES.map((code) => <option value={code} selected={code === target.locale}>{t(locale, `locale.${code}`)}</option>)}
+        </select>
+      </div>
+      <div class="field">
+        <label for="password">{t(locale, 'admin.edit.newPassword')}</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" />
+        <span class="hint">{t(locale, 'admin.edit.newPasswordHint')}</span>
+      </div>
+      <div class="form-actions">
+        <button class="btn" type="submit">{t(locale, 'admin.edit.save')}</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <p class="hint">{t(locale, isSelf ? 'admin.edit.selfNote' : 'admin.edit.suspendNote')}</p>
+    <button
+      id="toggle-ban"
+      class="btn btn-ghost"
+      type="button"
+      data-user-id={target.id}
+      data-banned={String(target.banned)}
+      disabled={isSelf}
+    >
+      {t(locale, target.banned ? 'admin.edit.reactivate' : 'admin.edit.suspend')}
+    </button>
+  </section>
+
+  <section class="card">
+    <h2>{t(locale, 'admin.delete.title')}</h2>
+    {
+      isSelf ? (
+        <p class="hint">{t(locale, 'admin.delete.self')}</p>
+      ) : !deletable ? (
+        <p class="hint">{t(locale, 'admin.delete.blocked')}</p>
+      ) : (
+        <>
+          <p class="hint">{t(locale, 'admin.delete.note')}</p>
+          <div class="field">
+            <label for="confirm-email">{t(locale, 'admin.delete.confirmLabel', { email: target.email })}</label>
+            <input id="confirm-email" type="text" autocomplete="off" data-expected={target.email} />
+          </div>
+          <button id="delete-user" class="btn btn-danger" type="button" data-user-id={target.id} disabled>
+            {t(locale, 'admin.delete.submit')}
+          </button>
+        </>
+      )
+    }
+  </section>
+</AdminLayout>
+
+<script>
+  import { authClient } from '../../../lib/auth/client';
+  import { authErrorKey } from '../../../lib/auth/errors';
+
+  const form = document.querySelector<HTMLFormElement>('#edit-form')!;
+  const errorBox = document.querySelector<HTMLElement>('#error')!;
+  const doneBox = document.querySelector<HTMLElement>('#done')!;
+  const saveButton = form.querySelector<HTMLButtonElement>('button')!;
+  const messages = JSON.parse(form.dataset.messages!) as Record<string, string>;
+  const userId = form.dataset.userId!;
+
+  const fail = (error: Parameters<typeof authErrorKey>[0]) => {
+    const key = authErrorKey(error);
+    errorBox.textContent = key === 'auth.error.generic' ? messages['admin.error.generic']! : (messages[key] ?? messages['admin.error.generic']!);
+    errorBox.hidden = false;
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    errorBox.hidden = true;
+    doneBox.hidden = true;
+    saveButton.disabled = true;
+    saveButton.textContent = messages['auth.working']!;
+
+    const data = new FormData(form);
+    const update = await authClient.admin.updateUser({
+      userId,
+      data: { name: String(data.get('name')), email: String(data.get('email')), locale: String(data.get('locale')) },
+    });
+    const password = String(data.get('password') ?? '');
+    const reset = !update.error && password ? await authClient.admin.setUserPassword({ userId, newPassword: password }) : null;
+
+    saveButton.disabled = false;
+    saveButton.textContent = messages['admin.edit.save']!;
+    const error = update.error ?? reset?.error;
+    if (error) return fail(error);
+    form.querySelector<HTMLInputElement>('#password')!.value = '';
+    doneBox.textContent = messages['admin.edit.saved']!;
+    doneBox.hidden = false;
+  });
+
+  const toggle = document.querySelector<HTMLButtonElement>('#toggle-ban')!;
+  toggle.addEventListener('click', async () => {
+    toggle.disabled = true;
+    const banned = toggle.dataset.banned === 'true';
+    const { error } = banned ? await authClient.admin.unbanUser({ userId }) : await authClient.admin.banUser({ userId });
+    if (error) {
+      toggle.disabled = false;
+      return fail(error);
+    }
+    location.reload();
+  });
+
+  const confirmInput = document.querySelector<HTMLInputElement>('#confirm-email');
+  const deleteButton = document.querySelector<HTMLButtonElement>('#delete-user');
+  if (confirmInput && deleteButton) {
+    confirmInput.addEventListener('input', () => {
+      deleteButton.disabled = confirmInput.value.trim().toLowerCase() !== confirmInput.dataset.expected!.toLowerCase();
+    });
+    deleteButton.addEventListener('click', async () => {
+      deleteButton.disabled = true;
+      const response = await fetch(`/api/admin/users/${deleteButton.dataset.userId}`, { method: 'DELETE' });
+      if (response.ok) return location.assign('/admin');
+      errorBox.textContent = messages['admin.delete.error']!;
+      errorBox.hidden = false;
+      deleteButton.disabled = false;
+    });
+  }
+</script>

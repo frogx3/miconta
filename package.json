@@ -1,0 +1,46 @@
+{
+  "name": "miconta",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply miconta --local",
+    "smoke:auth": "bash scripts/smoke-auth.sh",
+    "smoke:accounts": "bash scripts/smoke-accounts.sh",
+    "smoke:import": "python3 -I scripts/smoke-import.py",
+    "smoke:plans": "python3 -I scripts/smoke-plans.py",
+    "smoke:spending": "python3 -I scripts/smoke-spending.py",
+    "db:migrate:remote": "wrangler d1 migrations apply miconta --remote",
+    "cf:types": "wrangler types",
+    "cf:deploy": "astro build && wrangler deploy",
+    "smoke:revert": "python3 -I scripts/smoke-revert.py",
+    "smoke:members": "python3 -I scripts/smoke-members.py",
+    "smoke:tags": "python3 -I scripts/smoke-tags.py",
+    "smoke:budgets": "python3 -I scripts/smoke-budgets.py",
+    "smoke:goals": "python3 -I scripts/smoke-goals.py"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.3.4",
+    "@fontsource-variable/montserrat": "^5.3.0",
+    "astro": "^7.3.8",
+    "better-auth": "^1.7.7",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261008.1",
+    "@types/node": "^26.6.4",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.149.0"
+  }
+}

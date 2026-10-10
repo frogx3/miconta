@@ -1,0 +1,116 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { messagesFor, t, tn } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+import { formatDate } from '../../lib/date-format';
+import { listInvitations, listMembers } from '../../lib/members/repo';
+import { INVITE_DAYS, canManageMember, invitableRoles } from '../../lib/members/roles';
+
+const { workspace, user, locale } = Astro.locals;
+if (!workspace || !user) return Astro.redirect('/login');
+
+const db = getDb();
+const [members, pending] = await Promise.all([listMembers(db, workspace.id), listInvitations(db, workspace.id)]);
+const roles = invitableRoles(workspace.role);
+const canInvite = roles.length > 0;
+const messages = messagesFor(locale, ['members.', 'validation.', 'common.']);
+const iso = (date: Date) => date.toISOString().slice(0, 10);
+---
+
+<AppLayout title={t(locale, 'members.title')} active="members">
+  <h1>{t(locale, 'members.title')}</h1>
+  <p class="hint">{t(locale, 'members.hint')}</p>
+
+  <section class="card" id="members" data-messages={JSON.stringify(messages)}>
+    <div id="members-error" class="alert" role="alert" hidden></div>
+    <div class="table-scroll">
+      <table class="import-table">
+        <caption class="sr-only">{t(locale, 'members.title')}</caption>
+        <tbody>
+          {
+            members.map((member) => {
+              const manageable = member.userId !== user.id && canManageMember(workspace.role, member.role);
+              return (
+                <tr data-user={member.userId} data-name={member.name}>
+                  <td>
+                    <strong>{member.name}</strong>
+                    {member.userId === user.id && <span class="badge badge-muted">{t(locale, 'members.you')}</span>}
+                    <br />
+                    <span class="muted">{member.email} · {t(locale, 'members.joined', { date: formatDate(iso(member.joinedAt), locale) })}</span>
+                  </td>
+                  <td class="nowrap">
+                    {manageable ? (
+                      <select class="member-role" aria-label={t(locale, 'members.role.change', { name: member.name })}>
+                        {(workspace.role === 'owner' ? (['admin', 'member', 'viewer'] as const) : (['member', 'viewer'] as const)).map((role) => (
+                          <option value={role} selected={role === member.role}>{t(locale, `role.${role}`)}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span class="chip">{t(locale, `role.${member.role}`)}</span>
+                    )}
+                  </td>
+                  <td class="num nowrap">{manageable && <button class="btn btn-ghost btn-small member-remove" type="button">{t(locale, 'members.remove')}</button>}</td>
+                </tr>
+              );
+            })
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {
+    canInvite && (
+      <section class="card" id="invite" data-messages={JSON.stringify(messages)}>
+        <h2>{t(locale, 'members.invite.title')}</h2>
+        <p class="hint">{t(locale, 'members.invite.hint')}</p>
+        <div id="invite-error" class="alert" role="alert" hidden></div>
+        <form id="invite-form" class="form-grid" novalidate>
+          <div class="field narrow">
+            <label for="i-role">{t(locale, 'members.invite.role')}</label>
+            <select id="i-role" name="role">
+              {roles.map((role) => <option value={role} selected={role === 'member'}>{t(locale, `role.${role}`)}</option>)}
+            </select>
+          </div>
+          <div class="field narrow">
+            <label for="i-days">{t(locale, 'members.invite.days')}</label>
+            <select id="i-days" name="days">
+              {INVITE_DAYS.map((days) => <option value={days} selected={days === 7}>{tn(locale, 'members.invite.days', days)}</option>)}
+            </select>
+          </div>
+          <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'members.invite.create')}</button></div>
+        </form>
+        <ul class="hint role-help">
+          {roles.map((role) => <li>{t(locale, `members.roleHelp.${role}` as 'members.roleHelp.admin')}</li>)}
+        </ul>
+        <div id="invite-result" hidden>
+          <p class="alert ok" role="status">{t(locale, 'members.invite.created')}</p>
+          <div class="field">
+            <input id="invite-url" type="text" readonly aria-label={t(locale, 'members.invite.created')} />
+          </div>
+          <button class="btn btn-auto" type="button" id="invite-copy">{t(locale, 'members.invite.copy')}</button>
+        </div>
+
+        <h3>{t(locale, 'members.invite.pending')}</h3>
+        {
+          pending.length === 0 ? (
+            <p class="empty">{t(locale, 'members.invite.none')}</p>
+          ) : (
+            <ul class="pending-invites">
+              {pending.map((invite) => (
+                <li data-invite={invite.id}>
+                  <span><span class="chip">{t(locale, `role.${invite.role}`)}</span> <span class="muted">{t(locale, 'members.invite.expires', { date: formatDate(iso(invite.expiresAt), locale), name: invite.createdByName })}</span></span>
+                  <button class="btn btn-ghost btn-small invite-revoke" type="button">{t(locale, 'members.invite.revoke')}</button>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </section>
+    )
+  }
+</AppLayout>
+
+<script>
+  import '../../scripts/members';
+</script>

@@ -1,0 +1,114 @@
+---
+import { t, type MessageKey } from '../i18n/messages';
+import { formatDate } from '../lib/date-format';
+import { formatMinor, toInputString } from '../lib/money-format';
+import type { GoalView } from '../lib/goals/view';
+
+interface Props {
+  view: GoalView;
+  /** Versión corta para Inicio: sin acciones ni aportes. */
+  compact?: boolean;
+  canWrite?: boolean;
+}
+
+const { view, compact = false, canWrite = false } = Astro.props;
+const { locale } = Astro.locals;
+const { goal } = view;
+const money = (minor: number) => formatMinor(minor, goal.currency, locale);
+const tr = (key: string, params?: Record<string, string>) => t(locale, key as MessageKey, params);
+const percent = Math.round(view.ratio * 100);
+
+// Texto de estado de la meta según su tipo.
+const status = view.kind === 'ant' ? view.progress.status.state : view.progress.state;
+const lines: string[] = [];
+if (view.kind === 'plans') {
+  const p = view.progress;
+  if (p.state === 'achieved') lines.push(tr('goals.plans.achieved'));
+  else {
+    lines.push(goal.type === 'payoff_plan' && view.planName ? tr('goals.plans.remainingOne', { amount: money(p.remainingMinor), name: view.planName }) : tr('goals.plans.remaining', { amount: money(p.remainingMinor), n: String(view.openPlans) }));
+    if (p.state === 'on_track') lines.push(p.marginDays ? tr('goals.plans.onTrack', { end: formatDate(p.naturalEnd!, locale), days: String(p.marginDays) }) : tr('goals.plans.onTrackExact', { end: formatDate(p.naturalEnd!, locale) }));
+    else if (p.state === 'behind') lines.push(tr('goals.plans.behind', { amount: money(p.leftoverMinor), end: formatDate(p.naturalEnd!, locale), extra: money(p.extraMonthlyMinor), months: String(Math.max(1, p.monthsLeft)) }));
+    else lines.push(tr('goals.plans.overdue', { amount: money(p.remainingMinor) }));
+  }
+} else if (view.kind === 'savings') {
+  const p = view.progress;
+  lines.push(p.state === 'achieved' ? tr('goals.savings.achieved') : tr('goals.savings.saved', { saved: money(p.savedMinor), target: money(goal.targetAmountMinor ?? 0), percent: String(percent) }));
+  if (p.state !== 'achieved' && goal.targetDate && p.neededPerMonthMinor !== null) {
+    lines.push(p.state === 'overdue' ? tr('goals.savings.overdue', { amount: money(p.remainingMinor) }) : tr('goals.savings.need', { date: formatDate(goal.targetDate, locale), amount: money(p.neededPerMonthMinor), months: String(Math.max(1, p.monthsLeft ?? 1)) }));
+  }
+} else {
+  const p = view.progress;
+  lines.push(tr('goals.ant.current', { current: money(p.currentMinor), cap: money(goal.targetAmountMinor ?? 0) }));
+  lines.push(p.status.remainingMinor >= 0 ? tr('goals.ant.left', { amount: money(p.status.remainingMinor) }) : tr('goals.ant.over', { amount: money(-p.status.remainingMinor) }));
+  if (!compact) lines.push(p.monthsMeasured > 0 ? tr('goals.ant.history', { n: String(p.monthsUnder), total: String(p.monthsMeasured) }) : tr('goals.ant.noHistory'));
+}
+const editDate = goal.targetDate ?? '';
+const editAmount = goal.targetAmountMinor != null ? toInputString(goal.targetAmountMinor, locale, goal.currency) : '';
+---
+
+<article class:list={['goal-card', `tone-${view.tone}`, goal.archivedAt && 'is-archived']} data-goal={goal.id} data-name={goal.name} data-type={goal.type}>
+  <header class="goal-head">
+    <div>
+      <h3>{compact ? <a href="/app/metas">{goal.name}</a> : goal.name}</h3>
+      <span class="chip">{tr(`goals.type.${goal.type}`)}</span>
+      {goal.targetDate && <span class="muted"> · {tr('goals.until', { date: formatDate(goal.targetDate, locale) })}</span>}
+      {goal.archivedAt && <span class="badge badge-muted">{tr('goals.archived.badge')}</span>}
+    </div>
+    <span class:list={['badge', `badge-${view.tone}`]}>{tr(`goals.status.${status}`)}</span>
+  </header>
+
+  <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent} aria-label={goal.name}>
+    <span style={`width:${Math.min(100, percent)}%`}></span>
+  </div>
+  {lines.map((line) => <p class="goal-line">{line}</p>)}
+  {!compact && view.kind === 'plans' && <p class="hint">{tr('goals.plans.note')}</p>}
+
+  {
+    !compact && view.kind === 'savings' && (
+      <section class="goal-entries">
+        <h4>{tr('goals.entries.title')}</h4>
+        {view.entries.length === 0 ? (
+          <p class="muted">{tr('goals.entries.none')}</p>
+        ) : (
+          <ul class="entry-list">
+            {view.entries.map((entry) => (
+              <li data-entry={entry.id}>
+                <span class="nowrap">{formatDate(entry.date, locale)}</span>
+                <span class:list={['num nowrap', entry.amountMinor < 0 && 'credit-neg']}>{entry.amountMinor > 0 ? '+' : ''}{money(entry.amountMinor)}</span>
+                <span class="muted">{entry.note ?? ''}</span>
+                {canWrite && <button class="link-button entry-remove" type="button" aria-label={tr('goals.entries.remove')}>×</button>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {canWrite && (
+          <form class="entry-form form-grid" novalidate>
+            <p class="hint">{tr('goals.entries.hint')}</p>
+            <div class="field narrow"><label>{tr('goals.entries.amount', { currency: goal.currency })}<input name="amount" type="text" inputmode="decimal" /></label><span class="field-error" data-error-for="amount"></span></div>
+            <div class="field narrow"><label>{tr('goals.entries.date')}<input name="date" type="date" /></label><span class="field-error" data-error-for="date"></span></div>
+            <div class="field"><label>{tr('goals.entries.note')}<input name="note" type="text" maxlength="120" /></label><span class="field-error" data-error-for="note"></span></div>
+            <div class="form-actions"><button class="btn btn-auto" type="submit">{tr('goals.entries.add')}</button></div>
+          </form>
+        )}
+      </section>
+    )
+  }
+
+  {
+    !compact && canWrite && (
+      <details class="goal-edit">
+        <summary>{tr('goals.edit')}</summary>
+        <form class="goal-edit-form form-grid" novalidate>
+          <div class="field"><label>{tr('goals.field.name')}<input name="name" type="text" maxlength="60" value={goal.name} /></label><span class="field-error" data-error-for="name"></span></div>
+          {goal.type !== 'ant_spend' && <div class="field narrow"><label>{tr(goal.type === 'savings' ? 'goals.field.dateOptional' : 'goals.field.date')}<input name="targetDate" type="date" value={editDate} /></label><span class="field-error" data-error-for="targetDate"></span></div>}
+          {(goal.type === 'ant_spend' || goal.type === 'savings') && <div class="field narrow"><label>{tr(goal.type === 'ant_spend' ? 'goals.field.cap' : 'goals.field.target', { currency: goal.currency })}<input name="targetAmount" type="text" inputmode="decimal" value={editAmount} /></label><span class="field-error" data-error-for="targetAmount"></span></div>}
+          <div class="form-actions"><button class="btn btn-auto" type="submit">{tr('goals.edit.save')}</button></div>
+        </form>
+        <div class="row-actions">
+          <button class="btn btn-ghost btn-small" type="button" data-archive={goal.archivedAt ? 'false' : 'true'}>{tr(goal.archivedAt ? 'goals.unarchive' : 'goals.archive')}</button>
+          <button class="link-button" type="button" data-delete>{tr('goals.delete')}</button>
+        </div>
+      </details>
+    )
+  }
+</article>

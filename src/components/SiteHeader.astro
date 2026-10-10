@@ -1,0 +1,117 @@
+---
+import Icon from './Icon.astro';
+import BrandIcon from './BrandIcon.astro';
+import ThemeToggle from './ThemeToggle.astro';
+import ThemeChoice from './ThemeChoice.astro';
+import { t } from '../i18n/messages';
+import { navFor, type NavKey } from '../lib/nav';
+
+interface Props {
+  area: 'app' | 'admin';
+  active?: NavKey;
+  readOnly?: boolean;
+}
+
+const { area, active, readOnly = false } = Astro.props;
+const { locale } = Astro.locals;
+const items = navFor(area, { readOnly });
+const home = area === 'admin' ? '/admin' : '/app';
+const importItem = items.find((item) => item.key === 'import');
+---
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href={home} aria-label={t(locale, 'app.name')}>
+      <BrandIcon size={36} />
+      <span>Mi<span class="brand-conta">Conta</span></span>
+      {area === 'admin' && <span class="brand-sub">· {t(locale, 'admin.title')}</span>}
+    </a>
+
+    <div class="header-actions">
+      {
+        importItem && (
+          <a class="icon-btn" href={importItem.href} title={t(locale, importItem.label)} aria-label={t(locale, importItem.label)}>
+            <Icon name="upload" />
+            <span class="icon-label">{t(locale, importItem.label)}</span>
+          </a>
+        )
+      }
+      <ThemeToggle />
+      <button class="icon-btn" id="logout" type="button" title={t(locale, 'auth.logout')} aria-label={t(locale, 'auth.logout')}>
+        <Icon name="logout" />
+      </button>
+      <button class="icon-btn icon-btn-solid" id="menu-open" type="button" aria-haspopup="dialog" aria-controls="site-menu" aria-expanded="false" title={t(locale, 'nav.menu.open')} aria-label={t(locale, 'nav.menu.open')}>
+        <Icon name="menu" />
+      </button>
+    </div>
+  </div>
+
+  <dialog class="menu-drawer" id="site-menu" aria-label={t(locale, 'nav.main')}>
+    <div class="menu-head">
+      <span class="menu-title">{t(locale, 'nav.menu')}</span>
+      <button class="icon-btn" id="menu-close" type="button" title={t(locale, 'nav.menu.close')} aria-label={t(locale, 'nav.menu.close')}>
+        <Icon name="x" />
+      </button>
+    </div>
+    <nav aria-label={t(locale, 'nav.main')}>
+      <ul class="menu-list">
+        {
+          items.map((item) => (
+            <li>
+              <a class="menu-link" href={item.href} aria-current={active === item.key ? 'page' : undefined}>
+                <span class="menu-icon"><Icon name={item.icon} size={20} /></span>
+                <span>{t(locale, item.label)}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+    <ThemeChoice />
+    <button class="menu-link menu-logout" id="menu-logout" type="button">
+      <span class="menu-icon"><Icon name="logout" size={20} /></span>
+      <span>{t(locale, 'auth.logout')}</span>
+    </button>
+  </dialog>
+</header>
+
+<script>
+  import { authClient } from '../lib/auth/client';
+
+  const dialog = document.querySelector<HTMLDialogElement>('#site-menu')!;
+  const opener = document.querySelector<HTMLButtonElement>('#menu-open')!;
+
+  const close = () => {
+    dialog.classList.remove('is-open');
+    // Deja correr la salida antes de cerrar el diálogo.
+    const done = () => dialog.close();
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return done();
+    setTimeout(done, 180);
+  };
+
+  opener.addEventListener('click', () => {
+    dialog.showModal();
+    requestAnimationFrame(() => dialog.classList.add('is-open'));
+    opener.setAttribute('aria-expanded', 'true');
+  });
+  document.querySelector('#menu-close')!.addEventListener('click', close);
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) close();
+  });
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    close();
+  });
+  dialog.addEventListener('close', () => {
+    opener.setAttribute('aria-expanded', 'false');
+    opener.focus();
+  });
+  dialog.querySelectorAll('a.menu-link').forEach((link) => link.addEventListener('click', () => dialog.classList.remove('is-open')));
+
+  const logout = async () => {
+    await authClient.signOut();
+    location.assign('/login');
+  };
+  document.querySelector('#logout')!.addEventListener('click', logout);
+  document.querySelector('#menu-logout')!.addEventListener('click', logout);
+</script>

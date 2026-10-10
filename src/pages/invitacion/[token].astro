@@ -1,0 +1,104 @@
+---
+import AuthLayout from '../../layouts/AuthLayout.astro';
+import { messagesFor, t } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+import { peekInvitation } from '../../lib/members/repo';
+
+const { user, locale } = Astro.locals;
+const token = Astro.params.token ?? '';
+const invitation = await peekInvitation(getDb(), token);
+const messages = messagesFor(locale, ['auth.']);
+---
+
+<AuthLayout
+  title={t(locale, 'invite.title')}
+  heading={user ? t(locale, 'invite.loggedIn') : invitation ? t(locale, 'invite.heading', { name: invitation.workspaceName }) : t(locale, 'invite.invalid')}
+  lead={user ? t(locale, 'invite.loggedInHelp') : invitation ? t(locale, 'invite.lead', { role: t(locale, `role.${invitation.role}`) }) : t(locale, 'invite.invalidHelp')}
+>
+  {
+    user ? (
+      <a class="btn btn-link" href="/app">{t(locale, 'nav.dashboard')}</a>
+    ) : invitation ? (
+      <>
+        <div id="error" class="alert" role="alert" tabindex="-1" hidden />
+        <form id="signup-form" data-messages={JSON.stringify(messages)} data-locale={locale} data-token={token} novalidate>
+          <div class="field">
+            <label for="name">{t(locale, 'auth.field.name')}</label>
+            <input id="name" name="name" type="text" autocomplete="name" enterkeyhint="next" aria-describedby="name-error" required />
+            <span class="field-error" id="name-error" />
+          </div>
+          <div class="field">
+            <label for="email">{t(locale, 'auth.field.email')}</label>
+            <input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" aria-describedby="email-error" required />
+            <span class="field-error" id="email-error" />
+          </div>
+          <div class="field">
+            <label for="password">{t(locale, 'auth.field.password')}</label>
+            <div class="password-wrap">
+              <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" enterkeyhint="go" aria-describedby="password-hint password-error" required />
+              <button class="pw-toggle" type="button" data-pw-toggle="password" aria-pressed="false" aria-label={t(locale, 'auth.password.showLabel')}>
+                {t(locale, 'auth.password.show')}
+              </button>
+            </div>
+            <span class="hint" id="password-hint">{t(locale, 'auth.field.passwordHint')}</span>
+            <span class="field-error" id="password-error" />
+          </div>
+          <button class="btn" type="submit">{t(locale, 'invite.submit')}</button>
+        </form>
+      </>
+    ) : (
+      <a class="btn btn-link" href="/login">{t(locale, 'auth.signup.loginLink')}</a>
+    )
+  }
+</AuthLayout>
+
+<script>
+  import { authClient } from '../../lib/auth/client';
+  import { authErrorKey } from '../../lib/auth/errors';
+  import { clearAlert, clearOnInput, focusFirstOnDesktop, initPasswordToggles, setBusy, showAlert, validateRequired, type Messages } from '../../scripts/auth-form';
+
+  const form = document.querySelector<HTMLFormElement>('#signup-form');
+  if (form) {
+    const errorBox = document.querySelector<HTMLElement>('#error')!;
+    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const name = form.querySelector<HTMLInputElement>('#name')!;
+    const email = form.querySelector<HTMLInputElement>('#email')!;
+    const password = form.querySelector<HTMLInputElement>('#password')!;
+    const messages = JSON.parse(form.dataset.messages!) as Messages;
+    const idleText = button.textContent!.trim();
+
+    initPasswordToggles(messages);
+    clearOnInput(form);
+    focusFirstOnDesktop(name);
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearAlert(errorBox);
+      const invalid = validateRequired([
+        { input: name, message: messages['auth.error.nameRequired']! },
+        { input: email, message: messages['auth.error.emailRequired']!, test: (value) => /^\S+@\S+\.\S+$/.test(value) },
+        { input: password, message: messages['auth.error.passwordTooShort']!, test: (value) => value.length >= 10 },
+      ]);
+      if (invalid) {
+        invalid.focus();
+        return;
+      }
+
+      setBusy(form, button, true, messages['auth.working']!, idleText);
+      const { error } = await authClient.signUp.email({
+        name: name.value.trim(),
+        email: email.value.trim(),
+        password: password.value,
+        locale: form.dataset.locale,
+        // El token viaja en una cabecera, no en el cuerpo: no se guarda como dato del usuario.
+        fetchOptions: { headers: { 'x-invite-token': form.dataset.token! } },
+      });
+      if (error) {
+        setBusy(form, button, false, messages['auth.working']!, idleText);
+        showAlert(errorBox, messages['auth.error.label']!, messages[authErrorKey(error)] ?? messages['auth.error.generic']!);
+        return;
+      }
+      location.assign('/app');
+    });
+  }
+</script>

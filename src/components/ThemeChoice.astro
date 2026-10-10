@@ -1,0 +1,25 @@
+---
+import Icon from './Icon.astro';
+import { t } from '../i18n/messages';
+
+const { locale } = Astro.locals;
+const options = [
+  { value: 'light', icon: 'sun', label: 'theme.light' },
+  { value: 'dark', icon: 'moon', label: 'theme.dark' },
+  { value: 'system', icon: 'monitor', label: 'theme.system' },
+] as const;
+---
+
+<div class="theme-choice field" role="radiogroup" aria-labelledby="theme-choice-label">
+  <span class="field-label" id="theme-choice-label">{t(locale, 'theme.label')}</span>
+  <div class="segmented">
+    {
+      options.map((option) => (
+        <label>
+          <input type="radio" name="theme" value={option.value} data-theme-choice />
+          <span><Icon name={option.icon} size={16} /> {t(locale, option.label)}</span>
+        </label>
+      ))
+    }
+  </div>
+</div>

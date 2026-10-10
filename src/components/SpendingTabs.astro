@@ -1,0 +1,31 @@
+---
+import { t } from '../i18n/messages';
+
+interface Props {
+  active: 'summary' | 'statement' | 'movements' | 'categories';
+  /** Mes en curso (`YYYY-MM`), para conservarlo al cambiar de pestaña. */
+  month?: string;
+  /** Cuenta que se está mirando: se conserva al cambiar de pestaña. */
+  accountId?: string;
+}
+
+const { active, month, accountId } = Astro.props;
+const { locale } = Astro.locals;
+const params = (scopeKey: string, scopeValue: string) => {
+  const query = new URLSearchParams();
+  if (month) query.set('mes', month);
+  if (accountId) query.set(scopeKey, scopeValue);
+  const text = query.toString();
+  return text ? `?${text}` : '';
+};
+const tabs = [
+  { id: 'summary', href: `/app/gastos${params('cuenta', accountId ?? '')}`, label: 'spending.tab.summary' },
+  { id: 'statement', href: '/app/gastos/corte', label: 'spending.tab.statement' },
+  { id: 'movements', href: `/app/gastos/movimientos${params('filtro', `a:${accountId ?? ''}`)}`, label: 'spending.tab.movements' },
+  { id: 'categories', href: '/app/gastos/categorias', label: 'spending.tab.categories' },
+] as const;
+---
+
+<nav class="subnav" aria-label={t(locale, 'spending.title')}>
+  {tabs.map((tab) => <a href={tab.href} aria-current={tab.id === active ? 'page' : undefined}>{t(locale, tab.label)}</a>)}
+</nav>

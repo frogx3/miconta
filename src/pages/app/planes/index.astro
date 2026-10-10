@@ -1,0 +1,313 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import FilterChip from '../../../components/FilterChip.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import { messagesFor, t } from '../../../i18n/messages';
+import { getDb } from '../../../lib/auth';
+import { formatDate, formatMonth, todayISO } from '../../../lib/date-format';
+import { naturalEndDate, remainingBalanceMinor } from '../../../lib/import/plans';
+import { formatMinor } from '../../../lib/money-format';
+import { getAccount } from '../../../lib/accounts/repo';
+import { listPlans } from '../../../lib/plans/repo';
+import { isOpen, summarize, summarizeByCard } from '../../../lib/plans/schedule';
+import { listTags, plansWithTag, tagsByPlan } from '../../../lib/plans/tags';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const everything = await listPlans(getDb(), workspace.id);
+const accountFilter = Astro.url.searchParams.get('cuenta') ?? '';
+const all = accountFilter ? everything.filter((plan) => plan.accountId === accountFilter) : everything;
+const summaries = summarize(all, todayISO());
+const byCurrencyCards = summarizeByCard(all, todayISO());
+const scopeName = accountFilter ? ((await getAccount(getDb(), workspace.id, accountFilter))?.name ?? '') : '';
+
+const tab = Astro.url.searchParams.get('estado') === 'cerrados' ? 'closed' : 'active';
+const cardFilter = Astro.url.searchParams.get('tarjeta') ?? '';
+const [tagMap, allTags] = await Promise.all([tagsByPlan(getDb(), workspace.id), listTags(getDb(), workspace.id)]);
+const tagFilter = allTags.some((tag) => tag.id === Astro.url.searchParams.get('etiqueta')) ? Astro.url.searchParams.get('etiqueta')! : '';
+const withTag = tagFilter ? plansWithTag(tagMap, tagFilter) : null;
+const cards = [...new Map(all.map((plan) => [plan.cardId, plan.cardName])).entries()];
+
+const inTab = all.filter((plan) => (tab === 'active' ? isOpen(plan) : !isOpen(plan)));
+const shown = inTab
+  .filter((plan) => !cardFilter || plan.cardId === cardFilter)
+  .filter((plan) => !withTag || withTag.has(plan.id))
+  .sort((a, b) => naturalEndDate(a).localeCompare(naturalEndDate(b)) || a.name.localeCompare(b.name));
+
+const href = (params: Record<string, string>) => {
+  const merged = {
+    ...params,
+    ...(accountFilter && !('cuenta' in params) ? { cuenta: accountFilter } : {}),
+    ...(tagFilter && !('etiqueta' in params) ? { etiqueta: tagFilter } : {}),
+  };
+  const query = new URLSearchParams(Object.entries(merged).filter(([, value]) => value)).toString();
+  return `/app/planes${query ? `?${query}` : ''}`;
+};
+const VISIBLE_MONTHS = 12;
+const canWrite = workspace.role !== 'viewer';
+const balanceAccounts = [...new Map(everything.map((plan) => [plan.accountId, plan.accountName])).entries()];
+const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common.']);
+---
+
+<AppLayout title={t(locale, 'plans.title')} active="plans">
+  {accountFilter && scopeName && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopeName, href: `/app/cuentas/${accountFilter}` }, { label: t(locale, 'plans.title') }]} />}
+  <h1>{t(locale, 'plans.title')}</h1>
+  {accountFilter && scopeName && <FilterChip name={scopeName} nameHref={`/app/cuentas/${accountFilter}`} clearHref="/app/planes" />}
+
+  {
+    all.length === 0 ? (
+      <section class="card">
+        <p class="empty">{t(locale, 'plans.empty')}</p>
+        {workspace.role !== 'viewer' && (
+          <a class="btn btn-link" href="/app/importar">
+            {t(locale, 'nav.import')}
+          </a>
+        )}
+      </section>
+    ) : (
+      <>
+        {summaries.map((summary) => {
+          const max = Math.max(...summary.months.map((m) => m.amountMinor), 1);
+          const money = (minor: number) => formatMinor(minor, summary.currency, locale);
+          const row = (month: (typeof summary.months)[number], index: number) => {
+            const delta = index === 0 ? 0 : month.amountMinor - summary.months[index - 1]!.amountMinor;
+            return (
+              <tr>
+                <td class="nowrap">{formatMonth(month.month, locale)}</td>
+                <td class="bar-cell">
+                  <span class="bar" aria-hidden="true">
+                    <span style={`width:${(month.amountMinor / max) * 100}%`} />
+                  </span>
+                </td>
+                <td class="num nowrap">
+                  {money(month.amountMinor)}
+                  {month.overdue > 0 && <span class="hint block">{t(locale, 'plans.projection.overdue', { n: month.overdue })}</span>}
+                </td>
+                <td class="num">{month.plans}</td>
+                <td class:list={['num nowrap', delta < 0 && 'freed']}>{delta === 0 ? '' : `${delta > 0 ? '+' : '−'}${money(Math.abs(delta))}`}</td>
+              </tr>
+            );
+          };
+          return (
+            <section class="card">
+              <div class="stats">
+                <div class="stat">
+                  <span class="muted">{t(locale, 'plans.summary.remaining')}</span>
+                  <strong>{money(summary.remainingBalanceMinor)}</strong>
+                </div>
+                <div class="stat">
+                  <span class="muted">{t(locale, 'plans.summary.thisMonth')}</span>
+                  <strong>{money(summary.thisMonthMinor)}</strong>
+                  {summary.overdueInstallments > 0 && <span class="hint">{t(locale, 'plans.summary.overdue', { n: summary.overdueInstallments })}</span>}
+                </div>
+                <div class="stat">
+                  <span class="muted">{t(locale, 'plans.summary.active')}</span>
+                  <strong>{summary.openPlans}</strong>
+                </div>
+                {summary.debtFreeDate && (
+                  <div class="stat">
+                    <span class="muted">{t(locale, 'plans.summary.debtFree')}</span>
+                    <strong class="milestone">{formatDate(summary.debtFreeDate, locale)}</strong>
+                  </div>
+                )}
+              </div>
+              {
+                (() => {
+                  const cardsOfCurrency = byCurrencyCards.find((entry) => entry.currency === summary.currency)?.cards ?? [];
+                  // Con una sola tarjeta el desglose repetiría los totales de arriba.
+                  if (cardsOfCurrency.length < 2) return null;
+                  return (
+                    <>
+                      <h2>{t(locale, 'plans.byCard.title')} · {summary.currency}</h2>
+                      <div class="table-scroll">
+                        <table class="import-table">
+                          <caption class="sr-only">{t(locale, 'plans.byCard.title')}</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">{t(locale, 'plans.col.card')}</th>
+                              <th scope="col" class="num">{t(locale, 'plans.summary.active')}</th>
+                              <th scope="col" class="num">{t(locale, 'plans.summary.thisMonth')}</th>
+                              <th scope="col" class="num">{t(locale, 'plans.summary.remaining')}</th>
+                              <th scope="col">{t(locale, 'plans.summary.debtFree')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cardsOfCurrency.map((card) => (
+                              <tr>
+                                <td><a href={href({ estado: '', tarjeta: card.cardId })}>{card.cardName}</a></td>
+                                <td class="num">{card.openPlans}</td>
+                                <td class="num nowrap">
+                                  {money(card.thisMonthMinor)}
+                                  {card.overdueInstallments > 0 && <span class="hint block">{t(locale, 'plans.projection.overdue', { n: card.overdueInstallments })}</span>}
+                                </td>
+                                <td class="num nowrap">{money(card.remainingBalanceMinor)}</td>
+                                <td class="nowrap">{card.debtFreeDate ? formatDate(card.debtFreeDate, locale) : '—'}</td>
+                              </tr>
+                            ))}
+                            <tr class="total-row">
+                              <th scope="row">{t(locale, 'plans.byCard.total')}</th>
+                              <td class="num"><strong>{summary.openPlans}</strong></td>
+                              <td class="num nowrap"><strong>{money(summary.thisMonthMinor)}</strong></td>
+                              <td class="num nowrap"><strong>{money(summary.remainingBalanceMinor)}</strong></td>
+                              <td></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()
+              }
+              <h2>
+                {t(locale, 'plans.projection.title')} · {summary.currency}
+              </h2>
+              <p class="hint">{t(locale, 'plans.projection.hint')}</p>
+              <div class="table-scroll">
+                <table class="import-table ladder">
+<caption class="sr-only">{t(locale, 'table.sr.ladder')}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">{t(locale, 'plans.projection.month')}</th>
+                      <th scope="col" />
+                      <th scope="col" class="num">{t(locale, 'plans.projection.amount')}</th>
+                      <th scope="col" class="num">{t(locale, 'plans.projection.plans')}</th>
+                      <th scope="col" class="num">{t(locale, 'plans.projection.delta')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>{summary.months.slice(0, VISIBLE_MONTHS).map((month, index) => row(month, index))}</tbody>
+                  {summary.months.length > VISIBLE_MONTHS && (
+                    <tbody class="more">{summary.months.slice(VISIBLE_MONTHS).map((month, index) => row(month, index + VISIBLE_MONTHS))}</tbody>
+                  )}
+                </table>
+              </div>
+            </section>
+          );
+        })}
+
+        <div class="page-head">
+          <div class="chips">
+            <a class:list={['chip chip-button', tab === 'active' && 'is-on']} href={href({ tarjeta: cardFilter })}>{t(locale, 'plans.tab.active')}</a>
+            <a class:list={['chip chip-button', tab === 'closed' && 'is-on']} href={href({ estado: 'cerrados', tarjeta: cardFilter })}>{t(locale, 'plans.tab.closed')}</a>
+          </div>
+          {
+            cards.length > 1 && (
+              <div class="chips">
+                <a class:list={['chip chip-button', !cardFilter && 'is-on']} href={href({ estado: tab === 'closed' ? 'cerrados' : '', })}>{t(locale, 'plans.filter.all')}</a>
+                {cards.map(([id, name]) => (
+                  <a class:list={['chip chip-button', cardFilter === id && 'is-on']} href={href({ estado: tab === 'closed' ? 'cerrados' : '', tarjeta: id })}>{name}</a>
+                ))}
+              </div>
+            )
+          }
+        </div>
+
+        {
+          allTags.length > 0 && (
+            <div class="chips" role="group" aria-label={t(locale, 'plans.filter.tag')}>
+              <a class:list={['chip chip-button', !tagFilter && 'is-on']} href={href({ estado: tab === 'closed' ? 'cerrados' : '', tarjeta: cardFilter, etiqueta: '' })}>{t(locale, 'plans.filter.all')}</a>
+              {allTags.map((tag) => (
+                <a class:list={['chip chip-button', tagFilter === tag.id && 'is-on']} href={href({ estado: tab === 'closed' ? 'cerrados' : '', tarjeta: cardFilter, etiqueta: tag.id })}>{tag.name}</a>
+              ))}
+            </div>
+          )
+        }
+
+        <section class="card">
+          {
+            shown.length === 0 ? (
+              <p class="empty">{t(locale, 'plans.noneInTab')}</p>
+            ) : (
+              <div class="table-scroll">
+                <table class="import-table">
+<caption class="sr-only">{t(locale, 'table.sr.plans')}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">{t(locale, 'plans.col.name')}</th>
+                      <th scope="col">{t(locale, 'plans.col.card')}</th>
+                      <th scope="col">{t(locale, 'plans.col.progress')}</th>
+                      <th scope="col" class="num">{t(locale, 'plans.col.installment')}</th>
+                      <th scope="col" class="num">{t(locale, 'plans.col.remaining')}</th>
+                      <th scope="col">{t(locale, 'plans.col.end')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((plan) => (
+                      <tr>
+                        <td>
+                          <a href={`/app/planes/${plan.id}${accountFilter ? `?cuenta=${accountFilter}` : ''}`}>{plan.name}</a>
+                          <br />
+                          <span class="muted">{t(locale, `import.plan.type.${plan.type}`)}</span>
+                          {(tagMap.get(plan.id) ?? []).map((tag) => <a class="chip chip-tag" href={href({ estado: tab === 'closed' ? 'cerrados' : '', tarjeta: cardFilter, etiqueta: tag.id })}>{tag.name}</a>)}
+                          {plan.status !== 'active' && <span class:list={['badge', plan.status === 'review' && 'badge-warn', plan.status === 'settled_manual' && 'badge-off']}>{t(locale, `plans.status.${plan.status}`)}</span>}
+                        </td>
+                        <td>{plan.cardName}</td>
+                        <td class="nowrap">
+                          <span class="bar bar-small" aria-hidden="true">
+                            <span style={`width:${Math.min(100, (plan.paidInstallments / plan.totalInstallments) * 100)}%`} />
+                          </span>
+                          <span class="muted">{plan.paidInstallments}/{plan.totalInstallments}</span>
+                        </td>
+                        <td class="num nowrap">{formatMinor(plan.installmentAmountMinor, plan.currency, locale)}</td>
+                        <td class="num nowrap">{isOpen(plan) ? formatMinor(remainingBalanceMinor(plan), plan.currency, locale) : '—'}</td>
+                        <td class="nowrap">{formatDate(naturalEndDate(plan), locale)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
+        </section>
+
+        {canWrite && (
+          <details class="card" id="balances" data-messages={JSON.stringify(balanceMessages)} data-currency={all[0]?.currency ?? workspace.defaultCurrency} data-locale={locale}>
+            <summary><strong>{t(locale, 'balances.title')}</strong></summary>
+            <p class="hint">{t(locale, 'balances.hint')}</p>
+            <div id="balances-error" class="alert" role="alert" hidden />
+            <div id="balances-done" class="alert ok" role="status" hidden />
+            <form id="balances-form" class="form-grid" novalidate>
+              <div class="field">
+                <label for="b-account">{t(locale, 'balances.account')}</label>
+                <select id="b-account" name="accountId">
+                  {balanceAccounts.map(([id, name]) => <option value={id} selected={id === accountFilter}>{name}</option>)}
+                </select>
+              </div>
+              <div class="field narrow">
+                <label for="b-date">{t(locale, 'balances.asOf')}</label>
+                <input id="b-date" name="asOf" type="date" required value={todayISO()} />
+                <span class="field-error" data-error-for="asOf" />
+              </div>
+              <div class="field">
+                <label for="b-files">{t(locale, 'balances.files')}</label>
+                <input id="b-files" name="files" type="file" accept=".csv,text/csv" multiple required />
+                <span class="field-error" data-error-for="files" />
+              </div>
+              <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'balances.review')}</button></div>
+            </form>
+            <div id="balances-preview" hidden>
+              <h3>{t(locale, 'balances.matches')}</h3>
+              <div class="table-scroll">
+                <table class="import-table">
+                  <caption class="sr-only">{t(locale, 'balances.matches')}</caption>
+                  <thead><tr><th scope="col">{t(locale, 'plans.col.name')}</th><th scope="col" class="num">{t(locale, 'balances.current')}</th><th scope="col" class="num">{t(locale, 'balances.bank')}</th></tr></thead>
+                  <tbody id="balances-rows"></tbody>
+                </table>
+              </div>
+              <div id="balances-unmatched" hidden>
+                <h3>{t(locale, 'balances.unmatched')}</h3>
+                <p class="hint">{t(locale, 'balances.unmatchedHint')}</p>
+                <ul id="balances-unmatched-list"></ul>
+              </div>
+              <button class="btn btn-auto" type="button" id="balances-apply">{t(locale, 'balances.apply')}</button>
+            </div>
+          </details>
+        )}
+      </>
+    )
+  }
+</AppLayout>
+
+<script>
+  import '../../../scripts/plan-balances';
+</script>
