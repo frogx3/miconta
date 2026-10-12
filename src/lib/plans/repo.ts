@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { accounts, cards, movements, planEvents, plans, user } from '../../db/schema';
 import { cardDisplay } from '../accounts/format';
 import type { Db } from '../auth/hooks';
 import { remainingBalanceMinor } from '../import/plans';
-import type { PlanEdit } from './validation';
+import { validatePlanDraft, type PlanFieldError, type PlanEdit } from './validation';
 
 /**
  * Todas las funciones reciben el `workspaceId` y lo aplican en cada consulta. Los planes nunca se
@@ -246,4 +246,91 @@ export async function applyReportedBalances(db: Db, workspaceId: string, userId:
   if (statements.length === 0) return 0;
   await db.batch(statements as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
   return statements.length / 2;
+}
+
+export type ConvertResult =
+  | { ok: true; planId: string }
+  | { ok: false; reason: 'not_found' | 'not_convertible' | 'card_required' }
+  | { ok: false; reason: 'invalid'; errors: PlanFieldError[] };
+
+/**
+ * Convierte un movimiento ya cargado en un plan (la mensualidad `currentInstallment` es ese cargo). El plan va
+ * a la tarjeta del cargo o, si no la trae, a la única tarjeta de crédito (o la única tarjeta) de la cuenta.
+ * Los eventos quedan ligados a la carga del movimiento: si esa carga se deshace, el plan se va con ella.
+ */
+export async function createPlanFromMovement(
+  db: Db,
+  workspaceId: string,
+  userId: string,
+  movementId: string,
+  raw: Record<string, unknown>,
+  locale: string,
+): Promise<ConvertResult> {
+  const [movement] = await db
+    .select()
+    .from(movements)
+    .where(and(eq(movements.id, movementId), eq(movements.workspaceId, workspaceId)))
+    .limit(1);
+  if (!movement) return { ok: false, reason: 'not_found' };
+  if (movement.chargeMinor <= 0 || movement.planId !== null) return { ok: false, reason: 'not_convertible' };
+
+  let cardId = movement.cardId;
+  if (!cardId) {
+    const active = await db
+      .select({ id: cards.id, kind: cards.kind })
+      .from(cards)
+      .where(and(eq(cards.workspaceId, workspaceId), eq(cards.accountId, movement.accountId), isNull(cards.archivedAt)));
+    const credit = active.filter((card) => card.kind === 'credit');
+    cardId = credit.length === 1 ? credit[0]!.id : active.length === 1 ? active[0]!.id : null;
+  }
+  if (!cardId) return { ok: false, reason: 'card_required' };
+
+  const result = validatePlanDraft(raw, { locale, currency: movement.currency, movementDate: movement.date });
+  if (!result.ok) return { ok: false, reason: 'invalid', errors: result.errors };
+  const draft = result.value;
+
+  const planId = crypto.randomUUID();
+  const complete = draft.currentInstallment === draft.totalInstallments;
+  await db.batch([
+    db.insert(plans).values({
+      id: planId,
+      workspaceId,
+      cardId,
+      type: draft.type,
+      name: draft.name,
+      matchText: draft.matchText,
+      currency: movement.currency,
+      totalAmountMinor: draft.totalAmountMinor,
+      installmentAmountMinor: draft.installmentAmountMinor,
+      totalInstallments: draft.totalInstallments,
+      paidInstallments: draft.currentInstallment,
+      interestRateBp: draft.interestRateBp,
+      firstChargeDate: draft.firstChargeDate,
+      status: complete ? 'completed_natural' : 'active',
+      settledAt: complete ? new Date() : null,
+    }),
+    // Un cargo de plan no se categoriza como gasto (igual que al importar).
+    db
+      .update(movements)
+      .set({ planId, planInstallmentNo: draft.currentInstallment, categoryId: null })
+      .where(and(eq(movements.id, movement.id), eq(movements.workspaceId, workspaceId), isNull(movements.planId))),
+    db.insert(planEvents).values({
+      workspaceId,
+      planId,
+      type: 'created',
+      data: { type: draft.type, totalInstallments: draft.totalInstallments, installmentAmountMinor: draft.installmentAmountMinor, currentInstallment: draft.currentInstallment, fromMovement: true },
+      batchId: movement.batchId,
+      actorUserId: userId,
+    }),
+    db.insert(planEvents).values({
+      workspaceId,
+      planId,
+      type: 'installment_recorded',
+      data: { installmentNo: draft.currentInstallment },
+      movementId: movement.id,
+      batchId: movement.batchId,
+      actorUserId: userId,
+    }),
+  ] as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  return { ok: true, planId };
 }

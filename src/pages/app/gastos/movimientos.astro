@@ -6,9 +6,11 @@ import FilterChip from '../../../components/FilterChip.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
 import { listAccounts } from '../../../lib/accounts/repo';
 import { cardDisplay } from '../../../lib/accounts/format';
+import { and, eq } from 'drizzle-orm';
+import { importBatches } from '../../../db/schema';
 import { getDb } from '../../../lib/auth';
 import { formatDate, formatMonth, todayISO } from '../../../lib/date-format';
-import { formatMinor } from '../../../lib/money-format';
+import { formatMinor, toInputString } from '../../../lib/money-format';
 import { isAnt, isFinance, isMonth, isSpend, monthBounds, thresholdFor } from '../../../lib/spending/analysis';
 import { getWorkspaceSettings, listCategories, listCutoffs, listMovements, movementMonths } from '../../../lib/spending/repo';
 import { currentCutoffMonth, recordsByMonth, statementPeriod } from '../../../lib/spending/statement';
@@ -25,6 +27,10 @@ const accountFilter = scope.startsWith('a:') ? scope.slice(2) : '';
 const cardFilter = scope.startsWith('c:') ? scope.slice(2) : '';
 const categoryFilter = params.get('categoria') ?? '';
 const q = (params.get('q') ?? '').slice(0, 60);
+// `lote` = solo los movimientos de una carga de CSV (se llega desde el final de la importación).
+const [batch] = params.get('lote')
+  ? await db.select({ id: importBatches.id, fileName: importBatches.fileName }).from(importBatches).where(and(eq(importBatches.id, params.get('lote')!), eq(importBatches.workspaceId, workspace.id))).limit(1)
+  : [];
 const type = ['hormiga', 'gastos', 'planes', 'intereses', 'abonos'].includes(params.get('tipo') ?? '') ? params.get('tipo')! : 'todos';
 
 const [accounts, categories, settings, months] = await Promise.all([
@@ -38,7 +44,7 @@ const scopedCard = scopedAccount?.cards.find((card) => card.id === cardFilter);
 
 // Periodo: "Por corte" (por defecto), un mes concreto o todo el historial.
 // El corte es el de la cuenta elegida; sin cuenta, el de la primera con tarjeta de crédito y día de corte.
-const periodParam = params.get('mes') ?? 'corte';
+const periodParam = params.get('mes') ?? (batch ? 'todo' : 'corte');
 const period = periodParam === 'todo' || isMonth(periodParam) ? periodParam : 'corte';
 const withCutoff = (account: (typeof accounts)[number]) => account.cards.find((card) => card.kind === 'credit' && card.cutoffDay !== null && !card.archivedAt);
 const cutoffAccount = scopedAccount && withCutoff(scopedAccount) ? scopedAccount : accounts.find((account) => !account.archivedAt && withCutoff(account));
@@ -62,7 +68,7 @@ if (isMonth(period)) {
     periodNote = t(locale, 'movements.period.noCutoff');
   }
 }
-const list = await listMovements(db, workspace.id, { fromDate: bounds.from, toDate: bounds.to, cardId: cardFilter || undefined, accountId: accountFilter || undefined, categoryId: categoryFilter || undefined, q: q || undefined });
+const list = await listMovements(db, workspace.id, { fromDate: bounds.from, toDate: bounds.to, cardId: cardFilter || undefined, accountId: accountFilter || undefined, categoryId: categoryFilter || undefined, q: q || undefined, batchId: batch?.id });
 const thresholdOf = (currency: string) => thresholdFor(currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
 const scopeLabel = scopedAccount ? (scopedCard ? cardDisplay({ accountName: scopedAccount.name, last4: scopedCard.last4, label: scopedCard.label }) : scopedAccount.name) : '';
 const rows = list.filter((row) => {
@@ -76,17 +82,19 @@ const rows = list.filter((row) => {
 
 const byId = new Map(categories.map((category) => [category.id, category]));
 const canWrite = workspace.role !== 'viewer';
-const messages = messagesFor(locale, ['movements.', 'common.']);
-const config = { canWrite, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
+const messages = messagesFor(locale, ['movements.', 'common.', 'import.plan.', 'validation.']);
+const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
 ---
 
 <AppLayout title={t(locale, 'movements.title')} active="spending">
   <h1>{t(locale, 'spending.title')}</h1>
   {scopedAccount && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopedAccount.name, href: `/app/cuentas/${scopedAccount.id}` }, { label: t(locale, 'movements.title') }]} />}
   <SpendingTabs active="movements" month={isMonth(period) ? period : undefined} accountId={scopedAccount?.id} />
+  {batch && <FilterChip name={t(locale, 'movements.batch.name', { name: batch.fileName })} clearHref="/app/gastos/movimientos" />}
   {scopeLabel && <FilterChip name={scopeLabel} nameHref={`/app/cuentas/${scopedAccount!.id}`} clearHref="/app/gastos/movimientos" />}
 
   <form class="card filters form-grid" method="get" action="/app/gastos/movimientos">
+    {batch && <input type="hidden" name="lote" value={batch.id} />}
     {period === 'corte' && params.get('corte') && <input type="hidden" name="corte" value={params.get('corte')!} />}
     <div class="field">
       <label for="f-period">{t(locale, 'movements.filter.period')}</label>
@@ -174,7 +182,7 @@ const config = { canWrite, categories: categories.map((c) => ({ id: c.id, name: 
                   const charge = row.chargeMinor > 0;
                   const ant = isAnt(row, thresholdOf(row.currency));
                   return (
-                    <tr data-id={row.id} data-desc={row.descriptionNorm}>
+                    <tr data-id={row.id} data-desc={row.descriptionNorm} data-name={row.description} data-amount={charge ? toInputString(row.chargeMinor, locale, row.currency) : undefined}>
                       {canWrite && <td>{charge && <label class="pick-label"><input type="checkbox" class="pick" aria-label={row.description} /></label>}</td>}
                       <td class="nowrap">{formatDate(row.date, locale)}</td>
                       <td>
@@ -183,6 +191,7 @@ const config = { canWrite, categories: categories.map((c) => ({ id: c.id, name: 
                         {row.planId && <a class="badge" href={`/app/planes/${row.planId}`}>{t(locale, 'movements.plan')}</a>}
                         {isFinance(row) && <span class="badge badge-muted">{t(locale, 'movements.finance')}</span>}
                         {ant && <span class="badge badge-muted">{t(locale, 'movements.ant')}</span>}
+                        {canWrite && charge && !row.planId && <><br /><button type="button" class="link-button convert-plan">{t(locale, 'movements.plan.convert')}</button></>}
                       </td>
                       <td class="num nowrap">{charge ? formatMinor(row.chargeMinor, row.currency, locale) : <span class="credit">+{formatMinor(row.creditMinor, row.currency, locale)}</span>}</td>
                       <td class="nowrap">{row.accountName}{row.last4 ? ` ···· ${row.last4}` : ''}</td>

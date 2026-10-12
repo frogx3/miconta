@@ -27,7 +27,8 @@
     "smoke:tags": "python3 -I scripts/smoke-tags.py",
     "smoke:budgets": "python3 -I scripts/smoke-budgets.py",
     "smoke:goals": "python3 -I scripts/smoke-goals.py",
-    "smoke:wipe": "python3 -I scripts/smoke-wipe.py"
+    "smoke:wipe": "python3 -I scripts/smoke-wipe.py",
+    "smoke:convert": "python3 -I scripts/smoke-convert.py"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.4",

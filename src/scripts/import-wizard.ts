@@ -473,7 +473,7 @@ function start(root: HTMLElement) {
       createMissingCards: state.createCards,
     });
 
-    if (status === 201 && data.counts) return renderDone(data.counts);
+    if (status === 201 && data.counts && data.batchId) return renderDone(data.counts, data.batchId);
 
     button.disabled = false;
     button.textContent = msg('import.confirm.submit');
@@ -501,7 +501,7 @@ function start(root: HTMLElement) {
     showError(errorBox, msg(map[code ?? ''] ?? 'common.error'));
   }
 
-  function renderDone(counts: Record<string, number>) {
+  function renderDone(counts: Record<string, number>, batchId: string) {
     $('#step-review').hidden = true;
     const done = $('#step-done');
     done.hidden = false;
@@ -510,7 +510,8 @@ function start(root: HTMLElement) {
       <p>${esc(msg('import.done.summary', { movements: counts.movements ?? 0, plans: counts.plansCreated ?? 0, linked: counts.installmentsLinked ?? 0, cards: counts.cardsCreated ?? 0 }))}</p>
       ${counts.categorized ? `<p class="hint">${esc(msg('import.done.categorized', { n: counts.categorized }))}</p>` : ''}
       <div class="row-actions">
-        <a class="btn btn-link" href="/app/cuentas/${esc(state.accountId)}">${esc(msg('import.done.account'))}</a>
+        <a class="btn btn-link" href="/app/gastos/movimientos?lote=${encodeURIComponent(batchId)}">${esc(msg('import.done.movements'))}</a>
+        <a href="/app/cuentas/${esc(state.accountId)}">${esc(msg('import.done.account'))}</a>
         <a href="/app/importar?cuenta=${esc(state.accountId)}">${esc(msg('import.done.again'))}</a>
         <a href="/app/importar/historial">${esc(msg('import.history'))}</a>
       </div>`;

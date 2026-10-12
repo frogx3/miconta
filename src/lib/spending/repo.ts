@@ -278,6 +278,8 @@ export interface MovementFilters {
   categoryId?: string;
   /** Texto a buscar en el concepto (ya normalizado). */
   q?: string;
+  /** Solo los movimientos de una carga de CSV. */
+  batchId?: string;
 }
 
 const MAX_LIST_ROWS = 1000;
@@ -286,6 +288,7 @@ export async function listMovements(db: Db, workspaceId: string, filters: Moveme
   const conditions = [eq(movements.workspaceId, workspaceId), gte(movements.date, filters.fromDate), lte(movements.date, filters.toDate)];
   if (filters.cardId) conditions.push(eq(movements.cardId, filters.cardId));
   if (filters.accountId) conditions.push(eq(movements.accountId, filters.accountId));
+  if (filters.batchId) conditions.push(eq(movements.batchId, filters.batchId));
   if (filters.categoryId === 'none') conditions.push(isNull(movements.categoryId));
   else if (filters.categoryId) conditions.push(eq(movements.categoryId, filters.categoryId));
   if (filters.q) {
