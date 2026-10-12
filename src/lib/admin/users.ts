@@ -68,3 +68,51 @@ export async function removeUserWorkspaces(db: Db, userId: string): Promise<void
   }
   await db.batch(statements as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
 }
+
+export interface WipeCheck {
+  /** Espacios del usuario con más miembros: borrarlos afectaría a otras personas. */
+  sharedWorkspaces: number;
+}
+
+export async function checkWipe(db: Db, userId: string): Promise<WipeCheck> {
+  let sharedWorkspaces = 0;
+  for (const workspaceId of await workspaceIdsOf(db, userId)) {
+    const members = await db
+      .select({ userId: schema.workspaceMembers.userId })
+      .from(schema.workspaceMembers)
+      .where(eq(schema.workspaceMembers.workspaceId, workspaceId));
+    if (members.some((member) => member.userId !== userId)) sharedWorkspaces++;
+  }
+  return { sharedWorkspaces };
+}
+
+/**
+ * Borra toda la información financiera de los espacios del usuario (cuentas, tarjetas, planes, movimientos,
+ * cargas, cortes, metas, categorías y etiquetas) conservando el usuario, su membresía y el espacio con su
+ * configuración. Debe llamarse solo si `checkWipe` no encontró espacios compartidos. El orden respeta las
+ * llaves foráneas (`restrict`) y el lote es atómico.
+ */
+export async function wipeUserData(db: Db, userId: string): Promise<void> {
+  const workspaceIds = await workspaceIdsOf(db, userId);
+  if (workspaceIds.length === 0) return;
+  const s = schema;
+  const statements: BatchItem<'sqlite'>[] = [
+    db.delete(s.planEvents).where(inArray(s.planEvents.workspaceId, workspaceIds)),
+    db.delete(s.movements).where(inArray(s.movements.workspaceId, workspaceIds)),
+    db.delete(s.planTags).where(
+      inArray(s.planTags.planId, db.select({ id: s.plans.id }).from(s.plans).where(inArray(s.plans.workspaceId, workspaceIds))),
+    ),
+    db.delete(s.goalEntries).where(inArray(s.goalEntries.workspaceId, workspaceIds)),
+    db.delete(s.goals).where(inArray(s.goals.workspaceId, workspaceIds)),
+    db.delete(s.plans).where(inArray(s.plans.workspaceId, workspaceIds)),
+    db.delete(s.categoryRules).where(inArray(s.categoryRules.workspaceId, workspaceIds)),
+    db.delete(s.categories).where(inArray(s.categories.workspaceId, workspaceIds)),
+    db.delete(s.tags).where(inArray(s.tags.workspaceId, workspaceIds)),
+    db.delete(s.statementCutoffs).where(inArray(s.statementCutoffs.workspaceId, workspaceIds)),
+    db.delete(s.importBatches).where(inArray(s.importBatches.workspaceId, workspaceIds)),
+    db.delete(s.importProfiles).where(inArray(s.importProfiles.workspaceId, workspaceIds)),
+    db.delete(s.cards).where(inArray(s.cards.workspaceId, workspaceIds)),
+    db.delete(s.accounts).where(inArray(s.accounts.workspaceId, workspaceIds)),
+  ];
+  await db.batch(statements as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+}

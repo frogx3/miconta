@@ -4,7 +4,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
 import { user as userTable } from '../../../db/schema';
 import { t, type MessageKey } from '../../../i18n/messages';
-import { checkDeletion } from '../../../lib/admin/users';
+import { checkDeletion, checkWipe } from '../../../lib/admin/users';
 import { getDb } from '../../../lib/auth';
 import { SUPPORTED_LOCALES } from '../../../lib/locale';
 
@@ -16,7 +16,8 @@ if (!target) return Astro.redirect('/admin');
 
 const isSelf = target.id === current.id;
 const { deletable } = await checkDeletion(getDb(), target.id);
-const keys: MessageKey[] = ['admin.delete.error', 'auth.working', 'admin.edit.save', 'admin.edit.saved', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail'];
+const { sharedWorkspaces } = await checkWipe(getDb(), target.id);
+const keys: MessageKey[] = ['admin.delete.error', 'admin.wipe.error', 'admin.wipe.done', 'auth.working', 'admin.edit.save', 'admin.edit.saved', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail'];
 const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
 ---
 
@@ -65,6 +66,28 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
     >
       {t(locale, target.banned ? 'admin.edit.reactivate' : 'admin.edit.suspend')}
     </button>
+  </section>
+
+  <section class="card">
+    <h2>{t(locale, 'admin.wipe.title')}</h2>
+    {
+      isSelf ? (
+        <p class="hint">{t(locale, 'admin.wipe.self')}</p>
+      ) : sharedWorkspaces > 0 ? (
+        <p class="hint">{t(locale, 'admin.wipe.shared')}</p>
+      ) : (
+        <>
+          <p class="hint">{t(locale, 'admin.wipe.note')}</p>
+          <div class="field">
+            <label for="wipe-confirm-email">{t(locale, 'admin.delete.confirmLabel', { email: target.email })}</label>
+            <input id="wipe-confirm-email" type="text" autocomplete="off" data-expected={target.email} />
+          </div>
+          <button id="wipe-data" class="btn btn-danger" type="button" data-user-id={target.id} disabled>
+            {t(locale, 'admin.wipe.submit')}
+          </button>
+        </>
+      )
+    }
   </section>
 
   <section class="card">
@@ -156,6 +179,29 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
       errorBox.textContent = messages['admin.delete.error']!;
       errorBox.hidden = false;
       deleteButton.disabled = false;
+    });
+  }
+
+  const wipeInput = document.querySelector<HTMLInputElement>('#wipe-confirm-email');
+  const wipeButton = document.querySelector<HTMLButtonElement>('#wipe-data');
+  if (wipeInput && wipeButton) {
+    wipeInput.addEventListener('input', () => {
+      wipeButton.disabled = wipeInput.value.trim().toLowerCase() !== wipeInput.dataset.expected!.toLowerCase();
+    });
+    wipeButton.addEventListener('click', async () => {
+      wipeButton.disabled = true;
+      errorBox.hidden = true;
+      doneBox.hidden = true;
+      const response = await fetch(`/api/admin/users/${wipeButton.dataset.userId}/data`, { method: 'DELETE' });
+      if (response.ok) {
+        wipeInput.value = '';
+        doneBox.textContent = messages['admin.wipe.done']!;
+        doneBox.hidden = false;
+        return;
+      }
+      errorBox.textContent = messages['admin.wipe.error']!;
+      errorBox.hidden = false;
+      wipeButton.disabled = false;
     });
   }
 </script>
