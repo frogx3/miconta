@@ -14,7 +14,7 @@ export function cutoffInMonth(cutoffDay: number, month: string): string {
   return `${month}-${pad(Math.min(cutoffDay, lastDay))}`;
 }
 
-function addDays(iso: string, days: number): string {
+export function addDays(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
@@ -61,6 +61,52 @@ export function statementPeriod(cutoffDay: number, paymentDueDay: number | null,
   // El pago cae en el mismo mes del corte si su día es posterior; si no, al mes siguiente.
   const dueMonth = paymentDueDay !== null && paymentDueDay <= Number(cutoff.slice(8)) ? shiftMonth(month, 1) : month;
   return { cutoff, from, to: cutoff, dueDate: paymentDueDay === null ? null : cutoffInMonth(paymentDueDay, dueMonth), open: cutoff > todayISO, recorded };
+}
+
+/** Fecha límite de pago de un corte: el mismo mes si el día de pago es posterior al del corte, si no, el mes siguiente. */
+export function dueDateFor(paymentDueDay: number | null, cutoff: string): string | null {
+  if (paymentDueDay === null) return null;
+  const month = cutoff.slice(0, 7);
+  return cutoffInMonth(paymentDueDay, paymentDueDay <= Number(cutoff.slice(8)) ? shiftMonth(month, 1) : month);
+}
+
+/** Un corte real (capturado del estado de cuenta) con su periodo ya resuelto. */
+export interface RealCut {
+  /** Mes en que cierra; es el nombre del corte ("Corte Agosto" = el que cierra en agosto). */
+  month: string;
+  cutoff: string;
+  from: string;
+  to: string;
+  dueDate: string | null;
+  recorded: RecordedCutoff;
+}
+
+/**
+ * Cortes reales de una cuenta, del más antiguo al más reciente. El primer día es el que se capturó o, si no, el día
+ * siguiente al corte real anterior; solo el primer corte sin inicio capturado se estima con el día de corte de la
+ * tarjeta (si no hay, abarca desde el principio). Nunca se inventan cortes que nadie capturó.
+ */
+export function realCuts(list: readonly RecordedCutoff[], cutoffDay: number | null, paymentDueDay: number | null): RealCut[] {
+  const sorted = [...list].sort((a, b) => a.cutoffDate.localeCompare(b.cutoffDate));
+  return sorted.map((record, index) => {
+    const previous = sorted[index - 1];
+    const month = monthOf(record.cutoffDate);
+    const estimatedStart = cutoffDay !== null ? addDays(cutoffInMonth(cutoffDay, shiftMonth(month, -1)), 1) : '0000-01-01';
+    return {
+      month,
+      cutoff: record.cutoffDate,
+      from: record.startDate ?? (previous ? addDays(previous.cutoffDate, 1) : estimatedStart),
+      to: record.cutoffDate,
+      dueDate: dueDateFor(paymentDueDay, record.cutoffDate),
+      recorded: record,
+    };
+  });
+}
+
+/** Lo que va desde el último corte real hasta hoy: el periodo en curso, sin fecha de cierre conocida. */
+export function sinceLastCut(cuts: readonly RealCut[]): { from: string } | null {
+  const last = cuts.at(-1);
+  return last ? { from: addDays(last.cutoff, 1) } : null;
 }
 
 /** Mes del corte más reciente ya ocurrido, o el siguiente si `includeOpen`. */

@@ -22,7 +22,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   return json(200, { ok: true });
 };
 
-/** Quita un corte capturado: el periodo vuelve a estimarse con el día de corte de la tarjeta. */
+/** Quita un corte capturado. */
 export const DELETE: APIRoute = async ({ request, locals }) => {
   const access = await requireWorkspaceWithBody(locals, request);
   if ('response' in access) return access.response;

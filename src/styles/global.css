@@ -2573,3 +2573,12 @@ textarea {
 .movements-table.has-pick .col-date {
   left: 2.75rem;
 }
+
+.period-edit {
+  margin-top: 0.75rem;
+}
+
+.period-edit summary {
+  cursor: pointer;
+  color: var(--muted);
+}

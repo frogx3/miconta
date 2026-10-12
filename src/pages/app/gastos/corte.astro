@@ -4,12 +4,13 @@ import SpendingTabs from '../../../components/SpendingTabs.astro';
 import { listAccounts } from '../../../lib/accounts/repo';
 import { messagesFor, t } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
-import { formatDate, todayISO } from '../../../lib/date-format';
+import { lastCutoffDate } from '../../../lib/cutoff';
+import { formatDate, formatMonthLong, todayISO } from '../../../lib/date-format';
 import { formatMinor, toInputString } from '../../../lib/money-format';
 import { listPlans } from '../../../lib/plans/repo';
-import { isMonth, shiftMonth, thresholdFor } from '../../../lib/spending/analysis';
+import { shiftMonth, thresholdFor } from '../../../lib/spending/analysis';
 import { getWorkspaceSettings, listCutoffs, movementsForAccount } from '../../../lib/spending/repo';
-import { currentCutoffMonth, recordsByMonth, statementPeriod, summarizeStatement } from '../../../lib/spending/statement';
+import { cutoffInMonth, realCuts, sinceLastCut, summarizeStatement } from '../../../lib/spending/statement';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -17,52 +18,85 @@ if (!workspace) return Astro.redirect('/login');
 const db = getDb();
 const today = todayISO();
 const params = Astro.url.searchParams;
-// El estado de cuenta es por cuenta (titular + adicionales). Hace falta una tarjeta de crédito con día de corte para estimar el periodo.
+// El estado de cuenta es por cuenta (la tarjeta física y la digital comparten corte). Hace falta una tarjeta de crédito para el día de pago y la moneda.
 const accounts = (await listAccounts(db, workspace.id))
   .map((entry) => ({ entry, credit: entry.cards.filter((card) => card.kind === 'credit' && card.cutoffDay !== null && !card.archivedAt) }))
   .filter((item) => item.credit.length > 0);
 const selected = accounts.find((item) => item.entry.id === params.get('cuenta')) ?? accounts[0];
 const account = selected?.entry;
-// El día de corte, el pago y la moneda vienen de la primera tarjeta de crédito (la titular).
+// El día de pago y la moneda vienen de la primera tarjeta de crédito (la titular).
 const primary = selected?.credit[0];
 const canWrite = workspace.role !== 'viewer';
 
-let view: null | {
-  month: string;
-  period: ReturnType<typeof statementPeriod>;
-  summary: ReturnType<typeof summarizeStatement>;
+/**
+ * Los cortes son los reales: los que se capturaron al cargar un CSV, en el historial de cargas o aquí. No se estiman con el
+ * día de corte de la tarjeta porque los bancos lo mueven. Además de cada corte hay un periodo "en curso": lo que va desde el
+ * último corte real, sin fecha de cierre conocida.
+ */
+type StatementView = {
+  key: string;
+  kind: 'cut' | 'open' | 'none';
+  from: string | null;
+  to: string | null;
+  cutoff: string | null;
+  dueDate: string | null;
+  recorded: { startDate: string | null; officialPayMinor: number | null } | null;
+  recordId: string;
+  /** Fecha de corte sugerida para el formulario de captura. */
+  suggestedCutoff: string;
+  summary: ReturnType<typeof summarizeStatement> | null;
   thresholdMinor: number;
   planNames: Map<string, string>;
-  cutoffs: Awaited<ReturnType<typeof listCutoffs>>;
-  latestMonth: string;
-} = null;
+  prev: string | null;
+  next: string | null;
+};
+let view: StatementView | null = null;
 
 if (account && primary) {
-  const cutoffs = await listCutoffs(db, workspace.id, account.id);
-  const records = recordsByMonth(cutoffs);
-  const latestClosed = currentCutoffMonth(primary.cutoffDay!, today, false, records);
-  const latestMonth = shiftMonth(latestClosed, 1);
+  const records = await listCutoffs(db, workspace.id, account.id);
+  const cuts = realCuts(records, primary.cutoffDay, primary.paymentDueDay);
+  const since = sinceLastCut(cuts);
+  const items = [...cuts.map((cut) => cut.month), ...(since ? ['actual'] : [])];
   const requested = params.get('corte');
-  // Se puede navegar hasta el corte en curso (el siguiente al último cerrado), no más allá.
-  const month = isMonth(requested) && requested <= latestMonth ? requested : latestClosed;
-  const period = statementPeriod(primary.cutoffDay!, primary.paymentDueDay, month, today, records);
+  const key = items.includes(requested ?? '') ? requested! : (cuts.at(-1)?.month ?? '');
+  const index = items.indexOf(key);
+  const cut = cuts.find((entry) => entry.month === key);
+  const kind = cut ? 'cut' : since && key === 'actual' ? 'open' : 'none';
+  const from = cut?.from ?? (kind === 'open' ? since!.from : null);
+  const to = cut?.to ?? (kind === 'open' ? '9999-12-31' : null);
   const [rows, settings, plans] = await Promise.all([
-    movementsForAccount(db, workspace.id, account.id, primary.currency, period.from, period.to),
+    from && to ? movementsForAccount(db, workspace.id, account.id, primary.currency, from, to) : Promise.resolve([]),
     getWorkspaceSettings(db, workspace.id),
     listPlans(db, workspace.id),
   ]);
   const thresholdMinor = thresholdFor(primary.currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
-  view = { month, period, summary: summarizeStatement(rows, thresholdMinor), thresholdMinor, planNames: new Map(plans.map((plan) => [plan.id, plan.name])), cutoffs, latestMonth };
+  const lastCut = cuts.at(-1);
+  view = {
+    key,
+    kind,
+    from,
+    to: cut?.to ?? null,
+    cutoff: cut?.cutoff ?? null,
+    dueDate: cut?.dueDate ?? null,
+    recorded: cut?.recorded ?? null,
+    recordId: records.find((record) => record.cutoffDate === cut?.cutoff)?.id ?? '',
+    // Sin cortes, el último día de corte según la tarjeta; con ellos, el mes siguiente al último corte real.
+    suggestedCutoff: cut?.cutoff ?? (lastCut ? cutoffInMonth(primary.cutoffDay!, shiftMonth(lastCut.month, 1)) : lastCutoffDate(primary.cutoffDay!, today)),
+    summary: from && to ? summarizeStatement(rows, thresholdMinor) : null,
+    thresholdMinor,
+    planNames: new Map(plans.map((plan) => [plan.id, plan.name])),
+    prev: index > 0 ? items[index - 1]! : null,
+    next: index >= 0 && index < items.length - 1 ? items[index + 1]! : null,
+  };
 }
 
 const currency = primary?.currency ?? workspace.defaultCurrency;
 const accountQuery = account ? `cuenta=${account.id}&` : '';
-const prev = view ? shiftMonth(view.month, -1) : '';
-const next = view ? shiftMonth(view.month, 1) : '';
-const hasNext = view !== null && next <= view.latestMonth;
 const money = (minor: number) => formatMinor(minor, currency, locale);
-const official = view?.period.recorded?.officialPayMinor ?? null;
+const official = view?.recorded?.officialPayMinor ?? null;
 const messages = messagesFor(locale, ['statement.', 'validation.', 'common.']);
+const periodLabel = view?.kind === 'cut' ? t(locale, 'statement.period', { from: formatDate(view.from!, locale), to: formatDate(view.to!, locale) }) : view?.kind === 'open' ? `${t(locale, 'movements.period.sinceLast')} · ${t(locale, 'movements.period.from', { from: formatDate(view.from!, locale) })}` : '';
+const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName', { month: formatMonthLong(view.key, locale) }) : '';
 ---
 
 <AppLayout title={t(locale, 'statement.title')} active="spending">
@@ -91,19 +125,25 @@ const messages = messagesFor(locale, ['statement.', 'validation.', 'common.']);
           </form>
         )}
 
-        <div class="month-nav">
-          <a href={`/app/gastos/corte?${accountQuery}corte=${prev}`} aria-label={t(locale, 'statement.prev')}>←</a>
-          <strong>{t(locale, 'statement.period', { from: formatDate(view.period.from, locale), to: formatDate(view.period.to, locale) })}</strong>
-          {hasNext ? <a href={`/app/gastos/corte?${accountQuery}corte=${next}`} aria-label={t(locale, 'statement.next')}>→</a> : <span class="muted">→</span>}
-          {view.period.open && <span class="badge">{t(locale, 'statement.open')}</span>}
-          <span class:list={['badge', !view.period.recorded && 'badge-muted']}>{t(locale, view.period.recorded ? 'statement.real' : 'statement.estimated')}</span>
-        </div>
-        <p class="muted">{t(locale, 'statement.scope', { account: account.name, count: String(selected!.entry.cards.filter((card) => !card.archivedAt).length) })}</p>
-        {view.period.open && <p class="hint">{t(locale, 'statement.openNote')}</p>}
-        {!view.period.recorded && <p class="hint">{t(locale, 'statement.estimatedNote', { day: String(primary.cutoffDay) })}</p>}
+        {
+          view.kind !== 'none' ? (
+            <>
+              <div class="month-nav">
+                {view.prev ? <a href={`/app/gastos/corte?${accountQuery}corte=${view.prev}`} aria-label={t(locale, 'statement.prev')}>←</a> : <span class="muted">←</span>}
+                <strong>{cutTitle && `${cutTitle} · `}{periodLabel}</strong>
+                {view.next ? <a href={`/app/gastos/corte?${accountQuery}corte=${view.next}`} aria-label={t(locale, 'statement.next')}>→</a> : <span class="muted">→</span>}
+                {view.kind === 'open' && <span class="badge">{t(locale, 'statement.open')}</span>}
+              </div>
+              <p class="muted">{t(locale, 'statement.scope', { account: account.name, count: String(selected!.entry.cards.filter((card) => !card.archivedAt).length) })}</p>
+              {view.kind === 'open' && <p class="hint">{t(locale, 'statement.openNote')}</p>}
+            </>
+          ) : (
+            <section class="card"><p class="empty">{t(locale, 'statement.noCuts')}</p></section>
+          )
+        }
 
         {
-          view.summary.chargeCount === 0 && view.summary.creditsMinor === 0 ? (
+          view.summary === null ? null : view.summary.chargeCount === 0 && view.summary.creditsMinor === 0 ? (
             <section class="card"><p class="empty">{t(locale, 'statement.empty')}</p></section>
           ) : (
             <section class="card">
@@ -112,7 +152,7 @@ const messages = messagesFor(locale, ['statement.', 'validation.', 'common.']);
                   <span class="muted">{t(locale, 'statement.pay')}</span>
                   <strong>{money(view.summary.chargesMinor)}</strong>
                   <span class="hint">{t(locale, 'statement.payHint', { n: String(view.summary.chargeCount) })}</span>
-                  {view.period.dueDate && <span class="hint"><strong>{t(locale, 'statement.due', { date: formatDate(view.period.dueDate, locale) })}</strong></span>}
+                  {view.dueDate && <span class="hint"><strong>{t(locale, 'statement.due', { date: formatDate(view.dueDate, locale) })}</strong></span>}
                 </div>
                 {official !== null && (
                   <div class="stat">
@@ -177,28 +217,28 @@ const messages = messagesFor(locale, ['statement.', 'validation.', 'common.']);
               }
 
               <p class="row-actions">
-                <a class="touch-link" href={`/app/gastos/movimientos?mes=corte:${view.month}&filtro=a:${account.id}`}>{t(locale, 'statement.viewMovements')} →</a>
+                <a class="touch-link" href={`/app/gastos/movimientos?mes=corte:${view.key}&filtro=a:${account.id}`}>{t(locale, 'statement.viewMovements')} →</a>
               </p>
             </section>
           )
         }
 
         {canWrite && (
-          <section class="card" id="cutoff" data-messages={JSON.stringify(messages)} data-account-id={account.id} data-record-id={view.cutoffs.find((c) => c.cutoffDate === view.period.cutoff)?.id ?? ''}>
-            <h2>{t(locale, 'statement.real.title')}</h2>
+          <section class="card" id="cutoff" data-messages={JSON.stringify(messages)} data-account-id={account.id} data-record-id={view.recordId}>
+            <h2>{t(locale, view.kind === 'cut' ? 'statement.real.title' : 'statement.real.titleNew')}</h2>
             <p class="hint">{t(locale, 'statement.real.hint')}</p>
             <div id="cutoff-done" class="alert ok" role="status" hidden />
             <div id="cutoff-error" class="alert" role="alert" hidden />
             <form id="cutoff-form" class="form-grid" novalidate>
               <div class="field narrow">
                 <label for="cutoffDate">{t(locale, 'statement.real.cutoff')}</label>
-                <input id="cutoffDate" name="cutoffDate" type="date" required value={view.period.cutoff} />
+                <input id="cutoffDate" name="cutoffDate" type="date" required value={view.suggestedCutoff} />
                 <span class="field-error" data-error-for="cutoffDate" />
               </div>
               <div class="field narrow">
                 <label for="startDate">{t(locale, 'statement.real.start')}</label>
-                <input id="startDate" name="startDate" type="date" value={view.period.recorded?.startDate ?? ''} />
-                <span class="hint">{t(locale, 'statement.real.startHint', { date: formatDate(view.period.from, locale) })}</span>
+                <input id="startDate" name="startDate" type="date" value={view.recorded?.startDate ?? ''} />
+                <span class="hint">{view.from ? t(locale, 'statement.real.startHint', { date: formatDate(view.from, locale) }) : t(locale, 'statement.real.startNone')}</span>
                 <span class="field-error" data-error-for="startDate" />
               </div>
               <div class="field narrow">
@@ -208,7 +248,7 @@ const messages = messagesFor(locale, ['statement.', 'validation.', 'common.']);
               </div>
               <div class="form-actions">
                 <button class="btn btn-auto" type="submit">{t(locale, 'statement.real.save')}</button>
-                {view.period.recorded && <button class="btn btn-ghost" type="button" id="cutoff-remove">{t(locale, 'statement.real.remove')}</button>}
+                {view.kind === 'cut' && <button class="btn btn-ghost" type="button" id="cutoff-remove">{t(locale, 'statement.real.remove')}</button>}
               </div>
             </form>
           </section>

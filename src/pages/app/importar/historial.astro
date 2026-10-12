@@ -15,7 +15,7 @@ const canWrite = workspace.role !== 'viewer';
 
 // Para la última carga aplicada de cada tarjeta se calcula, sin tocar nada, qué pasaría al deshacerla.
 const previews = new Map(await Promise.all(batches.filter((batch) => batch.isLatest).map(async (batch) => [batch.id, await previewRevert(db, workspace.id, batch.id)] as const)));
-const messages = messagesFor(locale, ['batches.', 'common.']);
+const messages = messagesFor(locale, ['batches.', 'common.', 'validation.']);
 const stamp = (date: Date) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(date);
 ---
 
@@ -44,7 +44,7 @@ const stamp = (date: Date) => new Intl.DateTimeFormat(locale, { dateStyle: 'medi
                     {batch.accountName}{' · '}
                     <time datetime={batch.createdAt.toISOString()} data-ts>{stamp(batch.createdAt)} UTC</time>{' · '}
                     {t(locale, 'batches.importedBy', { name: batch.createdByName })}
-                    {batch.cutoffDate && ` · ${t(locale, 'batches.cutoff', { date: formatDate(batch.cutoffDate, locale) })}`}
+                    {batch.cutoffDate && ` · ${batch.startDate ? t(locale, 'batches.period', { from: formatDate(batch.startDate, locale), to: formatDate(batch.cutoffDate, locale) }) : t(locale, 'batches.cutoff', { date: formatDate(batch.cutoffDate, locale) })}`}
                   </div>
                 </div>
                 <span class:list={['badge', reverted && 'badge-off']}>{t(locale, `batches.status.${batch.status}`)}</span>
@@ -55,6 +55,24 @@ const stamp = (date: Date) => new Intl.DateTimeFormat(locale, { dateStyle: 'medi
                 {(batch.summary?.plansCreated ?? 0) > 0 && <span class="chip">{t(locale, 'batches.plans', { n: batch.summary!.plansCreated! })}</span>}
                 {(batch.summary?.installmentsLinked ?? 0) > 0 && <span class="chip">{t(locale, 'batches.installments', { n: batch.summary!.installmentsLinked! })}</span>}
               </div>
+
+              {!reverted && canWrite && (
+                <details class="period-edit">
+                  <summary>{t(locale, 'batches.period.edit')}</summary>
+                  <p class="hint">{t(locale, 'batches.period.hint')}</p>
+                  <form class="period-form form-grid" novalidate>
+                    <div class="field narrow">
+                      <label>{t(locale, 'batches.period.start')}</label>
+                      <input name="startDate" type="date" value={batch.startDate ?? ''} />
+                    </div>
+                    <div class="field narrow">
+                      <label>{t(locale, 'batches.period.cutoff')}</label>
+                      <input name="cutoffDate" type="date" value={batch.cutoffDate ?? ''} required />
+                    </div>
+                    <div class="form-actions"><button class="btn btn-small btn-auto" type="submit">{t(locale, 'batches.period.save')}</button></div>
+                  </form>
+                </details>
+              )}
 
               {reverted && batch.summary?.revert && (
                 <p class="hint">

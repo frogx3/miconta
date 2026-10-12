@@ -60,6 +60,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       fileName: typeof body.fileName === 'string' ? body.fileName.slice(0, 200) : 'import.csv',
       profile: profile.profile,
       cutoffDate: body.cutoffDate,
+      startDate: typeof body.startDate === 'string' && body.startDate ? body.startDate : null,
       planDrafts,
       confirmedMatches: confirmedMatches.map((m) => ({ planId: String(m.planId ?? ''), movementKey: String(m.movementKey ?? '') })),
       ignoreErrors: body.ignoreErrors === true,

@@ -58,6 +58,7 @@ function start(root: HTMLElement) {
     confirmed: new Set<string>(),
     filter: 'all' as 'all' | 'hints',
     cutoff: '',
+    start: '',
     ignoreErrors: false,
     createCards: true,
   };
@@ -110,6 +111,7 @@ function start(root: HTMLElement) {
     }
     state.drafts.clear();
     state.confirmed.clear();
+    state.start = '';
     state.cardDefault = '';
     state.newCard = null;
     state.showNewCard = false;
@@ -140,6 +142,7 @@ function start(root: HTMLElement) {
     if (state.cardDefault && state.cardDefault !== 'new' && !data.preview.accountCards.some((c) => c.id === state.cardDefault)) state.cardDefault = '';
     state.confirmed = new Set(data.preview.planMatches.map((m) => `${m.planId}|${m.movementKey}`));
     state.cutoff = state.cutoff || data.preview.cutoffSuggestion || '';
+    state.start = state.start || data.preview.startSuggestion || '';
     state.filter = data.preview.movements.some((m) => m.status === 'new' && m.hints.length > 0) ? 'hints' : 'all';
     state.createCards = true;
     state.ignoreErrors = false;
@@ -562,6 +565,9 @@ function start(root: HTMLElement) {
              <span>${esc(msg('import.cards.create'))}: ${esc(newCards.map((c) => `···· ${c.last4}`).join(', '))}</span></label>`
           : ''
       }
+      <div class="field narrow"><label for="start">${esc(msg('import.start'))}</label>
+        <input id="start" type="date" value="${esc(state.start)}" />
+        <span class="hint">${esc(msg('import.start.hint'))}</span></div>
       <div class="field narrow"><label for="cutoff">${esc(msg('import.cutoff'))}</label>
         <input id="cutoff" type="date" value="${esc(state.cutoff)}" required />
         <span class="hint">${esc(msg('import.cutoff.hint'))}</span></div>
@@ -569,6 +575,7 @@ function start(root: HTMLElement) {
       <button type="button" class="btn btn-auto" id="do-import" ${canImport ? '' : 'disabled'}>${esc(msg('import.confirm.submit'))}</button>`;
 
     $<HTMLInputElement>('#cutoff').addEventListener('change', (event) => (state.cutoff = (event.target as HTMLInputElement).value));
+    $<HTMLInputElement>('#start').addEventListener('change', (event) => (state.start = (event.target as HTMLInputElement).value));
     root.querySelector<HTMLInputElement>('#ignore-errors')?.addEventListener('change', (event) => {
       state.ignoreErrors = (event.target as HTMLInputElement).checked;
       renderConfirm(preview);
@@ -583,6 +590,7 @@ function start(root: HTMLElement) {
     const errorBox = $('#confirm-error');
     showError(errorBox, null);
     if (!state.cutoff) return showError(errorBox, msg('import.error.cutoff'));
+    if (state.start && state.start > state.cutoff) return showError(errorBox, msg('import.error.start'));
 
     const button = $<HTMLButtonElement>('#do-import');
     button.disabled = true;
@@ -594,6 +602,7 @@ function start(root: HTMLElement) {
       fileName: state.file!.name,
       profile: preview.profile,
       cutoffDate: state.cutoff,
+      startDate: state.start || null,
       planDrafts: drafts,
       confirmedMatches: [...state.confirmed].map((id) => {
         const [planId, movementKey] = id.split('|');
@@ -622,6 +631,7 @@ function start(root: HTMLElement) {
     const map: Record<string, string> = {
       NOTHING_TO_IMPORT: 'import.error.nothing',
       INVALID_CUTOFF: 'import.error.cutoff',
+      INVALID_START: 'import.error.start',
       ALREADY_IMPORTED: 'import.error.alreadyImported',
       ROW_ERRORS: 'import.error.rows',
       PARSE_PROBLEMS: 'import.error.parse',

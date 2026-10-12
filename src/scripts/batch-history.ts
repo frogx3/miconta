@@ -14,6 +14,28 @@ if (root) {
     box.hidden = text === null;
   };
 
+  root.querySelectorAll<HTMLFormElement>('.period-form').forEach((form) =>
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const batch = form.closest<HTMLElement>('[data-batch]')!;
+      show(errorBox, null);
+      show(doneBox, null);
+      const data = new FormData(form);
+      const response = await fetch(`/api/import/batches/${batch.dataset.batch}/period`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ cutoffDate: data.get('cutoffDate'), startDate: data.get('startDate') }),
+      });
+      if (response.ok) {
+        show(doneBox, msg('batches.period.saved'));
+        setTimeout(() => location.reload(), 800);
+        return;
+      }
+      const result = (await response.json().catch(() => null)) as { errors?: { code: string }[] } | null;
+      show(errorBox, messages[`validation.${result?.errors?.[0]?.code ?? ''}`] ?? msg('common.error'));
+    }),
+  );
+
   root.querySelectorAll<HTMLElement>('[data-toggle-revert]').forEach((button) =>
     button.addEventListener('click', () => {
       const panel = button.parentElement!.querySelector<HTMLElement>('.revert-panel')!;

@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
-import { accounts, importBatches, movements, planEvents, planTags, plans, user } from '../../db/schema';
+import { accounts, importBatches, movements, planEvents, planTags, plans, statementCutoffs, user } from '../../db/schema';
 import type { Db } from '../auth/hooks';
+import { isValidISODate } from './dates';
 import { decideRevert, type AdvancedPlanFacts, type CreatedPlanFacts, type RevertDecision } from './revert';
 import type { PlanStatus } from './types';
 
@@ -20,6 +21,8 @@ export interface BatchListItem {
   fileName: string;
   createdAt: Date;
   cutoffDate: string | null;
+  /** Primer día del periodo capturado para ese corte; nulo si empieza el día siguiente al corte anterior. */
+  startDate: string | null;
   status: 'applied' | 'reverted';
   accountId: string;
   accountName: string;
@@ -46,6 +49,9 @@ export async function listBatches(db: Db, workspaceId: string): Promise<BatchLis
     .where(eq(importBatches.workspaceId, workspaceId))
     .orderBy(desc(importBatches.createdAt), desc(sql`${importBatches}.rowid`));
 
+  const cutRows = await db.select({ accountId: statementCutoffs.accountId, cutoffDate: statementCutoffs.cutoffDate, startDate: statementCutoffs.startDate }).from(statementCutoffs).where(eq(statementCutoffs.workspaceId, workspaceId));
+  const startOf = new Map(cutRows.map((cut) => [`${cut.accountId}|${cut.cutoffDate}`, cut.startDate]));
+
   const counts = await db
     .select({ batchId: movements.batchId, n: sql<number>`count(*)` })
     .from(movements)
@@ -67,6 +73,7 @@ export async function listBatches(db: Db, workspaceId: string): Promise<BatchLis
     fileName: batch.fileName,
     createdAt: batch.createdAt,
     cutoffDate: batch.cutoffDate,
+    startDate: batch.cutoffDate ? (startOf.get(`${batch.accountId}|${batch.cutoffDate}`) ?? null) : null,
     status: batch.status,
     accountId: batch.accountId,
     accountName,
@@ -242,4 +249,42 @@ export async function revertBatch(db: Db, workspaceId: string, userId: string, b
 
   await db.batch(statements as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
   return { ok: true, ...outcome };
+}
+
+export type PeriodResult = { ok: true } | { ok: false; reason: 'not_found' | 'invalid_cutoff' | 'invalid_start' };
+
+/**
+ * Define el periodo de una carga (su estado de cuenta): la fecha de corte y, opcionalmente, el primer día. Queda como corte
+ * real de la cuenta. Si la fecha de corte cambia, el corte anterior se quita cuando no lo usa otra carga ni tiene monto oficial.
+ */
+export async function setBatchPeriod(db: Db, workspaceId: string, batchId: string, input: { cutoffDate: string; startDate: string | null }): Promise<PeriodResult> {
+  if (!isValidISODate(input.cutoffDate)) return { ok: false, reason: 'invalid_cutoff' };
+  if (input.startDate && (!isValidISODate(input.startDate) || input.startDate > input.cutoffDate)) return { ok: false, reason: 'invalid_start' };
+
+  const [batch] = await db.select().from(importBatches).where(and(eq(importBatches.id, batchId), eq(importBatches.workspaceId, workspaceId))).limit(1);
+  if (!batch) return { ok: false, reason: 'not_found' };
+
+  const statements: BatchItem<'sqlite'>[] = [
+    db.update(importBatches).set({ cutoffDate: input.cutoffDate }).where(eq(importBatches.id, batchId)),
+    db
+      .insert(statementCutoffs)
+      .values({ workspaceId, accountId: batch.accountId, cutoffDate: input.cutoffDate, startDate: input.startDate })
+      .onConflictDoUpdate({ target: [statementCutoffs.accountId, statementCutoffs.cutoffDate], set: { startDate: input.startDate } }),
+  ];
+  const previous = batch.cutoffDate;
+  if (previous && previous !== input.cutoffDate) {
+    const [shared] = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(importBatches)
+      .where(and(eq(importBatches.accountId, batch.accountId), eq(importBatches.cutoffDate, previous), eq(importBatches.status, 'applied'), sql`${importBatches.id} <> ${batchId}`));
+    if ((shared?.n ?? 0) === 0) {
+      statements.push(
+        db
+          .delete(statementCutoffs)
+          .where(and(eq(statementCutoffs.accountId, batch.accountId), eq(statementCutoffs.cutoffDate, previous), sql`${statementCutoffs.officialPayMinor} is null`)),
+      );
+    }
+  }
+  await db.batch(statements as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  return { ok: true };
 }

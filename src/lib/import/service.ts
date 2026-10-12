@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
-import { cards, importBatches, importProfiles, movements, planEvents, plans } from '../../db/schema';
+import { cards, importBatches, importProfiles, movements, planEvents, plans, statementCutoffs } from '../../db/schema';
 import type { Db } from '../auth/hooks';
 import type { AccountWithCards, Card } from '../accounts/repo';
 import { lastCutoffDate } from '../cutoff';
@@ -15,6 +15,7 @@ import { parseImport } from './parse';
 import { sanitizeProfile } from './profile-input';
 import { detectProfile, headerFingerprint } from './profile';
 import { groupedMemberKeys, paymentGroups, type PaymentGroup } from '../spending/groups';
+import { addDays } from '../spending/statement';
 import { matchPlanInstallments, planHints, scheduledDate, type InstallmentMatch, type MissingInstallment, type PlanHint, type PlanLike } from './plans';
 import type { CardKind, ImportField, ImportProfile, NormalizedMovement, RowError } from './types';
 
@@ -71,6 +72,8 @@ export interface PreviewResult {
   missingInstallments: (MissingInstallment & { planName: string })[];
   coverageEnd: string | null;
   cutoffSuggestion: string | null;
+  /** Primer día sugerido del periodo: el día siguiente al último corte real de la cuenta (nulo si aún no hay ninguno). */
+  startSuggestion: string | null;
   /** Tarjetas activas de la cuenta, para elegir a cuál pertenecen los movimientos que el archivo no identifica. */
   accountCards: { id: string; last4: string | null; kind: 'credit' | 'debit'; label: string | null }[];
   /** Movimientos nuevos que el archivo no asocia a ninguna tarjeta (sin columna de tarjeta o sin terminación). */
@@ -191,6 +194,12 @@ async function analyze(
   const { matches, missing } = matchPlanInstallments(openPlans, matchable, coverageEnd ? { coverageEnd } : {});
   const planById = new Map(openPlans.map((p) => [p.id, p]));
   const hints = planHints(fresh);
+  const [lastCut] = await db
+    .select({ cutoffDate: statementCutoffs.cutoffDate })
+    .from(statementCutoffs)
+    .where(and(eq(statementCutoffs.workspaceId, workspaceId), eq(statementCutoffs.accountId, account.id)))
+    .orderBy(desc(statementCutoffs.cutoffDate))
+    .limit(1);
   const groupInfo = (key: string): PreviewMovement['group'] => {
     const own = groups.get(key);
     if (own) return { role: 'principal', totalMinor: own.totalMinor, totalInput: toInputString(own.totalMinor, locale, currency), items: own.chargeKeys.length };
@@ -245,6 +254,7 @@ async function analyze(
     missingInstallments: missing.map((item) => ({ ...item, planName: planById.get(item.planId)!.name })),
     coverageEnd,
     cutoffSuggestion: cutoffSuggestion(account),
+    startSuggestion: lastCut ? addDays(lastCut.cutoffDate, 1) : null,
     accountCards: activeCards(account).map((card) => ({ id: card.id, last4: card.last4, kind: card.kind, label: card.label })),
     missingCard: fresh.filter((m) => !m.cardLast4).length,
   };
@@ -274,6 +284,8 @@ export interface ApplyInput {
   fileName: string;
   profile: ImportProfile;
   cutoffDate: string;
+  /** Primer día del periodo del estado de cuenta (opcional); si no se indica, es el día siguiente al corte anterior. */
+  startDate?: string | null;
   planDrafts: Record<string, unknown>[];
   confirmedMatches: { planId: string; movementKey: string }[];
   ignoreErrors: boolean;
@@ -291,7 +303,7 @@ export type ApplyResult =
       batchId: string;
       counts: { movements: number; duplicatesSkipped: number; plansCreated: number; installmentsLinked: number; cardsCreated: number; rowErrorsIgnored: number; categorized: number };
     }
-  | { ok: false; code: 'INVALID_CUTOFF' | 'PARSE_PROBLEMS' | 'ROW_ERRORS' | 'NOTHING_TO_IMPORT' | 'INVALID_MATCH' | 'INVALID_PLAN' | 'MIXED_CURRENCIES' | 'INVALID_CARD'; details?: unknown };
+  | { ok: false; code: 'INVALID_CUTOFF' | 'PARSE_PROBLEMS' | 'ROW_ERRORS' | 'NOTHING_TO_IMPORT' | 'INVALID_MATCH' | 'INVALID_PLAN' | 'MIXED_CURRENCIES' | 'INVALID_CARD' | 'INVALID_START'; details?: unknown };
 
 
 /**
@@ -301,6 +313,8 @@ export type ApplyResult =
  */
 export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): Promise<ApplyResult> {
   if (!isValidISODate(input.cutoffDate)) return { ok: false, code: 'INVALID_CUTOFF' };
+  const startDate = input.startDate || null;
+  if (startDate && (!isValidISODate(startDate) || startDate > input.cutoffDate)) return { ok: false, code: 'INVALID_START' };
 
   const { preview, fresh, openPlans, savedProfileId, groups } = await analyze(db, { ...input, profile: input.profile });
   if (preview.missingFields.length > 0) return { ok: false, code: 'PARSE_PROBLEMS', details: preview.missingFields };
@@ -431,6 +445,15 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
         createdBy: input.userId,
         summary: { rows: preview.summary, plansCreated: drafts.length, installmentsLinked: matches.length, profileSource: preview.profileSource },
       }),
+    );
+
+    // El archivo es el estado de cuenta de ese periodo: queda como corte real de la cuenta (las dos tarjetas de una cuenta,
+    // física y digital, comparten corte). Si ya había uno con esa fecha se conserva su monto oficial.
+    statements.push(
+      db
+        .insert(statementCutoffs)
+        .values({ workspaceId: input.workspaceId, accountId: input.account.id, cutoffDate: input.cutoffDate, startDate })
+        .onConflictDoUpdate({ target: [statementCutoffs.accountId, statementCutoffs.cutoffDate], set: startDate ? { startDate } : { cutoffDate: input.cutoffDate } }),
     );
 
     // Tarjetas nuevas detectadas en el archivo: heredan moneda, límite y fechas de la tarjeta de crédito de la cuenta.
