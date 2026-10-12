@@ -964,6 +964,7 @@ details.sample {
 
 .bulk-bar select,
 .row-category,
+.row-card,
 .field select {
   font: inherit;
   padding: 0.35rem 0.5rem;
@@ -2027,6 +2028,7 @@ textarea {
 }
 
 .row-category,
+.row-card,
 .bulk-bar select,
 .category-fields input[name='name'],
 .threshold-form input {
@@ -2536,4 +2538,14 @@ textarea {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.15rem 0;
+}
+
+/* Tarjeta de los movimientos al importar: el selector ocupa el ancho de su campo, como los de los formularios */
+#cards-card .field.narrow {
+  max-width: 20rem;
+}
+
+#cards-card .field select {
+  width: 100%;
+  max-width: none;
 }
