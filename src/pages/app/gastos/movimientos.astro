@@ -9,11 +9,11 @@ import { cardDisplay } from '../../../lib/accounts/format';
 import { and, eq } from 'drizzle-orm';
 import { importBatches } from '../../../db/schema';
 import { getDb } from '../../../lib/auth';
-import { formatDate, formatMonth, todayISO } from '../../../lib/date-format';
+import { formatDate, formatMonth, formatMonthLong, todayISO } from '../../../lib/date-format';
 import { formatMinor, toInputString } from '../../../lib/money-format';
 import { groupedMemberKeys, paymentGroups } from '../../../lib/spending/groups';
-import { isAnt, isFinance, isMonth, isSpend, monthBounds, thresholdFor } from '../../../lib/spending/analysis';
-import { getWorkspaceSettings, listCategories, listCutoffs, listMovements, movementMonths } from '../../../lib/spending/repo';
+import { isAnt, isFinance, isMonth, isSpend, monthBounds, monthOf, shiftMonth, thresholdFor } from '../../../lib/spending/analysis';
+import { firstMovementDate, getWorkspaceSettings, listCategories, listCutoffs, listMovements, movementMonths } from '../../../lib/spending/repo';
 import { currentCutoffMonth, recordsByMonth, statementPeriod } from '../../../lib/spending/statement';
 
 const { workspace, locale } = Astro.locals;
@@ -45,7 +45,10 @@ const scopedCard = scopedAccount?.cards.find((card) => card.id === cardFilter);
 
 // Periodo: "Por corte" (por defecto), un mes concreto o todo el historial.
 // El corte es el de la cuenta elegida; sin cuenta, el de la primera con tarjeta de crédito y día de corte.
+// Valores de `mes`: `corte:YYYY-MM` (un corte, nombrado por el mes en que cierra), `corte` (el último cerrado; admite el
+// antiguo `&corte=YYYY-MM`), `YYYY-MM` (un mes natural) o `todo`.
 const periodParam = params.get('mes') ?? (batch ? 'todo' : 'corte');
+const requestedCut = periodParam.startsWith('corte:') ? periodParam.slice(6) : params.get('corte');
 const period = periodParam === 'todo' || isMonth(periodParam) ? periodParam : 'corte';
 const withCutoff = (account: (typeof accounts)[number]) => account.cards.find((card) => card.kind === 'credit' && card.cutoffDay !== null && !card.archivedAt);
 const cutoffAccount = scopedAccount && withCutoff(scopedAccount) ? scopedAccount : accounts.find((account) => !account.archivedAt && withCutoff(account));
@@ -53,18 +56,33 @@ const cutoffCard = cutoffAccount ? withCutoff(cutoffAccount) : undefined;
 
 let bounds = { from: '0000-01-01', to: '9999-12-31' };
 let periodNote = t(locale, 'movements.range.all');
+// Cortes de la cuenta, del más reciente (el que sigue abierto) al primero con movimientos. Cada uno se nombra por el
+// mes en que cierra y puede traer movimientos del mes anterior: el corte de septiembre va del 5 de agosto al 4 de septiembre.
+let cuts: { month: string; label: string; open: boolean }[] = [];
+let activeCut = '';
+if (cutoffAccount && cutoffCard) {
+  const records = recordsByMonth(await listCutoffs(db, workspace.id, cutoffAccount.id));
+  const periodOf = (month: string) => statementPeriod(cutoffCard.cutoffDay!, cutoffCard.paymentDueDay, month, today, records);
+  const latestClosed = currentCutoffMonth(cutoffCard.cutoffDay!, today, false, records);
+  const first = await firstMovementDate(db, workspace.id);
+  let startMonth = first ? monthOf(first) : latestClosed;
+  if (first && first > periodOf(startMonth).to) startMonth = shiftMonth(startMonth, 1);
+  for (let month = shiftMonth(latestClosed, 1); month >= startMonth && cuts.length < 48; month = shiftMonth(month, -1)) {
+    const statement = periodOf(month);
+    cuts.push({ month, open: statement.open, label: t(locale, 'movements.period.cutoffOption', { month: formatMonthLong(month, locale), from: formatDate(statement.from, locale), to: formatDate(statement.to, locale) }) });
+  }
+  if (period === 'corte') {
+    activeCut = isMonth(requestedCut) ? requestedCut : latestClosed;
+    const statement = periodOf(activeCut);
+    bounds = { from: statement.from, to: statement.to };
+    periodNote = `${t(locale, 'movements.period.cutoffName', { month: formatMonthLong(activeCut, locale) })} · ${t(locale, 'statement.period', { from: formatDate(statement.from, locale), to: formatDate(statement.to, locale) })}`;
+  }
+}
 if (isMonth(period)) {
   bounds = monthBounds(period);
   periodNote = formatMonth(period, locale);
 } else if (period === 'corte') {
-  if (cutoffAccount && cutoffCard) {
-    const records = recordsByMonth(await listCutoffs(db, workspace.id, cutoffAccount.id));
-    const requested = params.get('corte');
-    const month = isMonth(requested) ? requested : currentCutoffMonth(cutoffCard.cutoffDay!, today, false, records);
-    const statement = statementPeriod(cutoffCard.cutoffDay!, cutoffCard.paymentDueDay, month, today, records);
-    bounds = { from: statement.from, to: statement.to };
-    periodNote = t(locale, 'statement.period', { from: formatDate(statement.from, locale), to: formatDate(statement.to, locale) });
-  } else {
+  if (!(cutoffAccount && cutoffCard)) {
     // Sin tarjeta de crédito con corte no hay corte que usar: se muestra todo el historial.
     periodNote = t(locale, 'movements.period.noCutoff');
   }
@@ -101,12 +119,17 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
 
   <form class="card filters form-grid" method="get" action="/app/gastos/movimientos">
     {batch && <input type="hidden" name="lote" value={batch.id} />}
-    {period === 'corte' && params.get('corte') && <input type="hidden" name="corte" value={params.get('corte')!} />}
     <div class="field">
       <label for="f-period">{t(locale, 'movements.filter.period')}</label>
       <select id="f-period" name="mes">
-        <option value="corte" selected={period === 'corte'}>{t(locale, 'movements.period.statement')}</option>
-        {months.map((entry) => <option value={entry} selected={entry === period}>{formatMonth(entry, locale)}</option>)}
+        {cuts.length > 0 && (
+          <optgroup label={t(locale, 'movements.period.statement')}>
+            {cuts.map((cut) => <option value={`corte:${cut.month}`} selected={period === 'corte' && cut.month === activeCut}>{cut.label}{cut.open ? ` · ${t(locale, 'statement.open')}` : ''}</option>)}
+          </optgroup>
+        )}
+        <optgroup label={t(locale, 'movements.period.byMonth')}>
+          {months.map((entry) => <option value={entry} selected={entry === period}>{formatMonth(entry, locale)}</option>)}
+        </optgroup>
         <option value="todo" selected={period === 'todo'}>{t(locale, 'movements.range.all')}</option>
       </select>
     </div>
@@ -171,12 +194,12 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
           )}
 
           <div class="table-scroll">
-            <table class="import-table">
+            <table class:list={['import-table', 'movements-table', canWrite && 'has-pick']}>
 <caption class="sr-only">{t(locale, 'table.sr.movements')}</caption>
               <thead>
                 <tr>
-                  {canWrite && <th scope="col"><label class="pick-label"><input type="checkbox" id="select-all" aria-label={t(locale, 'movements.selectAll')} /></label></th>}
-                  <th scope="col">{t(locale, 'movements.col.date')}</th>
+                  {canWrite && <th scope="col" class="col-pick"><label class="pick-label"><input type="checkbox" id="select-all" aria-label={t(locale, 'movements.selectAll')} /></label></th>}
+                  <th scope="col" class="col-date">{t(locale, 'movements.col.date')}</th>
                   <th scope="col">{t(locale, 'movements.col.description')}</th>
                   <th scope="col" class="num">{t(locale, 'movements.col.amount')}</th>
                   <th scope="col">{t(locale, 'movements.col.card')}</th>
@@ -190,8 +213,8 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                   const group = groups.get(row.id);
                   return (
                     <tr data-id={row.id} data-desc={row.descriptionNorm} data-name={row.description} data-amount={charge ? toInputString(group?.totalMinor ?? row.chargeMinor, locale, row.currency) : undefined} data-type={group ? 'mci' : undefined}>
-                      {canWrite && <td>{charge && <label class="pick-label"><input type="checkbox" class="pick" aria-label={row.description} /></label>}</td>}
-                      <td class="nowrap">{formatDate(row.date, locale)}</td>
+                      {canWrite && <td class="col-pick">{charge && <label class="pick-label"><input type="checkbox" class="pick" aria-label={row.description} /></label>}</td>}
+                      <td class="nowrap col-date">{formatDate(row.date, locale)}</td>
                       <td>
                         {row.description}
                         {row.reference && <><br /><span class="muted">{row.reference}</span></>}

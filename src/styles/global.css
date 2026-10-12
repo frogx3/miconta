@@ -2549,3 +2549,27 @@ textarea {
   width: 100%;
   max-width: none;
 }
+
+/*
+ * En pantallas angostas la tabla de movimientos se desliza de lado: la fecha (y la casilla de selección) se quedan
+ * fijas a la izquierda para que siempre se sepa de qué día es cada movimiento.
+ */
+.movements-table .col-date,
+.movements-table .col-pick {
+  position: sticky;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.movements-table .col-pick {
+  left: 0;
+}
+
+.movements-table .col-date {
+  left: 0;
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.movements-table.has-pick .col-date {
+  left: 2.75rem;
+}

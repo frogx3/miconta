@@ -177,7 +177,7 @@ const messages = messagesFor(locale, ['statement.', 'validation.', 'common.']);
               }
 
               <p class="row-actions">
-                <a class="touch-link" href={`/app/gastos/movimientos?mes=corte&corte=${view.month}&filtro=a:${account.id}`}>{t(locale, 'statement.viewMovements')} →</a>
+                <a class="touch-link" href={`/app/gastos/movimientos?mes=corte:${view.month}&filtro=a:${account.id}`}>{t(locale, 'statement.viewMovements')} →</a>
               </p>
             </section>
           )

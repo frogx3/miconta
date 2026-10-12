@@ -176,6 +176,12 @@ export async function movementMonths(db: Db, workspaceId: string): Promise<strin
   return rows.map((row) => row.month);
 }
 
+/** Fecha del movimiento más antiguo del espacio, o `null` si no hay ninguno. */
+export async function firstMovementDate(db: Db, workspaceId: string): Promise<string | null> {
+  const [row] = await db.select({ first: sql<string | null>`min(${movements.date})` }).from(movements).where(eq(movements.workspaceId, workspaceId));
+  return row?.first ?? null;
+}
+
 export async function movementsForAnalysis(db: Db, workspaceId: string, fromDate: string, toDate: string, accountId?: string): Promise<SpendRow[]> {
   return db
     .select({
