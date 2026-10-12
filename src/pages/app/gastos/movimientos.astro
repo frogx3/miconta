@@ -11,6 +11,7 @@ import { importBatches } from '../../../db/schema';
 import { getDb } from '../../../lib/auth';
 import { formatDate, formatMonth, todayISO } from '../../../lib/date-format';
 import { formatMinor, toInputString } from '../../../lib/money-format';
+import { groupedMemberKeys, paymentGroups } from '../../../lib/spending/groups';
 import { isAnt, isFinance, isMonth, isSpend, monthBounds, thresholdFor } from '../../../lib/spending/analysis';
 import { getWorkspaceSettings, listCategories, listCutoffs, listMovements, movementMonths } from '../../../lib/spending/repo';
 import { currentCutoffMonth, recordsByMonth, statementPeriod } from '../../../lib/spending/statement';
@@ -71,7 +72,12 @@ if (isMonth(period)) {
 const list = await listMovements(db, workspace.id, { fromDate: bounds.from, toDate: bounds.to, cardId: cardFilter || undefined, accountId: accountFilter || undefined, categoryId: categoryFilter || undefined, q: q || undefined, batchId: batch?.id });
 const thresholdOf = (currency: string) => thresholdFor(currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
 const scopeLabel = scopedAccount ? (scopedCard ? cardDisplay({ accountName: scopedAccount.name, last4: scopedCard.last4, label: scopedCard.label }) : scopedAccount.name) : '';
-const rows = list.filter((row) => {
+// Pagos a meses con intereses: el "pago requerido", los intereses y el IVA comparten referencia y se muestran como uno.
+const groups = paymentGroups(list.map((row) => ({ key: row.id, cardKey: row.cardId, reference: row.reference, descriptionNorm: row.descriptionNorm, chargeMinor: row.chargeMinor, creditMinor: row.creditMinor })));
+const hiddenInGroup = groupedMemberKeys(groups);
+const rowById = new Map(list.map((row) => [row.id, row]));
+const rows = list.filter((row) => !hiddenInGroup.has(row.id)).filter((row) => {
+  if (type === 'intereses' && groups.has(row.id)) return true;
   if (type === 'hormiga') return isAnt(row, thresholdOf(row.currency));
   if (type === 'gastos') return isSpend(row);
   if (type === 'planes') return row.planId !== null && row.chargeMinor > 0;
@@ -181,19 +187,34 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                 {rows.map((row) => {
                   const charge = row.chargeMinor > 0;
                   const ant = isAnt(row, thresholdOf(row.currency));
+                  const group = groups.get(row.id);
                   return (
-                    <tr data-id={row.id} data-desc={row.descriptionNorm} data-name={row.description} data-amount={charge ? toInputString(row.chargeMinor, locale, row.currency) : undefined}>
+                    <tr data-id={row.id} data-desc={row.descriptionNorm} data-name={row.description} data-amount={charge ? toInputString(group?.totalMinor ?? row.chargeMinor, locale, row.currency) : undefined} data-type={group ? 'mci' : undefined}>
                       {canWrite && <td>{charge && <label class="pick-label"><input type="checkbox" class="pick" aria-label={row.description} /></label>}</td>}
                       <td class="nowrap">{formatDate(row.date, locale)}</td>
                       <td>
                         {row.description}
                         {row.reference && <><br /><span class="muted">{row.reference}</span></>}
                         {row.planId && <a class="badge" href={`/app/planes/${row.planId}`}>{t(locale, 'movements.plan')}</a>}
+                        {group && <span class="badge badge-muted">{t(locale, 'movements.group.badge')}</span>}
                         {isFinance(row) && <span class="badge badge-muted">{t(locale, 'movements.finance')}</span>}
-                        {ant && <span class="badge badge-muted">{t(locale, 'movements.ant')}</span>}
+                        {ant && !group && <span class="badge badge-muted">{t(locale, 'movements.ant')}</span>}
+                        {group && (
+                          <details class="payment-group">
+                            <summary>{t(locale, 'movements.group.summary', { n: group.chargeKeys.length })}</summary>
+                            <ul class="group-lines">
+                              {[row.id, ...group.chargeKeys.filter((id) => id !== row.id)].map((id) => (
+                                <li><span>{id === row.id ? t(locale, 'movements.group.required') : rowById.get(id)!.description}</span><span class="num">{formatMinor(rowById.get(id)!.chargeMinor, row.currency, locale)}</span></li>
+                              ))}
+                              {group.creditKeys.map((id) => (
+                                <li class="muted"><span>{t(locale, 'movements.group.converted')}</span><span class="num">−{formatMinor(rowById.get(id)!.creditMinor, row.currency, locale)}</span></li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
                         {canWrite && charge && !row.planId && <><br /><button type="button" class="link-button convert-plan">{t(locale, 'movements.plan.convert')}</button></>}
                       </td>
-                      <td class="num nowrap">{charge ? formatMinor(row.chargeMinor, row.currency, locale) : <span class="credit">+{formatMinor(row.creditMinor, row.currency, locale)}</span>}</td>
+                      <td class="num nowrap">{charge ? formatMinor(group?.totalMinor ?? row.chargeMinor, row.currency, locale) : <span class="credit">+{formatMinor(row.creditMinor, row.currency, locale)}</span>}</td>
                       <td class="nowrap">{row.accountName}{row.last4 ? ` ···· ${row.last4}` : ''}</td>
                       <td>
                         {charge && (canWrite ? (

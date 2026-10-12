@@ -4,6 +4,7 @@ import { accounts, cards, movements, planEvents, plans, user } from '../../db/sc
 import { cardDisplay } from '../accounts/format';
 import type { Db } from '../auth/hooks';
 import { remainingBalanceMinor } from '../import/plans';
+import { groupedMemberKeys, paymentGroups } from '../spending/groups';
 import { validatePlanDraft, type PlanFieldError, type PlanEdit } from './validation';
 
 /**
@@ -256,7 +257,9 @@ export type ConvertResult =
 /**
  * Convierte un movimiento ya cargado en un plan (la mensualidad `currentInstallment` es ese cargo). El plan va
  * a la tarjeta del cargo o, si no la trae, a la única tarjeta de crédito (o la única tarjeta) de la cuenta.
- * Los eventos quedan ligados a la carga del movimiento: si esa carga se deshace, el plan se va con ella.
+ * Si el cargo es el "pago requerido" de un pago agrupado por referencia (con intereses e IVA), todos los cargos del
+ * grupo quedan como esa mensualidad. Los eventos quedan ligados a la carga del movimiento: si esa carga se
+ * deshace, el plan se va con ella.
  */
 export async function createPlanFromMovement(
   db: Db,
@@ -273,6 +276,22 @@ export async function createPlanFromMovement(
     .limit(1);
   if (!movement) return { ok: false, reason: 'not_found' };
   if (movement.chargeMinor <= 0 || movement.planId !== null) return { ok: false, reason: 'not_convertible' };
+
+  // ¿Es parte de un pago agrupado por referencia? Solo se convierte desde el "pago requerido", y con todo el grupo.
+  let chargeIds = [movement.id];
+  if (movement.reference) {
+    const siblings = await db
+      .select({ id: movements.id, cardId: movements.cardId, reference: movements.reference, descriptionNorm: movements.descriptionNorm, chargeMinor: movements.chargeMinor, creditMinor: movements.creditMinor, planId: movements.planId })
+      .from(movements)
+      .where(and(eq(movements.workspaceId, workspaceId), eq(movements.reference, movement.reference), movement.cardId ? eq(movements.cardId, movement.cardId) : isNull(movements.cardId)));
+    const groups = paymentGroups(siblings.map((row) => ({ key: row.id, cardKey: row.cardId, reference: row.reference, descriptionNorm: row.descriptionNorm, chargeMinor: row.chargeMinor, creditMinor: row.creditMinor })));
+    if (groupedMemberKeys(groups).has(movement.id)) return { ok: false, reason: 'not_convertible' };
+    const group = groups.get(movement.id);
+    if (group) {
+      if (siblings.some((row) => group.chargeKeys.includes(row.id) && row.planId !== null)) return { ok: false, reason: 'not_convertible' };
+      chargeIds = group.chargeKeys;
+    }
+  }
 
   let cardId = movement.cardId;
   if (!cardId) {
@@ -313,7 +332,7 @@ export async function createPlanFromMovement(
     db
       .update(movements)
       .set({ planId, planInstallmentNo: draft.currentInstallment, categoryId: null })
-      .where(and(eq(movements.id, movement.id), eq(movements.workspaceId, workspaceId), isNull(movements.planId))),
+      .where(and(inArray(movements.id, chargeIds), eq(movements.workspaceId, workspaceId), isNull(movements.planId))),
     db.insert(planEvents).values({
       workspaceId,
       planId,

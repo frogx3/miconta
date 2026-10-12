@@ -98,6 +98,7 @@ if (root && root.dataset.config) {
         name: (row.dataset.name ?? '').slice(0, 60),
         matchText: firstWords(row.dataset.name ?? '', 4),
         installmentAmount: row.dataset.amount ?? '',
+        type: row.dataset.type ?? 'msi',
         currentInstallment: '1',
         totalInstallments: '12',
         totalAmount: '',
@@ -115,13 +116,14 @@ if (root && root.dataset.config) {
         <form class="plan-form form-grid" novalidate>
           <div class="field"><label>${esc(messages['import.plan.type']!)}</label><select data-plan="type">${types}</select></div>
           ${fields}
-          <div class="field" data-rate hidden><label>${esc(messages['import.plan.rate']!)}</label><input data-plan="interestRate" type="text" inputmode="decimal" /></div>
+          <div class="field" data-rate${defaults.type === 'msi' ? ' hidden' : ''}><label>${esc(messages['import.plan.rate']!)}</label><input data-plan="interestRate" type="text" inputmode="decimal" /></div>
           <div class="form-actions row-actions">
             <button type="submit" class="btn btn-small">${esc(messages['import.plan.save']!)}</button>
             <button type="button" class="btn btn-ghost btn-small" data-cancel>${esc(messages['common.cancel']!)}</button>
           </div>
         </form></td>`;
       row.insertAdjacentElement('afterend', formRow);
+      presetPlanType(formRow, defaults.type!);
 
       const form = formRow.querySelector<HTMLFormElement>('form')!;
       const read = () => {
@@ -160,3 +162,9 @@ if (root && root.dataset.config) {
 }
 
 const FIELD_LABEL: Record<string, string> = { installmentAmount: 'installment', currentInstallment: 'current', totalInstallments: 'total', totalAmount: 'totalAmount', interestRate: 'rate', matchText: 'matchText', name: 'name', type: 'type' };
+
+/** Deja elegido el tipo de plan que sugiere el movimiento (un pago agrupado con intereses es "meses con intereses"). */
+function presetPlanType(formRow: HTMLElement, type: string) {
+  const select = formRow.querySelector<HTMLElement & { value: string }>('[data-plan="type"]');
+  if (select) select.value = type;
+}

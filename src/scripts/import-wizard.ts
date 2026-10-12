@@ -271,10 +271,10 @@ function start(root: HTMLElement) {
   function newDraft(movement: PreviewMovement): Draft {
     return {
       movementKey: movement.key,
-      type: 'msi',
+      type: movement.group?.role === 'principal' ? 'mci' : 'msi',
       name: movement.description.slice(0, 60),
       matchText: firstWords(movement.description, 4),
-      installmentAmount: movement.chargeInput,
+      installmentAmount: movement.group?.role === 'principal' ? movement.group.totalInput : movement.chargeInput,
       currentInstallment: '1',
       totalInstallments: '12',
       totalAmount: '',
@@ -285,7 +285,9 @@ function start(root: HTMLElement) {
   function renderMovements(preview: PreviewResult) {
     const fresh = preview.movements.filter((m) => m.status === 'new');
     const hinted = fresh.filter((m) => m.hints.length > 0).length;
-    const shown = state.filter === 'hints' ? fresh.filter((m) => m.hints.length > 0 || state.drafts.has(m.key)) : fresh;
+    // Los renglones de un pago agrupado (intereses, IVA, compra original) se muestran dentro del "pago requerido".
+    const visible = fresh.filter((m) => m.group?.role !== 'member' && m.group?.role !== 'credit');
+    const shown = state.filter === 'hints' ? visible.filter((m) => m.hints.length > 0 || state.drafts.has(m.key)) : visible;
     const pills = hinted
       ? `<div class="chips">
            <button type="button" class="chip chip-button ${state.filter === 'all' ? 'is-on' : ''}" data-filter="all">${esc(msg('import.filter.all'))} (${fresh.length})</button>
@@ -298,7 +300,8 @@ function start(root: HTMLElement) {
     const rows = shown
       .map((m) => {
         const draft = state.drafts.get(m.key);
-        const amount = m.chargeMinor > 0 ? money(m.chargeMinor) : `<span class="credit">+${esc(money(m.creditMinor))}</span>`;
+        const group = m.group?.role === 'principal' ? m.group : null;
+        const amount = m.chargeMinor > 0 ? money(group?.totalMinor ?? m.chargeMinor) : `<span class="credit">+${esc(money(m.creditMinor))}</span>`;
         const action =
           m.chargeMinor <= 0
             ? ''
@@ -308,7 +311,7 @@ function start(root: HTMLElement) {
               : `<button type="button" class="btn btn-ghost btn-small" data-open="${esc(m.key)}">${esc(msg('import.plan.create'))}</button>`;
         const main = `<tr>
             <td class="nowrap">${esc(m.date)}</td>
-            <td>${esc(m.description)}${m.reference ? `<br /><span class="muted">${esc(m.reference)}</span>` : ''} ${hintBadges(m)}</td>
+            <td>${esc(m.description)}${m.reference ? `<br /><span class="muted">${esc(m.reference)}</span>` : ''} ${hintBadges(m)}${group ? `<br /><span class="badge badge-muted">${esc(msg('import.group.badge', { n: group.items }))}</span>` : ''}</td>
             <td class="nowrap num">${amount}</td>
             <td class="nowrap">${m.cardLast4 ? `···· ${esc(m.cardLast4)}` : ''}</td>
             <td class="actions">${action}</td></tr>`;

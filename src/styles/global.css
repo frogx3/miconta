@@ -2513,3 +2513,27 @@ textarea {
   background: var(--danger-bg);
   color: var(--danger);
 }
+
+/* Pago a meses con intereses agrupado por referencia */
+.payment-group {
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+}
+
+.payment-group summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.group-lines {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.group-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.15rem 0;
+}

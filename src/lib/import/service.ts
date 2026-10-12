@@ -13,6 +13,7 @@ import { isValidISODate } from './dates';
 import { parseImport } from './parse';
 import { sanitizeProfile } from './profile-input';
 import { detectProfile, headerFingerprint } from './profile';
+import { groupedMemberKeys, paymentGroups, type PaymentGroup } from '../spending/groups';
 import { matchPlanInstallments, planHints, scheduledDate, type InstallmentMatch, type MissingInstallment, type PlanHint, type PlanLike } from './plans';
 import type { CardKind, ImportField, ImportProfile, NormalizedMovement, RowError } from './types';
 
@@ -39,6 +40,11 @@ export interface PreviewMovement {
   cardKind: CardKind | null;
   status: 'new' | 'duplicate';
   hints: PlanHint[];
+  /**
+   * Pago a meses con intereses repartido en varios renglones con la misma referencia. El principal ("pago requerido")
+   * lleva el total y es desde donde se crea el plan; los demás renglones se muestran dentro de él.
+   */
+  group: { role: 'principal'; totalMinor: number; totalInput: string; items: number } | { role: 'member' | 'credit'; principalKey: string } | null;
 }
 
 export interface PreviewResult {
@@ -113,6 +119,8 @@ interface Analysis {
   fresh: NormalizedMovement[];
   openPlans: (PlanLike & { name: string })[];
   savedProfileId: string | null;
+  /** Pagos agrupados por referencia entre los movimientos nuevos, por llave del principal. */
+  groups: Map<string, PaymentGroup>;
 }
 
 async function analyze(
@@ -171,9 +179,22 @@ async function analyze(
     firstChargeDate: p.firstChargeDate,
     status: p.status,
   }));
-  const { matches, missing } = matchPlanInstallments(openPlans, fresh, coverageEnd ? { coverageEnd } : {});
+  // Un pago agrupado (pago requerido + intereses + IVA) se empareja con la mensualidad por su total.
+  const groups = paymentGroups(fresh.map((m) => ({ key: m.uniqueKey, cardKey: m.cardLast4, reference: m.reference, descriptionNorm: m.descriptionNorm, chargeMinor: m.chargeMinor, creditMinor: m.creditMinor })));
+  const hiddenInGroup = groupedMemberKeys(groups);
+  const matchable = fresh.filter((m) => !hiddenInGroup.has(m.uniqueKey)).map((m) => ({ ...m, chargeMinor: groups.get(m.uniqueKey)?.totalMinor ?? m.chargeMinor }));
+  const { matches, missing } = matchPlanInstallments(openPlans, matchable, coverageEnd ? { coverageEnd } : {});
   const planById = new Map(openPlans.map((p) => [p.id, p]));
   const hints = planHints(fresh);
+  const groupInfo = (key: string): PreviewMovement['group'] => {
+    const own = groups.get(key);
+    if (own) return { role: 'principal', totalMinor: own.totalMinor, totalInput: toInputString(own.totalMinor, locale, currency), items: own.chargeKeys.length };
+    for (const group of groups.values()) {
+      if (group.chargeKeys.includes(key)) return { role: 'member', principalKey: group.principalKey };
+      if (group.creditKeys.includes(key)) return { role: 'credit', principalKey: group.principalKey };
+    }
+    return null;
+  };
 
   const cardMap = new Map<string, CardKind | null>();
   for (const m of parsed.movements) if (m.cardLast4 && !cardMap.has(m.cardLast4)) cardMap.set(m.cardLast4, m.cardKind);
@@ -207,6 +228,7 @@ async function analyze(
       cardKind: m.cardKind,
       status: existingKeys.has(m.uniqueKey) ? 'duplicate' : 'new',
       hints: hints.get(m.uniqueKey) ?? [],
+      group: groupInfo(m.uniqueKey),
     })),
     currency,
     mixedCurrencies: mixed,
@@ -219,7 +241,7 @@ async function analyze(
     coverageEnd,
     cutoffSuggestion: cutoffSuggestion(account),
   };
-  return { preview, fresh, openPlans, savedProfileId: saved?.id ?? null };
+  return { preview, fresh, openPlans, savedProfileId: saved?.id ?? null, groups };
 }
 
 function cutoffSuggestion(account: AccountWithCards): string | null {
@@ -268,7 +290,7 @@ export type ApplyResult =
 export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): Promise<ApplyResult> {
   if (!isValidISODate(input.cutoffDate)) return { ok: false, code: 'INVALID_CUTOFF' };
 
-  const { preview, fresh, openPlans, savedProfileId } = await analyze(db, { ...input, profile: input.profile });
+  const { preview, fresh, openPlans, savedProfileId, groups } = await analyze(db, { ...input, profile: input.profile });
   if (preview.missingFields.length > 0) return { ok: false, code: 'PARSE_PROBLEMS', details: preview.missingFields };
   if (preview.errors.length > 0 && !input.ignoreErrors) return { ok: false, code: 'ROW_ERRORS', details: preview.errors.slice(0, 20) };
   if (fresh.length === 0) return { ok: false, code: 'NOTHING_TO_IMPORT' };
@@ -290,13 +312,19 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
 
   const freshByKey = new Map(fresh.map((m) => [m.uniqueKey, m]));
   const linkByMovement = new Map<string, { planId: string; installmentNo: number }>();
+  const hiddenInGroup = groupedMemberKeys(groups);
+  // Si el movimiento es el "pago requerido" de un pago agrupado, sus intereses e IVA quedan en la misma mensualidad.
+  const linkGroup = (key: string, link: { planId: string; installmentNo: number }) => {
+    linkByMovement.set(key, link);
+    for (const memberKey of groups.get(key)?.chargeKeys ?? []) linkByMovement.set(memberKey, link);
+  };
 
   // Planes nuevos a partir de movimientos del archivo.
   const drafts: { planId: string; cardId: string; draft: PlanDraft }[] = [];
   const draftErrors: { index: number; errors: PlanFieldError[] | 'unknown_movement' | 'duplicate_movement' | 'card_required' }[] = [];
   input.planDrafts.forEach((raw, index) => {
     const movement = freshByKey.get(String(raw.movementKey ?? ''));
-    if (!movement || movement.chargeMinor <= 0) return void draftErrors.push({ index, errors: 'unknown_movement' });
+    if (!movement || movement.chargeMinor <= 0 || hiddenInGroup.has(movement.uniqueKey)) return void draftErrors.push({ index, errors: 'unknown_movement' });
     if (linkByMovement.has(movement.uniqueKey)) return void draftErrors.push({ index, errors: 'duplicate_movement' });
     // El plan va a la tarjeta que hizo el cargo; sin terminación, solo si la cuenta no deja duda.
     const cardId = (movement.cardLast4 ? cardIds.get(movement.cardLast4) : null) ?? fallbackCard;
@@ -305,7 +333,7 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
     if (!result.ok) return void draftErrors.push({ index, errors: result.errors });
     const planId = crypto.randomUUID();
     drafts.push({ planId, cardId, draft: result.value });
-    linkByMovement.set(movement.uniqueKey, { planId, installmentNo: result.value.currentInstallment });
+    linkGroup(movement.uniqueKey, { planId, installmentNo: result.value.currentInstallment });
   });
   if (draftErrors.length > 0) return { ok: false, code: 'INVALID_PLAN', details: draftErrors };
 
@@ -318,7 +346,7 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
     if (!match || linkByMovement.has(match.movementKey) || usedPlans.has(match.planId)) return { ok: false, code: 'INVALID_MATCH' };
     usedPlans.add(match.planId);
     matches.push(match);
-    linkByMovement.set(match.movementKey, { planId: match.planId, installmentNo: match.installmentNo });
+    linkGroup(match.movementKey, { planId: match.planId, installmentNo: match.installmentNo });
   }
 
   const batchId = crypto.randomUUID();
