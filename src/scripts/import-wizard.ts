@@ -22,6 +22,15 @@ interface Draft {
   interestRate: string;
 }
 
+/** Tarjeta que se crea al importar, para los movimientos que el archivo no identifica. */
+interface NewCard {
+  kind: 'credit' | 'debit';
+  last4: string;
+  label: string;
+  cutoffDay: string;
+  paymentDueDay: string;
+}
+
 const root = document.querySelector<HTMLElement>('#import-app');
 if (root) start(root);
 
@@ -40,6 +49,11 @@ function start(root: HTMLElement) {
     preview: null as PreviewResult | null,
     profile: null as ImportProfile | null,
     drafts: new Map<string, Draft>(),
+    /** Tarjeta para los movimientos que el archivo no identifica: '' = ninguna, id de una tarjeta de la cuenta o 'new'. */
+    cardDefault: '',
+    newCard: null as NewCard | null,
+    showNewCard: false,
+    cardByMovement: new Map<string, string>(),
     openForm: null as string | null,
     confirmed: new Set<string>(),
     filter: 'all' as 'all' | 'hints',
@@ -96,6 +110,10 @@ function start(root: HTMLElement) {
     }
     state.drafts.clear();
     state.confirmed.clear();
+    state.cardDefault = '';
+    state.newCard = null;
+    state.showNewCard = false;
+    state.cardByMovement.clear();
     state.openForm = null;
     await runPreview(null, errorBox);
     button.disabled = false;
@@ -118,6 +136,8 @@ function start(root: HTMLElement) {
     // Si el mapeo cambió, las llaves de los movimientos pueden haber cambiado: se conservan solo los planes que siguen vigentes.
     const live = new Set(data.preview.movements.filter((m) => m.status === 'new').map((m) => m.key));
     for (const key of [...state.drafts.keys()]) if (!live.has(key)) state.drafts.delete(key);
+    for (const key of [...state.cardByMovement.keys()]) if (!live.has(key)) state.cardByMovement.delete(key);
+    if (state.cardDefault && state.cardDefault !== 'new' && !data.preview.accountCards.some((c) => c.id === state.cardDefault)) state.cardDefault = '';
     state.confirmed = new Set(data.preview.planMatches.map((m) => `${m.planId}|${m.movementKey}`));
     state.cutoff = state.cutoff || data.preview.cutoffSuggestion || '';
     state.filter = data.preview.movements.some((m) => m.status === 'new' && m.hints.length > 0) ? 'hints' : 'all';
@@ -136,6 +156,7 @@ function start(root: HTMLElement) {
     renderMapping(preview);
     renderMatches(preview);
     renderMissing(preview);
+    renderCards(preview);
     renderMovements(preview);
     renderConfirm(preview);
   }
@@ -265,6 +286,97 @@ function start(root: HTMLElement) {
       <p class="hint">${esc(msg('import.missing.hint'))}</p>`;
   }
 
+  // Tarjeta de los movimientos que el archivo no identifica (p. ej. Banamex no trae terminación de tarjeta)
+  const cardLabel = (c: { last4: string | null; kind: 'credit' | 'debit'; label: string | null }) =>
+    `···· ${c.last4 ?? '—'}${c.label ? ` · ${c.label}` : ''} (${msg(c.kind === 'credit' ? 'import.cards.kind.credit' : 'import.cards.kind.debit')})`;
+  const cardOptions = (preview: PreviewResult, selected: string, first: [string, string]) => {
+    const items: [string, string][] = [first, ...preview.accountCards.map((c): [string, string] => [c.id, cardLabel(c)])];
+    if (state.newCard) items.push(['new', `${msg('import.cards.newOption')} ···· ${state.newCard.last4}`]);
+    return items.map(([value, label]) => `<option value="${esc(value)}"${value === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
+  };
+
+  function renderCards(preview: PreviewResult) {
+    const box = $('#cards-card');
+    box.hidden = preview.missingCard === 0;
+    if (box.hidden) return;
+    const draft = state.showNewCard ? readNewCardForm() : null;
+    const form = state.showNewCard
+      ? `<form id="new-card-form" class="form-grid" novalidate>
+          <div class="field"><label>${esc(msg('import.cards.field.kind'))}</label>
+            <select data-newcard="kind"><option value="credit"${(draft?.kind ?? 'credit') === 'credit' ? ' selected' : ''}>${esc(msg('import.cards.kind.credit'))}</option><option value="debit"${draft?.kind === 'debit' ? ' selected' : ''}>${esc(msg('import.cards.kind.debit'))}</option></select></div>
+          <div class="field"><label>${esc(msg('import.cards.field.last4'))}</label><input data-newcard="last4" type="text" inputmode="numeric" maxlength="4" value="${esc(draft?.last4 ?? '')}" /></div>
+          <div class="field"><label>${esc(msg('import.cards.field.label'))}</label><input data-newcard="label" type="text" maxlength="40" value="${esc(draft?.label ?? '')}" /></div>
+          <div class="field" data-credit-only><label>${esc(msg('import.cards.field.cutoff'))}</label><input data-newcard="cutoffDay" type="text" inputmode="numeric" maxlength="2" value="${esc(draft?.cutoffDay ?? '')}" /></div>
+          <div class="field" data-credit-only><label>${esc(msg('import.cards.field.due'))}</label><input data-newcard="paymentDueDay" type="text" inputmode="numeric" maxlength="2" value="${esc(draft?.paymentDueDay ?? '')}" /></div>
+          <div id="new-card-error" class="alert" role="alert" hidden></div>
+          <div class="form-actions row-actions">
+            <button type="submit" class="btn btn-small">${esc(msg('import.cards.use'))}</button>
+            <button type="button" class="btn btn-ghost btn-small" data-cancel-card>${esc(msg('common.cancel'))}</button>
+          </div></form>`
+      : '';
+    box.innerHTML = `
+      <h2>${esc(msg('import.cards.noneTitle'))}</h2>
+      <p class="hint">${esc(msg('import.cards.missing', { n: preview.missingCard }))}</p>
+      <div class="field narrow"><label for="card-default">${esc(msg('import.cards.default'))}</label>
+        <select id="card-default">${cardOptions(preview, state.cardDefault, ['', msg('import.cards.none')])}</select></div>
+      <div class="row-actions">
+        ${state.showNewCard ? '' : `<button type="button" class="btn btn-ghost btn-small" id="add-card">${esc(msg('import.cards.add'))}</button>`}
+        ${state.newCard && !state.showNewCard ? `<button type="button" class="link-button" id="remove-new-card">${esc(msg('import.cards.remove'))}</button>` : ''}
+      </div>
+      ${form}`;
+
+    $('#card-default').addEventListener('change', (event) => {
+      state.cardDefault = (event.target as HTMLInputElement).value;
+      renderMovements(preview);
+      renderConfirm(preview);
+    });
+    box.querySelector('#add-card')?.addEventListener('click', () => {
+      state.showNewCard = true;
+      renderCards(preview);
+    });
+    box.querySelector('#remove-new-card')?.addEventListener('click', () => {
+      state.newCard = null;
+      if (state.cardDefault === 'new') state.cardDefault = '';
+      for (const [key, value] of [...state.cardByMovement]) if (value === 'new') state.cardByMovement.delete(key);
+      renderCards(preview);
+      renderMovements(preview);
+      renderConfirm(preview);
+    });
+    const formEl = box.querySelector<HTMLFormElement>('#new-card-form');
+    if (formEl) {
+      const syncKind = () => formEl.querySelectorAll<HTMLElement>('[data-credit-only]').forEach((el) => (el.hidden = readNewCardForm().kind !== 'credit'));
+      syncKind();
+      formEl.querySelector('[data-newcard="kind"]')!.addEventListener('change', syncKind);
+      formEl.querySelector('[data-cancel-card]')!.addEventListener('click', () => {
+        state.showNewCard = false;
+        renderCards(preview);
+      });
+      formEl.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const card = readNewCardForm();
+        const fail = (key: string) => {
+          const errorBox = formEl.querySelector<HTMLElement>('#new-card-error')!;
+          errorBox.textContent = msg(key);
+          errorBox.hidden = false;
+        };
+        if (!/^\d{4}$/.test(card.last4)) return fail('import.cards.error.last4');
+        if (preview.accountCards.some((c) => c.last4 === card.last4) || preview.cards.some((c) => c.last4 === card.last4)) return fail('import.cards.error.duplicate');
+        if (card.kind === 'credit' && !(/^\d{1,2}$/.test(card.cutoffDay) && Number(card.cutoffDay) >= 1 && Number(card.cutoffDay) <= 31)) return fail('import.cards.error.cutoff');
+        state.newCard = card;
+        state.cardDefault = 'new';
+        state.showNewCard = false;
+        renderCards(preview);
+        renderMovements(preview);
+        renderConfirm(preview);
+      });
+    }
+  }
+
+  function readNewCardForm(): NewCard {
+    const value = (name: string) => (root.querySelector<HTMLElement & { value: string }>(`[data-newcard="${name}"]`)?.value ?? '').trim();
+    return { kind: value('kind') === 'debit' ? 'debit' : 'credit', last4: value('last4'), label: value('label'), cutoffDay: value('cutoffDay'), paymentDueDay: value('paymentDueDay') };
+  }
+
   // Movimientos y planes nuevos
   const firstWords = (text: string, n: number) => text.split(/\s+/).slice(0, n).join(' ');
 
@@ -280,6 +392,12 @@ function start(root: HTMLElement) {
       totalAmount: '',
       interestRate: '',
     };
+  }
+
+  function rowCardSelect(movement: PreviewMovement, preview: PreviewResult): string {
+    const current = state.cardByMovement.get(movement.key) ?? '';
+    const def = state.cardDefault === 'new' ? (state.newCard?.last4 ?? '') : preview.accountCards.find((c) => c.id === state.cardDefault)?.last4 ?? '';
+    return `<select class="row-card" data-card-key="${esc(movement.key)}" aria-label="${esc(msg('import.col.card'))}">${cardOptions(preview, current, ['', def ? `${msg('import.cards.rowDefault')} (···· ${def})` : msg('import.cards.none')])}</select>`;
   }
 
   function renderMovements(preview: PreviewResult) {
@@ -313,7 +431,7 @@ function start(root: HTMLElement) {
             <td class="nowrap">${esc(m.date)}</td>
             <td>${esc(m.description)}${m.reference ? `<br /><span class="muted">${esc(m.reference)}</span>` : ''} ${hintBadges(m)}${group ? `<br /><span class="badge badge-muted">${esc(msg('import.group.badge', { n: group.items }))}</span>` : ''}</td>
             <td class="nowrap num">${amount}</td>
-            <td class="nowrap">${m.cardLast4 ? `···· ${esc(m.cardLast4)}` : ''}</td>
+            <td class="nowrap">${m.cardLast4 ? `···· ${esc(m.cardLast4)}` : preview.missingCard > 0 ? rowCardSelect(m, preview) : ''}</td>
             <td class="actions">${action}</td></tr>`;
         return state.openForm === m.key ? main + `<tr class="plan-form-row"><td colspan="5">${planForm(m, draft ?? newDraft(m))}</td></tr>` : main;
       })
@@ -329,6 +447,13 @@ function start(root: HTMLElement) {
       ${preview.summary.duplicates ? `<p class="hint">${esc(msg('import.duplicates.note', { n: preview.summary.duplicates }))}</p>` : ''}`;
 
     const card = $('#movements-card');
+    card.querySelectorAll<HTMLElement & { value: string }>('[data-card-key]').forEach((el) =>
+      el.addEventListener('change', () => {
+        if (el.value) state.cardByMovement.set(el.dataset.cardKey!, el.value);
+        else state.cardByMovement.delete(el.dataset.cardKey!);
+        renderConfirm(preview);
+      }),
+    );
     card.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach((el) =>
       el.addEventListener('click', () => {
         state.filter = el.dataset.filter as 'all' | 'hints';
@@ -413,12 +538,14 @@ function start(root: HTMLElement) {
   function renderConfirm(preview: PreviewResult) {
     const newCards = preview.cards.filter((c) => !c.exists);
     const counts = { movements: preview.summary.fresh, plans: state.drafts.size, linked: state.confirmed.size };
+    const unassigned = preview.movements.filter((m) => m.status === 'new' && !m.cardLast4 && !state.cardByMovement.has(m.key) && !state.cardDefault).length;
     const blockedByErrors = preview.errors.length > 0 && !state.ignoreErrors;
     const canImport = counts.movements > 0 && preview.missingFields.length === 0 && !blockedByErrors && !preview.mixedCurrencies;
 
     $('#confirm-card').innerHTML = `
       <h2>${esc(msg('import.confirm.title'))}</h2>
       <div id="confirm-error" class="alert" role="alert" hidden></div>
+      ${unassigned > 0 ? `<div class="alert">${esc(msg('import.cards.unassigned', { n: unassigned }))}</div>` : ''}
       ${preview.mixedCurrencies ? `<div class="alert">${esc(msg('import.error.mixedCurrencies'))}</div>` : ''}
       ${
         preview.errors.length
@@ -474,6 +601,7 @@ function start(root: HTMLElement) {
       }),
       ignoreErrors: state.ignoreErrors,
       createMissingCards: state.createCards,
+      cardAssignment: { defaultCard: state.cardDefault || null, newCard: state.newCard, byMovement: Object.fromEntries(state.cardByMovement) },
     });
 
     if (status === 201 && data.counts && data.batchId) return renderDone(data.counts, data.batchId);
@@ -498,6 +626,7 @@ function start(root: HTMLElement) {
       ROW_ERRORS: 'import.error.rows',
       PARSE_PROBLEMS: 'import.error.parse',
       INVALID_MATCH: 'import.error.match',
+      INVALID_CARD: 'import.error.card',
       FILE_TOO_LARGE: 'import.error.fileTooLarge',
       MIXED_CURRENCIES: 'import.error.mixedCurrencies',
     };

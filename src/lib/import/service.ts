@@ -5,6 +5,7 @@ import type { Db } from '../auth/hooks';
 import type { AccountWithCards, Card } from '../accounts/repo';
 import { lastCutoffDate } from '../cutoff';
 import { currencyDigits, toInputString } from '../money-format';
+import { validateCardInput, type CardInput } from '../accounts/validation';
 import { validatePlanDraft, type PlanDraft, type PlanFieldError } from '../plans/validation';
 import { matchCategory } from '../spending/categorize';
 import { loadRules } from '../spending/repo';
@@ -70,6 +71,10 @@ export interface PreviewResult {
   missingInstallments: (MissingInstallment & { planName: string })[];
   coverageEnd: string | null;
   cutoffSuggestion: string | null;
+  /** Tarjetas activas de la cuenta, para elegir a cuál pertenecen los movimientos que el archivo no identifica. */
+  accountCards: { id: string; last4: string | null; kind: 'credit' | 'debit'; label: string | null }[];
+  /** Movimientos nuevos que el archivo no asocia a ninguna tarjeta (sin columna de tarjeta o sin terminación). */
+  missingCard: number;
 }
 
 export class ImportInputError extends Error {
@@ -240,6 +245,8 @@ async function analyze(
     missingInstallments: missing.map((item) => ({ ...item, planName: planById.get(item.planId)!.name })),
     coverageEnd,
     cutoffSuggestion: cutoffSuggestion(account),
+    accountCards: activeCards(account).map((card) => ({ id: card.id, last4: card.last4, kind: card.kind, label: card.label })),
+    missingCard: fresh.filter((m) => !m.cardLast4).length,
   };
   return { preview, fresh, openPlans, savedProfileId: saved?.id ?? null, groups };
 }
@@ -271,6 +278,11 @@ export interface ApplyInput {
   confirmedMatches: { planId: string; movementKey: string }[];
   ignoreErrors: boolean;
   createMissingCards: boolean;
+  /**
+   * Tarjeta de los movimientos que el archivo no identifica. `defaultCard` es el id de una tarjeta de la cuenta o
+   * `'new'` (la que describe `newCard`); `byMovement` la cambia movimiento por movimiento (llave única -> id o `'new'`).
+   */
+  cardAssignment?: { defaultCard: string | null; newCard: Record<string, unknown> | null; byMovement: Record<string, string> };
 }
 
 export type ApplyResult =
@@ -279,7 +291,7 @@ export type ApplyResult =
       batchId: string;
       counts: { movements: number; duplicatesSkipped: number; plansCreated: number; installmentsLinked: number; cardsCreated: number; rowErrorsIgnored: number; categorized: number };
     }
-  | { ok: false; code: 'INVALID_CUTOFF' | 'PARSE_PROBLEMS' | 'ROW_ERRORS' | 'NOTHING_TO_IMPORT' | 'INVALID_MATCH' | 'INVALID_PLAN' | 'MIXED_CURRENCIES'; details?: unknown };
+  | { ok: false; code: 'INVALID_CUTOFF' | 'PARSE_PROBLEMS' | 'ROW_ERRORS' | 'NOTHING_TO_IMPORT' | 'INVALID_MATCH' | 'INVALID_PLAN' | 'MIXED_CURRENCIES' | 'INVALID_CARD'; details?: unknown };
 
 
 /**
@@ -310,6 +322,37 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
   }
   const fallbackCard = defaultCardId(input.account);
 
+  // Tarjeta elegida por el usuario para lo que el archivo no identifica: una existente o una nueva que se crea al importar.
+  const assignment = input.cardAssignment ?? { defaultCard: null, newCard: null, byMovement: {} };
+  let explicitCard: { id: string; input: CardInput } | null = null;
+  if (assignment.newCard) {
+    const validated = validateCardInput({ ...assignment.newCard, currency }, input.locale);
+    const taken = cardIds.has(String(assignment.newCard.last4 ?? '').trim());
+    if (!validated.ok) return { ok: false, code: 'INVALID_CARD', details: validated.errors };
+    if (taken) return { ok: false, code: 'INVALID_CARD', details: [{ field: 'last4', code: 'duplicate' }] };
+    explicitCard = { id: crypto.randomUUID(), input: validated.value };
+  }
+  const activeIds = new Set(activeCards(input.account).map((card) => card.id));
+  const resolveCard = (token: string | null | undefined): string | null | 'invalid' => {
+    if (!token) return null;
+    if (token === 'new') return explicitCard?.id ?? 'invalid';
+    return activeIds.has(token) ? token : 'invalid';
+  };
+  const defaultAssigned = resolveCard(assignment.defaultCard);
+  const freshKeys = new Set(fresh.map((m) => m.uniqueKey));
+  const overrides = new Map<string, string>();
+  for (const [key, token] of Object.entries(assignment.byMovement)) {
+    const resolved = resolveCard(token);
+    if (!freshKeys.has(key) || resolved === 'invalid' || resolved === null) return { ok: false, code: 'INVALID_CARD', details: [{ field: 'byMovement', code: 'invalid_card' }] };
+    overrides.set(key, resolved);
+  }
+  if (defaultAssigned === 'invalid') return { ok: false, code: 'INVALID_CARD', details: [{ field: 'defaultCard', code: 'invalid_card' }] };
+  /** Prioridad: lo elegido para ese movimiento, lo que dice el archivo, la tarjeta elegida para todos. */
+  const cardFor = (m: NormalizedMovement): string | null => {
+    const fromFile = m.cardLast4 ? cardIds.get(m.cardLast4) : undefined;
+    return overrides.get(m.uniqueKey) ?? fromFile ?? defaultAssigned ?? null;
+  };
+
   const freshByKey = new Map(fresh.map((m) => [m.uniqueKey, m]));
   const linkByMovement = new Map<string, { planId: string; installmentNo: number }>();
   const hiddenInGroup = groupedMemberKeys(groups);
@@ -327,7 +370,7 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
     if (!movement || movement.chargeMinor <= 0 || hiddenInGroup.has(movement.uniqueKey)) return void draftErrors.push({ index, errors: 'unknown_movement' });
     if (linkByMovement.has(movement.uniqueKey)) return void draftErrors.push({ index, errors: 'duplicate_movement' });
     // El plan va a la tarjeta que hizo el cargo; sin terminación, solo si la cuenta no deja duda.
-    const cardId = (movement.cardLast4 ? cardIds.get(movement.cardLast4) : null) ?? fallbackCard;
+    const cardId = cardFor(movement) ?? fallbackCard;
     if (!cardId) return void draftErrors.push({ index, errors: 'card_required' });
     const result = validatePlanDraft(raw, { locale: input.locale, currency, movementDate: movement.date });
     if (!result.ok) return void draftErrors.push({ index, errors: result.errors });
@@ -408,6 +451,10 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
       );
     }
 
+    if (explicitCard) {
+      statements.push(db.insert(cards).values({ id: explicitCard.id, workspaceId: input.workspaceId, accountId: input.account.id, ...explicitCard.input }));
+    }
+
     // Los planes van antes que los movimientos que los referencian (llaves foráneas).
     for (const { planId, cardId, draft } of drafts) {
       const complete = draft.currentInstallment === draft.totalInstallments;
@@ -446,7 +493,7 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
         id,
         workspaceId: input.workspaceId,
         accountId: input.account.id,
-        cardId: m.cardLast4 ? (cardIds.get(m.cardLast4) ?? null) : null,
+        cardId: cardFor(m),
         batchId,
         uniqueKey: m.uniqueKey,
         date: m.date,
@@ -528,7 +575,7 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
         duplicatesSkipped: preview.summary.duplicates,
         plansCreated: drafts.length,
         installmentsLinked: matches.length,
-        cardsCreated: newCards.length,
+        cardsCreated: newCards.length + (explicitCard ? 1 : 0),
         rowErrorsIgnored: preview.errors.length,
         categorized,
       },

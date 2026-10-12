@@ -31,6 +31,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json(400, { code: 'INVALID_REQUEST' });
   }
 
+  // Tarjeta para los movimientos que el archivo no identifica (opcional): la de todos, una nueva y las de cada movimiento.
+  const assignment = isObject(body.cardAssignment) ? body.cardAssignment : null;
+  const byMovement = assignment && isObject(assignment.byMovement) ? Object.entries(assignment.byMovement) : [];
+  if (byMovement.length > 5000 || !byMovement.every(([key, value]) => typeof value === 'string' && key.length <= 100 && value.length <= 64)) {
+    return json(400, { code: 'INVALID_REQUEST' });
+  }
+  const cardAssignment = assignment
+    ? {
+        defaultCard: typeof assignment.defaultCard === 'string' && assignment.defaultCard ? assignment.defaultCard : null,
+        newCard: isObject(assignment.newCard) ? assignment.newCard : null,
+        byMovement: Object.fromEntries(byMovement) as Record<string, string>,
+      }
+    : undefined;
+
   const db = getDb();
   const account = await getAccount(db, access.workspace.id, body.accountId);
   if (!account || account.archivedAt) return json(404, { code: 'ACCOUNT_NOT_FOUND' });
@@ -50,6 +64,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       confirmedMatches: confirmedMatches.map((m) => ({ planId: String(m.planId ?? ''), movementKey: String(m.movementKey ?? '') })),
       ignoreErrors: body.ignoreErrors === true,
       createMissingCards: body.createMissingCards !== false,
+      cardAssignment,
     });
     if (result.ok) return json(201, { batchId: result.batchId, counts: result.counts });
     return json(result.code === 'NOTHING_TO_IMPORT' ? 409 : 400, { code: result.code, details: result.details });
