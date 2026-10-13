@@ -207,10 +207,14 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                       <td>
                         {row.description}
                         {row.reference && <><br /><span class="muted">{row.reference}</span></>}
-                        {row.planId && <a class="badge" href={`/app/planes/${row.planId}`}>{t(locale, 'movements.plan')}</a>}
-                        {group && <span class="badge badge-muted">{t(locale, 'movements.group.badge')}</span>}
-                        {isFinance(row) && <span class="badge badge-muted">{t(locale, 'movements.finance')}</span>}
-                        {ant && !group && <span class="badge badge-muted">{t(locale, 'movements.ant')}</span>}
+                        {(row.planId || group || isFinance(row) || (ant && !group)) && (
+                          <div class="cell-tags">
+                            {row.planId && <a class="badge" href={`/app/planes/${row.planId}`}>{t(locale, 'movements.plan')}</a>}
+                            {group && <span class="badge badge-muted">{t(locale, 'movements.group.badge')}</span>}
+                            {isFinance(row) && <span class="badge badge-muted">{t(locale, 'movements.finance')}</span>}
+                            {ant && !group && <span class="badge badge-muted">{t(locale, 'movements.ant')}</span>}
+                          </div>
+                        )}
                         {group && (
                           <details class="payment-group">
                             <summary>{t(locale, 'movements.group.summary', { n: group.chargeKeys.length })}</summary>
@@ -224,7 +228,7 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                             </ul>
                           </details>
                         )}
-                        {canWrite && charge && !row.planId && <><br /><button type="button" class="link-button convert-plan">{t(locale, 'movements.plan.convert')}</button></>}
+                        {canWrite && charge && !row.planId && <div class="cell-tags"><button type="button" class="link-button convert-plan">{t(locale, 'movements.plan.convert')}</button></div>}
                       </td>
                       <td class="num nowrap">{charge ? formatMinor(group?.totalMinor ?? row.chargeMinor, row.currency, locale) : <span class="credit">+{formatMinor(row.creditMinor, row.currency, locale)}</span>}</td>
                       <td class="nowrap">{row.accountName}{row.last4 ? ` ···· ${row.last4}` : ''}</td>

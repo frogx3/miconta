@@ -2599,5 +2599,99 @@ textarea {
 
 .form-note {
   grid-column: 1 / -1;
-  margin: 0;
+  margin: 0 0 0.75rem;
+}
+
+/*
+ * Respiro entre acciones, etiquetas y bloques. Los controles que quedaban pegados compartían una causa: contenedores de
+ * acciones sin separación propia, etiquetas en línea sin hueco y pestañas que partían su texto.
+ */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.form-grid > .form-actions {
+  margin-top: 0;
+}
+
+.row-actions {
+  row-gap: 0.75rem;
+}
+
+/* Un grupo de etiquetas dentro de una celda o un título: se separan entre sí y del texto que las rodea */
+.cell-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.badge + .badge,
+.chip + .badge {
+  margin-left: 0.35rem;
+}
+
+.goal-head .badge {
+  margin-top: 0.15rem;
+}
+
+.goal-head > div > h3 + .chip {
+  margin-right: 0.15rem;
+}
+
+details[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
+.goal-card details,
+.period-edit {
+  margin-top: 0.75rem;
+}
+
+.period-edit {
+  margin-bottom: 0.75rem;
+}
+
+.goal-line {
+  margin: 0.4rem 0;
+}
+
+.goal-card .goal-entries + details,
+.goal-card form + details {
+  margin-top: 1rem;
+}
+
+.breadcrumb ol {
+  margin-bottom: 0.5rem;
+}
+
+/* Las pestañas no parten su texto: si no caben, se deslizan de lado */
+.subnav {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.subnav::-webkit-scrollbar {
+  display: none;
+}
+
+.subnav a {
+  flex: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 23rem) {
+  .header-actions {
+    gap: 0.5rem;
+  }
+}
+
+/* Acciones secundarias que siguen a un formulario (archivar, eliminar...): separadas del botón principal */
+form + .row-actions {
+  margin-top: 1rem;
 }
