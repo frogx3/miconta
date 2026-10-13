@@ -232,23 +232,23 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
             <p class="hint">{t(locale, 'statement.real.hint')}</p>
             <div id="cutoff-done" class="alert ok" role="status" hidden />
             <div id="cutoff-error" class="alert" role="alert" hidden />
-            <form id="cutoff-form" class="form-grid" novalidate>
-              <div class="field narrow">
+            <form id="cutoff-form" class="form-grid cutoff-form" novalidate>
+              <div class="field">
+                <label for="startDate">{t(locale, 'statement.real.start')}</label>
+                <input id="startDate" name="startDate" type="date" value={view.recorded?.startDate ?? ''} />
+                <span class="field-error" data-error-for="startDate" />
+              </div>
+              <div class="field">
                 <label for="cutoffDate">{t(locale, 'statement.real.cutoff')}</label>
                 <input id="cutoffDate" name="cutoffDate" type="date" required value={view.suggestedCutoff} />
                 <span class="field-error" data-error-for="cutoffDate" />
               </div>
-              <div class="field narrow">
-                <label for="startDate">{t(locale, 'statement.real.start')}</label>
-                <input id="startDate" name="startDate" type="date" value={view.recorded?.startDate ?? ''} />
-                <span class="hint">{view.from ? t(locale, 'statement.real.startHint', { date: formatDate(view.from, locale) }) : t(locale, 'statement.real.startNone')}</span>
-                <span class="field-error" data-error-for="startDate" />
-              </div>
-              <div class="field narrow">
+              <div class="field">
                 <label for="officialPay">{t(locale, 'statement.real.pay', { currency })}</label>
                 <input id="officialPay" name="officialPay" type="text" inputmode="decimal" value={official !== null ? toInputString(official, locale, currency) : ''} />
                 <span class="field-error" data-error-for="officialPay" />
               </div>
+              <p class="hint form-note">{view.from ? t(locale, 'statement.real.startHint', { date: formatDate(view.from, locale) }) : t(locale, 'statement.real.startNone')}</p>
               <div class="form-actions">
                 <button class="btn btn-auto" type="submit">{t(locale, 'statement.real.save')}</button>
                 {view.kind === 'cut' && <button class="btn btn-ghost" type="button" id="cutoff-remove">{t(locale, 'statement.real.remove')}</button>}

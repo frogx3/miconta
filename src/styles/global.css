@@ -2582,3 +2582,22 @@ textarea {
   cursor: pointer;
   color: var(--muted);
 }
+
+/* Formulario del corte real: tres campos en una fila (primer día, corte, pago oficial) y la explicación debajo, a todo el ancho */
+.cutoff-form {
+  align-items: start;
+}
+
+/* Las etiquetas reservan dos líneas: así los inputs quedan a la misma altura aunque una etiqueta sea larga. */
+@media (min-width: 40rem) {
+  .cutoff-form .field > label {
+    display: flex;
+    align-items: flex-end;
+    min-height: 3.2em;
+  }
+}
+
+.form-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
