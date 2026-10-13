@@ -373,16 +373,22 @@ export async function saveCutoff(db: Db, workspaceId: string, input: CutoffInput
   const inAccount = and(eq(statementCutoffs.workspaceId, workspaceId), eq(statementCutoffs.accountId, input.accountId))!;
   const [edited] = recordId ? await db.select().from(statementCutoffs).where(and(inAccount, eq(statementCutoffs.id, recordId))).limit(1) : [];
   if (recordId && !edited) return { ok: false, reason: 'not_found' };
-  const [sameMonth] = await db
+  const inMonth = await db
     .select()
     .from(statementCutoffs)
     .where(and(inAccount, sql`substr(${statementCutoffs.cutoffDate}, 1, 7) = ${month}`))
-    .limit(1);
-  if (edited && sameMonth && sameMonth.id !== edited.id) return { ok: false, reason: 'month_taken' };
+    .orderBy(asc(statementCutoffs.createdAt));
+  const target = edited ?? inMonth[0];
+  const others = inMonth.filter((record) => record.id !== target?.id);
+  // Mover un corte a un mes que ya tiene otro es un conflicto. Si el corte ya estaba en ese mes, los demás son repetidos
+  // (quedaron de cuando guardar una fecha distinta creaba otro corte): hay un corte por mes, así que se quitan.
+  if (edited && others.length > 0 && edited.cutoffDate.slice(0, 7) !== month) return { ok: false, reason: 'month_taken' };
 
-  const target = edited ?? sameMonth;
   if (target) {
-    await db.update(statementCutoffs).set({ cutoffDate: input.cutoffDate, startDate: input.startDate, officialPayMinor: input.officialPayMinor }).where(eq(statementCutoffs.id, target.id));
+    await batch(db, [
+      ...(others.length > 0 ? [db.delete(statementCutoffs).where(inArray(statementCutoffs.id, others.map((record) => record.id)))] : []),
+      db.update(statementCutoffs).set({ cutoffDate: input.cutoffDate, startDate: input.startDate, officialPayMinor: input.officialPayMinor }).where(eq(statementCutoffs.id, target.id)),
+    ]);
     // Si el corte cambió de mes, los movimientos asignados a él ya no tienen a dónde ir: vuelven a contarse por su fecha.
     if (target.cutoffDate.slice(0, 7) !== month) await clearOrphanMoves(db, workspaceId, input.accountId);
   } else {

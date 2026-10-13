@@ -189,6 +189,11 @@ html = page(f"/app/gastos/corte?cuenta={account}&corte=2026-08")
 check("la vista de Corte muestra la fecha nueva (6 ago) y el pago oficial guardado", (True, True), ("Corte Agosto 2026" in html and "6 ago 2026" in html, "$100.00" in html))
 status, body = save({"id": record, "cutoffDate": "2026-09-02", "startDate": "", "officialPay": ""})
 check("mover un corte a un mes que ya tiene otro: 400 month_taken", (400, "month_taken"), (status, body["errors"][0]["code"]))
+# Cortes repetidos del mismo mes (quedaron de cuando guardar otra fecha creaba un segundo corte): guardar uno limpia los demás.
+d1(f"INSERT INTO statement_cutoffs (id, workspace_id, account_id, cutoff_date, start_date) VALUES ('dup1', (SELECT workspace_id FROM statement_cutoffs WHERE account_id='{account}' LIMIT 1), '{account}', '2026-09-03', NULL), ('dup2', (SELECT workspace_id FROM statement_cutoffs WHERE account_id='{account}' LIMIT 1), '{account}', '2026-09-05', '2026-08-03')")
+check("preparación: septiembre tiene 3 cortes (2-sep y dos repetidos)", 3, scalar(f"SELECT count(*) FROM statement_cutoffs WHERE account_id='{account}' AND cutoff_date LIKE '2026-09%'"))
+status, body = save({"id": "dup1", "cutoffDate": "2026-09-04", "startDate": "2026-08-05", "officialPay": "28,405.54"})
+check("guardar el del 3-sep con fecha 4-sep (el caso de producción) no falla y deja un solo corte", (200, [("2026-09-04", "2026-08-05", 2840554)]), (status, [(r["cutoff_date"], r["start_date"], r["official_pay_minor"]) for r in d1(f"SELECT cutoff_date, start_date, official_pay_minor FROM statement_cutoffs WHERE account_id='{account}' AND cutoff_date LIKE '2026-09%'")]))
 check("editar un corte que no es de la cuenta: 404", 404, save({"id": "no-existe", "cutoffDate": "2026-08-06", "startDate": "", "officialPay": ""})[0])
 
 print("TODO OK" if not FAILED else "HAY FALLOS")
