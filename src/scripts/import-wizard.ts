@@ -143,7 +143,8 @@ function start(root: HTMLElement) {
     state.confirmed = new Set(data.preview.planMatches.map((m) => `${m.planId}|${m.movementKey}`));
     state.cutoff = state.cutoff || data.preview.cutoffSuggestion || '';
     state.start = state.start || data.preview.startSuggestion || '';
-    state.filter = data.preview.movements.some((m) => m.status === 'new' && m.hints.length > 0) ? 'hints' : 'all';
+    const matchedKeys = new Set(data.preview.planMatches.map((match) => match.movementKey));
+    state.filter = data.preview.movements.some((m) => m.status === 'new' && m.hints.length > 0 && !matchedKeys.has(m.key)) ? 'hints' : 'all';
     state.createCards = true;
     state.ignoreErrors = false;
     renderAll();
@@ -266,14 +267,20 @@ function start(root: HTMLElement) {
             return `<li><label class="check"><input type="checkbox" data-match="${esc(id)}" ${state.confirmed.has(id) ? 'checked' : ''} />
               <span><strong>${esc(msg('import.matches.item', { plan: match.planName, n: match.installmentNo, total: match.totalInstallments }))}</strong>
               ${match.isFinal ? `<span class="badge">${esc(msg('import.matches.final'))}</span>` : ''}<br />
-              <span class="muted">${esc(movement.date)} · ${esc(movement.description)} · ${esc(money(movement.chargeMinor))}</span></span></label></li>`;
+              <span class="muted">${esc(movement.date)} · ${esc(movement.description)} · ${esc(money(match.movementAmountMinor))}${match.amountDiffMinor > 0 ? ` (${esc(msg('import.matches.expected', { amount: money(match.amountMinor) }))})` : ''}</span></span></label></li>`;
           })
           .join('')}
       </ul>`;
     box.querySelectorAll<HTMLInputElement>('[data-match]').forEach((el) =>
       el.addEventListener('change', () => {
-        if (el.checked) state.confirmed.add(el.dataset.match!);
-        else state.confirmed.delete(el.dataset.match!);
+        const [, movementKey] = el.dataset.match!.split('|');
+        if (el.checked) {
+          state.confirmed.add(el.dataset.match!);
+          // Un cargo que ya es la mensualidad de un plan existente no puede ser además un plan nuevo.
+          state.drafts.delete(movementKey!);
+          if (state.openForm === movementKey) state.openForm = null;
+        } else state.confirmed.delete(el.dataset.match!);
+        renderMovements(preview);
         renderConfirm(preview);
       }),
     );
@@ -405,10 +412,13 @@ function start(root: HTMLElement) {
 
   function renderMovements(preview: PreviewResult) {
     const fresh = preview.movements.filter((m) => m.status === 'new');
-    const hinted = fresh.filter((m) => m.hints.length > 0).length;
+    // Un cargo que ya se confirmó como mensualidad de un plan existente no es candidato a plan nuevo.
+    const confirmedKeys = new Set([...state.confirmed].map((id) => id.split('|')[1]!));
+    const isCandidate = (m: PreviewMovement) => m.hints.length > 0 && !confirmedKeys.has(m.key);
+    const hinted = fresh.filter(isCandidate).length;
     // Los renglones de un pago agrupado (intereses, IVA, compra original) se muestran dentro del "pago requerido".
     const visible = fresh.filter((m) => m.group?.role !== 'member' && m.group?.role !== 'credit');
-    const shown = state.filter === 'hints' ? visible.filter((m) => m.hints.length > 0 || state.drafts.has(m.key)) : visible;
+    const shown = state.filter === 'hints' ? visible.filter((m) => isCandidate(m) || state.drafts.has(m.key)) : visible;
     const pills = hinted
       ? `<div class="chips">
            <button type="button" class="chip chip-button ${state.filter === 'all' ? 'is-on' : ''}" data-filter="all">${esc(msg('import.filter.all'))} (${fresh.length})</button>
@@ -418,21 +428,27 @@ function start(root: HTMLElement) {
     const hintBadges = (m: PreviewMovement) =>
       m.hints.map((h) => `<span class="badge">${esc(msg(h === 'installments_in_description' ? 'import.hint.installments' : 'import.hint.interest'))}</span>`).join(' ');
 
+    // Cargos que son la mensualidad de un plan existente: se marcan en vez de ofrecerlos como plan nuevo.
+    const matchOf = new Map(preview.planMatches.map((match) => [match.movementKey, match]));
     const rows = shown
       .map((m) => {
         const draft = state.drafts.get(m.key);
+        const match = matchOf.get(m.key);
+        const linked = match && state.confirmed.has(`${match.planId}|${match.movementKey}`) ? match : null;
         const group = m.group?.role === 'principal' ? m.group : null;
         const amount = m.chargeMinor > 0 ? money(group?.totalMinor ?? m.chargeMinor) : `<span class="credit">+${esc(money(m.creditMinor))}</span>`;
         const action =
           m.chargeMinor <= 0
             ? ''
-            : draft
+            : linked
+              ? `<span class="badge">${esc(msg('import.match.badge', { n: linked.installmentNo, total: linked.totalInstallments, plan: linked.planName }))}</span>`
+              : draft
               ? `<span class="badge">${esc(msg('import.plan.badge', { name: draft.name, n: draft.currentInstallment, total: draft.totalInstallments }))}</span>
                  <button type="button" class="link-button" data-open="${esc(m.key)}">${esc(msg('import.plan.edit'))}</button>`
               : `<button type="button" class="btn btn-ghost btn-small" data-open="${esc(m.key)}">${esc(msg('import.plan.create'))}</button>`;
         const main = `<tr>
             <td class="nowrap">${esc(m.date)}</td>
-            <td>${esc(m.description)}${m.reference ? `<br /><span class="muted">${esc(m.reference)}</span>` : ''} ${hintBadges(m)}${group ? `<br /><span class="badge badge-muted">${esc(msg('import.group.badge', { n: group.items }))}</span>` : ''}</td>
+            <td>${esc(m.description)}${m.reference ? `<br /><span class="muted">${esc(m.reference)}</span>` : ''} ${hintBadges(m)}${group ? `<br /><span class="badge badge-muted">${esc(msg('import.group.badge', { n: group.items }))}</span>` : ''}${match && !linked ? `<br /><span class="badge badge-muted">${esc(msg('import.match.suggested', { n: match.installmentNo, plan: match.planName }))}</span>` : ''}</td>
             <td class="nowrap num">${amount}</td>
             <td class="nowrap">${m.cardLast4 ? `···· ${esc(m.cardLast4)}` : preview.missingCard > 0 ? rowCardSelect(m, preview) : ''}</td>
             <td class="actions">${action}</td></tr>`;

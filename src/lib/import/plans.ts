@@ -11,6 +11,8 @@ export interface PlanLike {
   totalInstallments: number;
   /** Mensualidades ya cobradas (incluye la que se vincula al crear el plan). */
   paidInstallments: number;
+  /** Con intereses el pago cambia de un mes a otro (el interés baja con el saldo): se acepta una diferencia mayor. */
+  type?: 'msi' | 'mci' | 'fixed';
   /** Fecha del primer cargo; los siguientes recurren el mismo día de cada mes. */
   firstChargeDate: string;
   status: PlanStatus;
@@ -66,6 +68,10 @@ export interface InstallmentMatch {
   daysOffset: number;
   /** Es la última mensualidad: el plan pasaría a liquidado de forma natural. */
   isFinal: boolean;
+  /** Monto del cargo propuesto (en un pago agrupado, el total del grupo). */
+  movementAmountMinor: number;
+  /** Diferencia entre el cargo y la mensualidad del plan; no es cero cuando el banco ajusta centavos o cambian los intereses. */
+  amountDiffMinor: number;
 }
 
 export interface MissingInstallment {
@@ -88,6 +94,8 @@ export function matchPlanInstallments(
 ): { matches: InstallmentMatch[]; missing: MissingInstallment[] } {
   const toleranceDays = options.toleranceDays ?? 5;
   const amountTolerance = options.amountToleranceMinor ?? 0;
+  /** Diferencia aceptada: los centavos que el banco ajusta (sobre todo en la última mensualidad) y, con intereses, hasta 5 %. */
+  const toleranceFor = (plan: PlanLike) => Math.max(amountTolerance, plan.type === 'mci' ? Math.round(plan.installmentAmountMinor * 0.05) : 0);
 
   type Candidate = InstallmentMatch & { plan: number; movement: number };
   const candidates: Candidate[] = [];
@@ -99,7 +107,8 @@ export function matchPlanInstallments(
     const needle = normalizeDescription(plan.matchText);
     movements.forEach((movement, movementIndex) => {
       if (movement.chargeMinor <= 0 || !movement.descriptionNorm.includes(needle)) return;
-      if (Math.abs(movement.chargeMinor - plan.installmentAmountMinor) > amountTolerance) return;
+      const amountDiffMinor = Math.abs(movement.chargeMinor - plan.installmentAmountMinor);
+      if (amountDiffMinor > toleranceFor(plan)) return;
       const daysOffset = daysBetween(expectedDate, movement.date);
       if (Math.abs(daysOffset) > toleranceDays) return;
       candidates.push({
@@ -111,11 +120,14 @@ export function matchPlanInstallments(
         expectedDate,
         daysOffset,
         isFinal: installmentNo === plan.totalInstallments,
+        movementAmountMinor: movement.chargeMinor,
+        amountDiffMinor,
       });
     });
   });
 
-  candidates.sort((a, b) => Math.abs(a.daysOffset) - Math.abs(b.daysOffset));
+  // El cargo más cercano en fecha y, a igual fecha, en monto: así dos planes parecidos no se cruzan.
+  candidates.sort((a, b) => Math.abs(a.daysOffset) - Math.abs(b.daysOffset) || a.amountDiffMinor - b.amountDiffMinor);
   const takenPlans = new Set<number>();
   const takenMovements = new Set<number>();
   const matches: InstallmentMatch[] = [];

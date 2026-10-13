@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SpendRow } from '../src/lib/spending/analysis';
+import { matchPlanInstallments, type PlanLike } from '../src/lib/import/plans';
 import { dueDateFor, isCardPayment, realCuts, sinceLastCut, summarizeStatement, type RecordedCutoff } from '../src/lib/spending/statement';
 
 const cut = (cutoffDate: string, startDate: string | null = null): RecordedCutoff => ({ cutoffDate, startDate, officialPayMinor: null });
@@ -61,5 +62,38 @@ describe('pago para no generar intereses', () => {
 
   it('nunca es negativo', () => {
     expect(summarizeStatement([row('SUPER', 10_000), row('DEVOLUCION', 0, 50_000)], 20_000).payMinor).toBe(0);
+  });
+});
+
+describe('emparejar mensualidades con diferencias de monto', () => {
+  const plan = (over: Partial<PlanLike> = {}): PlanLike => ({ id: 'p', matchText: 'MAPFRE L COBRANZA', installmentAmountMinor: 95_785, totalInstallments: 12, paidInstallments: 11, firstChargeDate: '2025-09-19', status: 'active', ...over });
+  const mov = (uniqueKey: string, descriptionNorm: string, chargeMinor: number, date: string) => ({ uniqueKey, date, descriptionNorm, chargeMinor });
+
+  it('acepta los centavos que el banco ajusta en la última mensualidad (957.85 → 957.79)', () => {
+    const { matches, missing } = matchPlanInstallments([plan()], [mov('m', 'MAPFRE L COBRANZA CIUDAD DE MEX MX', 95_779, '2026-08-19')], { amountToleranceMinor: 100, coverageEnd: '2026-09-04' });
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({ installmentNo: 12, isFinal: true, amountDiffMinor: 6, movementAmountMinor: 95_779 });
+    expect(missing).toEqual([]);
+  });
+
+  it('un pago con intereses admite hasta 5 % de diferencia: el interés baja con el saldo (549.82 → 548.05)', () => {
+    const autozone = plan({ id: 'a', matchText: 'AUTOZONE 9540 MERIDA', installmentAmountMinor: 54_982, totalInstallments: 9, paidInstallments: 1, firstChargeDate: '2026-07-03', type: 'mci' });
+    const rows = [mov('g', 'AUTOZONE 9540 MERIDA', 54_805, '2026-08-03')];
+    expect(matchPlanInstallments([autozone], rows, { amountToleranceMinor: 100 }).matches).toHaveLength(1);
+    // Un plan sin intereses con la misma diferencia no empareja: es otro cargo.
+    expect(matchPlanInstallments([{ ...autozone, type: 'msi' }], rows, { amountToleranceMinor: 100 }).matches).toHaveLength(0);
+  });
+
+  it('no empareja un cargo muy distinto ni uno de otra fecha', () => {
+    expect(matchPlanInstallments([plan()], [mov('m', 'MAPFRE L COBRANZA', 90_000, '2026-08-19')], { amountToleranceMinor: 100 }).matches).toHaveLength(0);
+    expect(matchPlanInstallments([plan()], [mov('m', 'MAPFRE L COBRANZA', 95_785, '2026-09-19')], { amountToleranceMinor: 100 }).matches).toHaveLength(0);
+  });
+
+  it('con dos planes parecidos cada uno toma el cargo más cercano en monto', () => {
+    const a = plan({ id: 'a', matchText: 'AMAZON A MESES', installmentAmountMinor: 25_000, totalInstallments: 6, paidInstallments: 1, firstChargeDate: '2026-07-06' });
+    const b = { ...a, id: 'b', installmentAmountMinor: 25_050 };
+    const rows = [mov('x', 'AMAZON A MESES', 25_050, '2026-08-06'), mov('y', 'AMAZON A MESES', 25_000, '2026-08-06')];
+    const result = matchPlanInstallments([a, b], rows, { amountToleranceMinor: 100 }).matches;
+    expect(result.map((m) => [m.planId, m.movementKey]).sort()).toEqual([['a', 'y'], ['b', 'x']]);
   });
 });

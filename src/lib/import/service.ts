@@ -186,12 +186,13 @@ async function analyze(
     paidInstallments: p.paidInstallments,
     firstChargeDate: p.firstChargeDate,
     status: p.status,
+    type: p.type,
   }));
   // Un pago agrupado (pago requerido + intereses + IVA) se empareja con la mensualidad por su total.
   const groups = paymentGroups(fresh.map((m) => ({ key: m.uniqueKey, cardKey: m.cardLast4, reference: m.reference, descriptionNorm: m.descriptionNorm, chargeMinor: m.chargeMinor, creditMinor: m.creditMinor })));
   const hiddenInGroup = groupedMemberKeys(groups);
   const matchable = fresh.filter((m) => !hiddenInGroup.has(m.uniqueKey)).map((m) => ({ ...m, chargeMinor: groups.get(m.uniqueKey)?.totalMinor ?? m.chargeMinor }));
-  const { matches, missing } = matchPlanInstallments(openPlans, matchable, coverageEnd ? { coverageEnd } : {});
+  const { matches, missing } = matchPlanInstallments(openPlans, matchable, { amountToleranceMinor: 10 ** (currencyDigits(currency) ?? 2), ...(coverageEnd ? { coverageEnd } : {}) });
   const planById = new Map(openPlans.map((p) => [p.id, p]));
   const hints = planHints(fresh);
   const [lastCut] = await db
