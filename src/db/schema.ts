@@ -418,6 +418,12 @@ export const movements = sqliteTable(
     /** Plan al que pertenece este cargo y qué mensualidad representa. */
     planId: text('plan_id').references(() => plans.id, { onDelete: 'restrict' }),
     planInstallmentNo: integer('plan_installment_no'),
+    /**
+     * Corte al que se contabiliza este movimiento, como el mes en que cierra (`YYYY-MM`). Nulo = el que le toca por su fecha.
+     * El CSV solo trae la fecha de operación y el banco arma el estado de cuenta por fecha de cargo, así que un movimiento de
+     * los últimos días de un corte puede caer en el siguiente; este campo permite corregirlo a mano.
+     */
+    statementMonth: text('statement_month'),
     createdAt: createdAt(),
   },
   (t) => [

@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { accounts, cards, categories, categoryRules, movements, statementCutoffs, workspaces } from '../../db/schema';
 import type { Db } from '../auth/hooks';
 import { normalizeDescription } from '../import/text';
 import { matchCategory, type Rule } from './categorize';
 import type { SpendRow } from './analysis';
+import { paymentGroups } from './groups';
 
 /**
  * Todas las funciones reciben el `workspaceId` y lo aplican en cada consulta. D1 admite como máximo
@@ -197,17 +198,70 @@ export async function movementsForAnalysis(db: Db, workspaceId: string, fromDate
     .where(and(eq(movements.workspaceId, workspaceId), gte(movements.date, fromDate), lte(movements.date, toDate), accountId ? eq(movements.accountId, accountId) : undefined));
 }
 
-/** Movimientos de TODAS las tarjetas de una cuenta entre dos fechas, en una moneda: el estado de cuenta junta titular y adicionales. */
-export async function movementsForAccount(db: Db, workspaceId: string, accountId: string, currency: string, fromDate: string, toDate: string): Promise<SpendRow[]> {
+/**
+ * Periodo de un corte. `month` es el mes en que cierra (`YYYY-MM`) y se cuentan además los movimientos que se asignaron
+ * a mano a ese corte aunque su fecha caiga fuera; los asignados a otro corte se excluyen aunque su fecha caiga dentro.
+ * Con `month` nulo (el periodo en curso, aún sin corte) solo cuentan los que no se asignaron a ningún corte.
+ */
+export interface CutPeriod {
+  month: string | null;
+  from: string;
+  to: string;
+}
+
+function inPeriod(period: CutPeriod): SQL {
+  const byDate = and(isNull(movements.statementMonth), gte(movements.date, period.from), lte(movements.date, period.to))!;
+  return period.month ? or(eq(movements.statementMonth, period.month), byDate)! : byDate;
+}
+
+export interface PeriodMovement extends SpendRow {
+  id: string;
+  description: string;
+  reference: string | null;
+  cardId: string | null;
+  statementMonth: string | null;
+}
+
+/** Movimientos de TODAS las tarjetas de una cuenta en un corte, en una moneda: el estado de cuenta junta titular y adicionales. */
+export async function movementsForAccount(db: Db, workspaceId: string, accountId: string, currency: string, period: CutPeriod): Promise<PeriodMovement[]> {
   return db
     .select({
+      id: movements.id,
       date: movements.date,
+      description: movements.description,
       descriptionNorm: movements.descriptionNorm,
+      reference: movements.reference,
       chargeMinor: movements.chargeMinor,
       creditMinor: movements.creditMinor,
       currency: movements.currency,
       categoryId: movements.categoryId,
       planId: movements.planId,
+      cardId: movements.cardId,
+      statementMonth: movements.statementMonth,
+    })
+    .from(movements)
+    .where(and(eq(movements.workspaceId, workspaceId), eq(movements.accountId, accountId), eq(movements.currency, currency), inPeriod(period)));
+}
+
+/**
+ * Movimientos que cuentan en este corte aunque su fecha caiga fuera (`in`) o que, por su fecha, serían de este corte pero se
+ * asignaron a otro (`out`). Son los ajustes manuales que explican una diferencia con el estado de cuenta.
+ */
+export async function cutAdjustments(db: Db, workspaceId: string, accountId: string, currency: string, month: string, from: string, to: string): Promise<{ in: PeriodMovement[]; out: PeriodMovement[] }> {
+  const rows = await db
+    .select({
+      id: movements.id,
+      date: movements.date,
+      description: movements.description,
+      descriptionNorm: movements.descriptionNorm,
+      reference: movements.reference,
+      chargeMinor: movements.chargeMinor,
+      creditMinor: movements.creditMinor,
+      currency: movements.currency,
+      categoryId: movements.categoryId,
+      planId: movements.planId,
+      cardId: movements.cardId,
+      statementMonth: movements.statementMonth,
     })
     .from(movements)
     .where(
@@ -215,8 +269,72 @@ export async function movementsForAccount(db: Db, workspaceId: string, accountId
         eq(movements.workspaceId, workspaceId),
         eq(movements.accountId, accountId),
         eq(movements.currency, currency),
-        gte(movements.date, fromDate),
-        lte(movements.date, toDate),
+        or(
+          and(eq(movements.statementMonth, month), or(lt(movements.date, from), gt(movements.date, to))),
+          and(isNotNull(movements.statementMonth), ne(movements.statementMonth, month), gte(movements.date, from), lte(movements.date, to)),
+        ),
+      ),
+    );
+  return { in: rows.filter((row) => row.statementMonth === month), out: rows.filter((row) => row.statementMonth !== month) };
+}
+
+export type MoveResult = { ok: true; updated: number } | { ok: false; reason: 'not_found' | 'invalid_cut' };
+
+/**
+ * Contabiliza movimientos en otro corte (`month`, el mes en que cierra) o los devuelve al que les toca por fecha (`null`).
+ * El corte debe existir en la cuenta de cada movimiento. Un pago agrupado (pago requerido + intereses + IVA) se mueve completo.
+ */
+export async function moveToStatement(db: Db, workspaceId: string, ids: string[], month: string | null): Promise<MoveResult> {
+  const picked: { id: string; accountId: string; cardId: string | null; reference: string | null }[] = [];
+  for (const part of chunks(ids)) {
+    picked.push(...(await db.select({ id: movements.id, accountId: movements.accountId, cardId: movements.cardId, reference: movements.reference }).from(movements).where(and(eq(movements.workspaceId, workspaceId), inArray(movements.id, part)))));
+  }
+  if (picked.length !== new Set(ids).size) return { ok: false, reason: 'not_found' };
+
+  const accountIds = [...new Set(picked.map((row) => row.accountId))];
+  if (month) {
+    for (const accountId of accountIds) {
+      const [cut] = await db
+        .select({ id: statementCutoffs.id })
+        .from(statementCutoffs)
+        .where(and(eq(statementCutoffs.workspaceId, workspaceId), eq(statementCutoffs.accountId, accountId), sql`substr(${statementCutoffs.cutoffDate}, 1, 7) = ${month}`))
+        .limit(1);
+      if (!cut) return { ok: false, reason: 'invalid_cut' };
+    }
+  }
+
+  // Un movimiento que pertenece a un pago agrupado arrastra al resto del grupo.
+  const all = new Set(ids);
+  for (const reference of [...new Set(picked.flatMap((row) => (row.reference ? [`${row.accountId}|${row.cardId ?? ''}|${row.reference}`] : [])))]) {
+    const [accountId, cardId, ref] = reference.split('|') as [string, string, string];
+    const siblings = await db
+      .select({ id: movements.id, cardId: movements.cardId, reference: movements.reference, descriptionNorm: movements.descriptionNorm, chargeMinor: movements.chargeMinor, creditMinor: movements.creditMinor })
+      .from(movements)
+      .where(and(eq(movements.workspaceId, workspaceId), eq(movements.accountId, accountId), eq(movements.reference, ref), cardId ? eq(movements.cardId, cardId) : isNull(movements.cardId)));
+    for (const group of paymentGroups(siblings.map((row) => ({ key: row.id, cardKey: row.cardId, reference: row.reference, descriptionNorm: row.descriptionNorm, chargeMinor: row.chargeMinor, creditMinor: row.creditMinor }))).values()) {
+      const members = [...group.chargeKeys, ...group.creditKeys];
+      if (members.some((id) => all.has(id))) members.forEach((id) => all.add(id));
+    }
+  }
+
+  const statements: BatchItem<'sqlite'>[] = chunks([...all]).map((part) =>
+    db.update(movements).set({ statementMonth: month }).where(and(eq(movements.workspaceId, workspaceId), inArray(movements.id, part))),
+  );
+  await batch(db, statements);
+  return { ok: true, updated: all.size };
+}
+
+/** Quita las asignaciones a un corte que ya no existe (se borró o cambió de mes): esos movimientos vuelven a contarse por su fecha. */
+export async function clearOrphanMoves(db: Db, workspaceId: string, accountId: string): Promise<void> {
+  await db
+    .update(movements)
+    .set({ statementMonth: null })
+    .where(
+      and(
+        eq(movements.workspaceId, workspaceId),
+        eq(movements.accountId, accountId),
+        isNotNull(movements.statementMonth),
+        sql`${movements.statementMonth} not in (select substr(${statementCutoffs.cutoffDate}, 1, 7) from ${statementCutoffs} where ${statementCutoffs.accountId} = ${accountId})`,
       ),
     );
 }
@@ -252,7 +370,11 @@ export async function saveCutoff(db: Db, workspaceId: string, input: CutoffInput
 }
 
 export async function deleteCutoff(db: Db, workspaceId: string, cutoffId: string): Promise<boolean> {
-  const rows = await db.delete(statementCutoffs).where(and(eq(statementCutoffs.id, cutoffId), eq(statementCutoffs.workspaceId, workspaceId))).returning({ id: statementCutoffs.id });
+  const rows = await db
+    .delete(statementCutoffs)
+    .where(and(eq(statementCutoffs.id, cutoffId), eq(statementCutoffs.workspaceId, workspaceId)))
+    .returning({ id: statementCutoffs.id, accountId: statementCutoffs.accountId });
+  if (rows[0]) await clearOrphanMoves(db, workspaceId, rows[0].accountId);
   return rows.length > 0;
 }
 
@@ -272,11 +394,15 @@ export interface MovementListItem {
   /** Nulo si el archivo no traía los últimos 4 dígitos del cargo. */
   cardId: string | null;
   last4: string | null;
+  /** Corte al que se asignó a mano (mes en que cierra); nulo si cuenta en el que le toca por su fecha. */
+  statementMonth: string | null;
 }
 
 export interface MovementFilters {
   fromDate: string;
   toDate: string;
+  /** Un corte (con sus asignaciones manuales); sustituye al rango de fechas. */
+  cut?: CutPeriod;
   /** Una tarjeta concreta o toda una cuenta. */
   cardId?: string;
   accountId?: string;
@@ -291,7 +417,7 @@ export interface MovementFilters {
 const MAX_LIST_ROWS = 1000;
 
 export async function listMovements(db: Db, workspaceId: string, filters: MovementFilters): Promise<MovementListItem[]> {
-  const conditions = [eq(movements.workspaceId, workspaceId), gte(movements.date, filters.fromDate), lte(movements.date, filters.toDate)];
+  const conditions = [eq(movements.workspaceId, workspaceId), filters.cut ? inPeriod(filters.cut) : and(gte(movements.date, filters.fromDate), lte(movements.date, filters.toDate))!];
   if (filters.cardId) conditions.push(eq(movements.cardId, filters.cardId));
   if (filters.accountId) conditions.push(eq(movements.accountId, filters.accountId));
   if (filters.batchId) conditions.push(eq(movements.batchId, filters.batchId));
@@ -317,6 +443,7 @@ export async function listMovements(db: Db, workspaceId: string, filters: Moveme
       accountId: accounts.id,
       cardId: movements.cardId,
       last4: cards.last4,
+      statementMonth: movements.statementMonth,
     })
     .from(movements)
     .innerJoin(accounts, eq(accounts.id, movements.accountId))

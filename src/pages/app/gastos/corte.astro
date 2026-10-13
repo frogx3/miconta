@@ -9,7 +9,8 @@ import { formatDate, formatMonthLong, todayISO } from '../../../lib/date-format'
 import { formatMinor, toInputString } from '../../../lib/money-format';
 import { listPlans } from '../../../lib/plans/repo';
 import { shiftMonth, thresholdFor } from '../../../lib/spending/analysis';
-import { getWorkspaceSettings, listCutoffs, movementsForAccount } from '../../../lib/spending/repo';
+import { cutAdjustments, getWorkspaceSettings, listCutoffs, movementsForAccount, type PeriodMovement } from '../../../lib/spending/repo';
+import { findExactSubset, moveCandidates, type MoveUnit } from '../../../lib/spending/suggest';
 import { cutoffInMonth, realCuts, sinceLastCut, summarizeStatement } from '../../../lib/spending/statement';
 
 const { workspace, locale } = Astro.locals;
@@ -49,6 +50,10 @@ type StatementView = {
   planNames: Map<string, string>;
   prev: string | null;
   next: string | null;
+  /** Movimientos que cuentan aquí aunque su fecha caiga fuera, y los que por fecha serían de este corte pero se asignaron a otro. */
+  adjustments: { in: PeriodMovement[]; out: PeriodMovement[] } | null;
+  /** Cargos cercanos al corte que suman justo la diferencia con el estado de cuenta capturado. */
+  suggestion: { direction: 'out' | 'in'; amountMinor: number; units: MoveUnit[]; targetMonth: string } | null;
 };
 let view: StatementView | null = null;
 
@@ -65,12 +70,33 @@ if (account && primary) {
   const from = cut?.from ?? (kind === 'open' ? since!.from : null);
   const to = cut?.to ?? (kind === 'open' ? '9999-12-31' : null);
   const [rows, settings, plans] = await Promise.all([
-    from && to ? movementsForAccount(db, workspace.id, account.id, primary.currency, from, to) : Promise.resolve([]),
+    from && to ? movementsForAccount(db, workspace.id, account.id, primary.currency, { month: cut?.month ?? null, from, to }) : Promise.resolve([] as PeriodMovement[]),
     getWorkspaceSettings(db, workspace.id),
     listPlans(db, workspace.id),
   ]);
   const thresholdMinor = thresholdFor(primary.currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
   const lastCut = cuts.at(-1);
+  const previousOwed = cut && index > 0 ? (cuts[index - 1]?.recorded.officialPayMinor ?? null) : null;
+  const summary = from && to ? summarizeStatement(rows, thresholdMinor, previousOwed) : null;
+  const adjustments = cut ? await cutAdjustments(db, workspace.id, account.id, primary.currency, cut.month, cut.from, cut.to) : null;
+
+  // Si capturaste el pago del estado de cuenta y no coincide, busca qué cargos de los últimos días del corte (o del corte anterior)
+  // suman justo la diferencia: lo típico es que el banco los haya cobrado en el corte siguiente.
+  let suggestion: StatementView['suggestion'] = null;
+  const official = cut?.recorded.officialPayMinor ?? null;
+  if (cut && summary && official !== null && summary.payMinor !== official) {
+    const diff = summary.payMinor - official;
+    if (diff > 0) {
+      const next = cuts[cuts.indexOf(cut) + 1];
+      const found = next ? findExactSubset(moveCandidates(rows, { from: cut.from, to: cut.to }), diff) : null;
+      if (found && next) suggestion = { direction: 'out', amountMinor: diff, units: found, targetMonth: next.month };
+    } else {
+      const previous = cuts[cuts.indexOf(cut) - 1];
+      const previousRows = previous ? await movementsForAccount(db, workspace.id, account.id, primary.currency, { month: previous.month, from: previous.from, to: previous.to }) : [];
+      const found = previous ? findExactSubset(moveCandidates(previousRows, { from: previous.from, to: previous.to }), -diff) : null;
+      if (found) suggestion = { direction: 'in', amountMinor: -diff, units: found, targetMonth: cut.month };
+    }
+  }
   view = {
     key,
     kind,
@@ -82,11 +108,13 @@ if (account && primary) {
     recordId: records.find((record) => record.cutoffDate === cut?.cutoff)?.id ?? '',
     // Sin cortes, el último día de corte según la tarjeta; con ellos, el mes siguiente al último corte real.
     suggestedCutoff: cut?.cutoff ?? (lastCut ? cutoffInMonth(primary.cutoffDay!, shiftMonth(lastCut.month, 1)) : lastCutoffDate(primary.cutoffDay!, today)),
-    summary: from && to ? summarizeStatement(rows, thresholdMinor, cut && index > 0 ? (cuts[index - 1]?.recorded.officialPayMinor ?? null) : null) : null,
+    summary,
     thresholdMinor,
     planNames: new Map(plans.map((plan) => [plan.id, plan.name])),
     prev: index > 0 ? items[index - 1]! : null,
     next: index >= 0 && index < items.length - 1 ? items[index + 1]! : null,
+    adjustments,
+    suggestion,
   };
 }
 
@@ -136,6 +164,10 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
               </div>
               <p class="muted">{t(locale, 'statement.scope', { account: account.name, count: String(selected!.entry.cards.filter((card) => !card.archivedAt).length) })}</p>
               {view.kind === 'open' && <p class="hint">{t(locale, 'statement.openNote')}</p>}
+              <aside class="notice" role="note">
+                <strong>{t(locale, 'statement.warn.title')}</strong>
+                <p>{t(locale, 'statement.warn.body')}</p>
+              </aside>
             </>
           ) : (
             <section class="card"><p class="empty">{t(locale, 'statement.noCuts')}</p></section>
@@ -225,6 +257,45 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
             </section>
           )
         }
+
+        {view.suggestion && (
+          <section class="card suggestion" id="suggestion" data-messages={JSON.stringify(messages)}>
+            <h2>{t(locale, 'statement.suggest.title')}</h2>
+            <p>{t(locale, view.suggestion.direction === 'out' ? 'statement.suggest.body.out' : 'statement.suggest.body.in', { amount: money(view.suggestion.amountMinor) })}</p>
+            <ul class="group-lines">
+              {view.suggestion.units.map((unit) => <li><span>{formatDate(unit.date, locale)} · {unit.label}</span><span class="num">{money(unit.effectMinor)}</span></li>)}
+            </ul>
+            {canWrite && (
+              <button class="btn btn-auto" type="button" data-move-ids={JSON.stringify(view.suggestion.units.flatMap((unit) => unit.ids))} data-move-month={view.suggestion.targetMonth}>
+                {t(locale, view.suggestion.direction === 'out' ? 'statement.suggest.apply.out' : 'statement.suggest.apply.in')}
+              </button>
+            )}
+            <div id="suggestion-error" class="alert" role="alert" hidden></div>
+          </section>
+        )}
+
+        {view.adjustments && (view.adjustments.in.length > 0 || view.adjustments.out.length > 0) && (
+          <section class="card" id="adjustments" data-messages={JSON.stringify(messages)}>
+            <h2>{t(locale, 'statement.moves.title')}</h2>
+            <p class="hint">{t(locale, 'statement.moves.hint')}</p>
+            {(['in', 'out'] as const).map((side) => view!.adjustments![side].length > 0 && (
+              <>
+                <h3>{t(locale, `statement.moves.${side}`, { n: String(view!.adjustments![side].length), amount: money(view!.adjustments![side].reduce((sum, row) => sum + row.chargeMinor - row.creditMinor, 0)) })}</h3>
+                <ul class="group-lines">
+                  {view!.adjustments![side].map((row) => (
+                    <li>
+                      <span>{formatDate(row.date, locale)} · {row.description}</span>
+                      <span class="num">{row.chargeMinor > 0 ? money(row.chargeMinor) : `−${money(row.creditMinor)}`}</span>
+                      {canWrite && <button class="link-button" type="button" data-move-ids={JSON.stringify([row.id])} data-move-month="">{t(locale, 'statement.moves.undo')}</button>}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ))}
+            <p class="row-actions"><a class="touch-link" href={`/app/gastos/movimientos?mes=corte:${view.key}&filtro=a:${account.id}`}>{t(locale, 'statement.viewMovements')} →</a></p>
+            <div id="adjustments-error" class="alert" role="alert" hidden></div>
+          </section>
+        )}
 
         {canWrite && (
           <section class="card" id="cutoff" data-messages={JSON.stringify(messages)} data-account-id={account.id} data-record-id={view.recordId}>

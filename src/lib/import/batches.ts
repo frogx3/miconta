@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { accounts, importBatches, movements, planEvents, planTags, plans, statementCutoffs, user } from '../../db/schema';
 import type { Db } from '../auth/hooks';
+import { clearOrphanMoves } from '../spending/repo';
 import { isValidISODate } from './dates';
 import { decideRevert, type AdvancedPlanFacts, type CreatedPlanFacts, type RevertDecision } from './revert';
 import type { PlanStatus } from './types';
@@ -286,5 +287,6 @@ export async function setBatchPeriod(db: Db, workspaceId: string, batchId: strin
     }
   }
   await db.batch(statements as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  await clearOrphanMoves(db, workspaceId, batch.accountId);
   return { ok: true };
 }

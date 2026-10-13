@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SpendRow } from '../src/lib/spending/analysis';
 import { matchPlanInstallments, type PlanLike } from '../src/lib/import/plans';
+import { findExactSubset, moveCandidates, type SuggestRow } from '../src/lib/spending/suggest';
 import { dueDateFor, isCardPayment, realCuts, sinceLastCut, summarizeStatement, type RecordedCutoff } from '../src/lib/spending/statement';
 
 const cut = (cutoffDate: string, startDate: string | null = null): RecordedCutoff => ({ cutoffDate, startDate, officialPayMinor: null });
@@ -95,5 +96,46 @@ describe('emparejar mensualidades con diferencias de monto', () => {
     const rows = [mov('x', 'AMAZON A MESES', 25_050, '2026-08-06'), mov('y', 'AMAZON A MESES', 25_000, '2026-08-06')];
     const result = matchPlanInstallments([a, b], rows, { amountToleranceMinor: 100 }).matches;
     expect(result.map((m) => [m.planId, m.movementKey]).sort()).toEqual([['a', 'y'], ['b', 'x']]);
+  });
+});
+
+describe('sugerir qué movimientos cambiar de corte', () => {
+  const r = (id: string, date: string, description: string, chargeMinor: number, over: Partial<SuggestRow> = {}): SuggestRow => ({
+    id, date, description, descriptionNorm: description, reference: null, cardId: 'c', chargeMinor, creditMinor: 0, statementMonth: null, ...over,
+  });
+  // Corte de agosto (2-jul a 4-ago): lo que el banco cobró en septiembre aunque se operó el 3 y 4 de agosto.
+  const august: SuggestRow[] = [
+    r('a1', '2026-08-03', 'AUTOZONE 9540 MERIDA', 46_423, { reference: 'R' }),
+    r('a2', '2026-08-03', 'INTERESES SUJETOS A IVA', 6_994, { reference: 'R' }),
+    r('a3', '2026-08-03', 'INTERESES NO SUJETOS A IVA', 269, { reference: 'R' }),
+    r('a4', '2026-08-03', 'IVA SOBRE INTERESES DB', 1_119, { reference: 'R' }),
+    r('b', '2026-08-04', 'BPK*MISCTDA ABARROTES', 13_200),
+    r('c', '2026-08-03', 'BK MID NORTE FS 16200', 17_900),
+    r('d', '2026-07-20', 'OXXO', 8_000),
+  ];
+
+  it('agrupa el pago de AutoZone como una unidad y deja fuera lo que no está cerca del corte', () => {
+    const units = moveCandidates(august, { from: '2026-07-02', to: '2026-08-04' });
+    expect(units.map((u) => [u.label, u.effectMinor, u.ids.length]).sort()).toEqual([['AUTOZONE 9540 MERIDA', 54_805, 4], ['BK MID NORTE FS 16200', 17_900, 1], ['BPK*MISCTDA ABARROTES', 13_200, 1]].sort());
+  });
+
+  it('encuentra los cargos que suman justo la diferencia ($680.05 = AutoZone + BPK)', () => {
+    const units = moveCandidates(august, { from: '2026-07-02', to: '2026-08-04' });
+    const found = findExactSubset(units, 68_005)!;
+    expect(found.map((u) => u.label).sort()).toEqual(['AUTOZONE 9540 MERIDA', 'BPK*MISCTDA ABARROTES']);
+    expect(found.flatMap((u) => u.ids).sort()).toEqual(['a1', 'a2', 'a3', 'a4', 'b']);
+  });
+
+  it('sin coincidencia exacta no sugiere nada, y no toma movimientos ya movidos a mano', () => {
+    const units = moveCandidates(august, { from: '2026-07-02', to: '2026-08-04' });
+    expect(findExactSubset(units, 68_006)).toBeNull();
+    expect(findExactSubset(units, 0)).toBeNull();
+    expect(moveCandidates([r('x', '2026-08-04', 'MOVIDO', 5_000, { statementMonth: '2026-09' })], { from: '2026-07-02', to: '2026-08-04' })).toEqual([]);
+  });
+
+  it('prefiere la combinación con menos movimientos', () => {
+    const rows = [r('1', '2026-08-04', 'A', 10_000), r('2', '2026-08-04', 'B', 4_000), r('3', '2026-08-04', 'C', 6_000)];
+    const found = findExactSubset(moveCandidates(rows, { from: '2026-07-02', to: '2026-08-04' }), 10_000)!;
+    expect(found.map((u) => u.label)).toEqual(['A']);
   });
 });

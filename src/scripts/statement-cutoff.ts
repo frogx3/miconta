@@ -65,5 +65,27 @@ if (section && form) {
   });
 }
 
+// Mover movimientos de corte (sugerencia y deshacer de los ajustes manuales).
+document.querySelectorAll<HTMLButtonElement>('[data-move-ids]').forEach((button) =>
+  button.addEventListener('click', async () => {
+    const box = button.closest<HTMLElement>('[data-messages]');
+    const errorBox = box?.querySelector<HTMLElement>('[role="alert"]');
+    const messages = box ? (JSON.parse(box.dataset.messages!) as Record<string, string>) : {};
+    if (errorBox) errorBox.hidden = true;
+    button.disabled = true;
+    const response = await fetch('/api/movements/statement', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: JSON.parse(button.dataset.moveIds!), month: button.dataset.moveMonth || null }),
+    });
+    if (response.ok) return location.reload();
+    button.disabled = false;
+    if (errorBox) {
+      errorBox.textContent = messages['statement.moves.error'] ?? messages['common.error'] ?? '';
+      errorBox.hidden = false;
+    }
+  }),
+);
+
 // Marca el archivo como módulo: sus variables no son globales.
 export {};

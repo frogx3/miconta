@@ -1,0 +1,1 @@
+ALTER TABLE `movements` ADD `statement_month` text;

@@ -52,24 +52,30 @@ const scopedCard = scopedAccount?.cards.find((card) => card.id === cardFilter);
 const creditCard = scopedAccount?.cards.find((card) => card.kind === 'credit' && card.cutoffDay !== null && !card.archivedAt);
 const cuts = scopedAccount ? realCuts(await listCutoffs(db, workspace.id, scopedAccount.id), creditCard?.cutoffDay ?? null, creditCard?.paymentDueDay ?? null) : [];
 const since = sinceLastCut(cuts);
+// Cortes a los que se puede contabilizar un movimiento a mano (solo con una cuenta o tarjeta elegida), del más reciente al más antiguo.
+const cutChoices = scopedAccount ? [...cuts].reverse().map((cut) => ({ month: cut.month, label: formatMonthLong(cut.month, locale) })) : [];
 const requested = params.get('mes') ?? (batch ? 'todo' : since ? 'corte:actual' : 'todo');
 const wanted = requested === 'corte' ? (isMonth(params.get('corte')) ? `corte:${params.get('corte')}` : 'corte:actual') : requested;
 const selectedCut = wanted.startsWith('corte:') ? cuts.find((cut) => `corte:${cut.month}` === wanted) : undefined;
 const period = isMonth(wanted) || wanted === 'todo' ? wanted : wanted === 'corte:actual' && since ? 'actual' : selectedCut ? 'cut' : 'todo';
 
 let bounds = { from: '0000-01-01', to: '9999-12-31' };
+// Con un corte, además del rango de fechas cuentan las asignaciones manuales (un movimiento puede contabilizarse en otro corte).
+let cutScope: { month: string | null; from: string; to: string } | undefined;
 let periodNote = t(locale, 'movements.range.all');
 if (isMonth(period)) {
   bounds = monthBounds(period);
   periodNote = formatMonth(period, locale);
 } else if (period === 'actual' && since) {
   bounds = { from: since.from, to: '9999-12-31' };
+  cutScope = { month: null, from: since.from, to: '9999-12-31' };
   periodNote = `${t(locale, 'movements.period.sinceLast')} · ${t(locale, 'movements.period.from', { from: formatDate(since.from, locale) })}`;
 } else if (period === 'cut' && selectedCut) {
   bounds = { from: selectedCut.from, to: selectedCut.to };
+  cutScope = { month: selectedCut.month, from: selectedCut.from, to: selectedCut.to };
   periodNote = `${t(locale, 'movements.period.cutoffName', { month: formatMonthLong(selectedCut.month, locale) })} · ${t(locale, 'statement.period', { from: formatDate(selectedCut.from, locale), to: formatDate(selectedCut.to, locale) })}`;
 }
-const list = await listMovements(db, workspace.id, { fromDate: bounds.from, toDate: bounds.to, cardId: cardFilter || undefined, accountId: accountFilter || undefined, categoryId: categoryFilter || undefined, q: q || undefined, batchId: batch?.id });
+const list = await listMovements(db, workspace.id, { fromDate: bounds.from, toDate: bounds.to, cut: cutScope, cardId: cardFilter || undefined, accountId: accountFilter || undefined, categoryId: categoryFilter || undefined, q: q || undefined, batchId: batch?.id });
 const thresholdOf = (currency: string) => thresholdFor(currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
 const scopeLabel = scopedAccount ? (scopedCard ? cardDisplay({ accountName: scopedAccount.name, last4: scopedCard.last4, label: scopedCard.label }) : scopedAccount.name) : '';
 // Pagos a meses con intereses: el "pago requerido", los intereses y el IVA comparten referencia y se muestran como uno.
@@ -87,6 +93,36 @@ const rows = list.filter((row) => !hiddenInGroup.has(row.id)).filter((row) => {
 });
 
 const byId = new Map(categories.map((category) => [category.id, category]));
+
+// Orden de la tabla (`orden` + `dir`): se aplica sobre lo que se muestra; por defecto, la fecha más reciente primero.
+const SORT_COLUMNS = ['fecha', 'descripcion', 'monto', 'tarjeta', 'categoria'] as const;
+type SortColumn = (typeof SORT_COLUMNS)[number];
+const sortBy: SortColumn = (SORT_COLUMNS as readonly string[]).includes(params.get('orden') ?? '') ? (params.get('orden') as SortColumn) : 'fecha';
+const sortDir: 'asc' | 'desc' = params.get('dir') === 'asc' ? 'asc' : params.get('dir') === 'desc' ? 'desc' : sortBy === 'fecha' ? 'desc' : 'asc';
+const sortKey = (row: (typeof rows)[number]): string | number => {
+  const group = groups.get(row.id);
+  if (sortBy === 'fecha') return row.date;
+  if (sortBy === 'descripcion') return row.descriptionNorm;
+  if (sortBy === 'monto') return row.chargeMinor > 0 ? (group?.totalMinor ?? row.chargeMinor) : -row.creditMinor;
+  if (sortBy === 'tarjeta') return `${row.accountName} ${row.last4 ?? ''}`.toLowerCase();
+  return row.categoryId ? (byId.get(row.categoryId)?.name.toLowerCase() ?? '') : '';
+};
+const sortedRows = [...rows].sort((a, b) => {
+  const left = sortKey(a);
+  const right = sortKey(b);
+  // Sin categoría siempre al final, en cualquier sentido.
+  if (sortBy === 'categoria' && (left === '') !== (right === '')) return left === '' ? 1 : -1;
+  const order = typeof left === 'number' && typeof right === 'number' ? left - right : String(left).localeCompare(String(right), locale);
+  return sortDir === 'asc' ? order : -order;
+});
+const sortHref = (column: SortColumn) => {
+  const next = new URLSearchParams(params);
+  const toggled = sortBy === column ? (sortDir === 'asc' ? 'desc' : 'asc') : column === 'fecha' ? 'desc' : 'asc';
+  next.set('orden', column);
+  next.set('dir', toggled);
+  return `?${next.toString()}`;
+};
+const ariaSort = (column: SortColumn) => (sortBy === column ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
 const canWrite = workspace.role !== 'viewer';
 const messages = messagesFor(locale, ['movements.', 'common.', 'import.plan.', 'validation.']);
 const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
@@ -179,6 +215,16 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                 {categories.map((category) => <option value={category.id}>{category.name}</option>)}
               </select>
               <button type="button" class="btn btn-small" id="bulk-apply">{t(locale, 'movements.bulk.apply')}</button>
+              {cutChoices.length > 0 && (
+                <>
+                  <select id="bulk-cut" aria-label={t(locale, 'movements.bulk.cut')}>
+                    <option value="">{t(locale, 'movements.bulk.cut')}</option>
+                    <option value="date">{t(locale, 'movements.cut.byDate')}</option>
+                    {cutChoices.map((choice) => <option value={choice.month}>{t(locale, 'movements.cut.option', { month: choice.label })}</option>)}
+                  </select>
+                  <button type="button" class="btn btn-small" id="bulk-cut-apply">{t(locale, 'movements.bulk.cutApply')}</button>
+                </>
+              )}
             </div>
           )}
 
@@ -188,15 +234,21 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
               <thead>
                 <tr>
                   {canWrite && <th scope="col" class="col-pick"><label class="pick-label"><input type="checkbox" id="select-all" aria-label={t(locale, 'movements.selectAll')} /></label></th>}
-                  <th scope="col" class="col-date">{t(locale, 'movements.col.date')}</th>
-                  <th scope="col">{t(locale, 'movements.col.description')}</th>
-                  <th scope="col" class="num">{t(locale, 'movements.col.amount')}</th>
-                  <th scope="col">{t(locale, 'movements.col.card')}</th>
-                  <th scope="col">{t(locale, 'movements.col.category')}</th>
+                  {([['fecha', 'date', 'col-date'], ['descripcion', 'description', ''], ['monto', 'amount', 'num'], ['tarjeta', 'card', ''], ['categoria', 'category', '']] as const).map(([column, label, cls]) => (
+                    <th scope="col" class={cls} aria-sort={ariaSort(column)}>
+                      <a class="sort-link" href={sortHref(column)} aria-label={t(locale, 'movements.sort.by', { column: t(locale, `movements.col.${label}`) })}>
+                        <span>{t(locale, `movements.col.${label}`)}</span>
+                        <svg class="sort-icon" viewBox="0 0 10 14" width="10" height="14" aria-hidden="true" focusable="false">
+                          <path d="M5 1 8.5 5.5h-7z" fill="currentColor" opacity={sortBy === column && sortDir === 'asc' ? 1 : 0.28}></path>
+                          <path d="M5 13 1.5 8.5h7z" fill="currentColor" opacity={sortBy === column && sortDir === 'desc' ? 1 : 0.28}></path>
+                        </svg>
+                      </a>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => {
+                {sortedRows.map((row) => {
                   const charge = row.chargeMinor > 0;
                   const ant = isAnt(row, thresholdOf(row.currency));
                   const group = groups.get(row.id);
@@ -207,8 +259,9 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                       <td>
                         {row.description}
                         {row.reference && <><br /><span class="muted">{row.reference}</span></>}
-                        {(row.planId || group || isFinance(row) || (ant && !group)) && (
+                        {(row.planId || group || isFinance(row) || (ant && !group) || row.statementMonth) && (
                           <div class="cell-tags">
+                            {row.statementMonth && <span class="badge badge-warn">{t(locale, 'movements.cut.manualBadge', { month: formatMonthLong(row.statementMonth, locale) })}</span>}
                             {row.planId && <a class="badge" href={`/app/planes/${row.planId}`}>{t(locale, 'movements.plan')}</a>}
                             {group && <span class="badge badge-muted">{t(locale, 'movements.group.badge')}</span>}
                             {isFinance(row) && <span class="badge badge-muted">{t(locale, 'movements.finance')}</span>}
@@ -227,6 +280,14 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                               ))}
                             </ul>
                           </details>
+                        )}
+                        {canWrite && cutChoices.length > 0 && row.accountId === scopedAccount?.id && (
+                          <div class="cell-tags">
+                            <select class="row-cut" data-current={row.statementMonth ?? ''} aria-label={t(locale, 'movements.cut.label')}>
+                              <option value="">{t(locale, 'movements.cut.byDate')}</option>
+                              {cutChoices.map((choice) => <option value={choice.month} selected={choice.month === row.statementMonth}>{t(locale, 'movements.cut.option', { month: choice.label })}</option>)}
+                            </select>
+                          </div>
                         )}
                         {canWrite && charge && !row.planId && <div class="cell-tags"><button type="button" class="link-button convert-plan">{t(locale, 'movements.plan.convert')}</button></div>}
                       </td>

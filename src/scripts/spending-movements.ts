@@ -48,6 +48,26 @@ if (root && root.dataset.config) {
     });
   });
 
+  // Contabilizar en otro corte: el banco arma el estado de cuenta por fecha de cargo y el CSV solo trae la de operación.
+  async function moveToCut(ids: string[], month: string | null): Promise<boolean> {
+    show(null);
+    const response = await fetch('/api/movements/statement', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids, month }),
+    });
+    if (!response.ok) show(messages['movements.cut.error']!);
+    return response.ok;
+  }
+
+  root.querySelectorAll<HTMLElement & { value: string }>('.row-cut').forEach((select) => {
+    select.addEventListener('change', async () => {
+      const row = select.closest<HTMLElement>('tr')!;
+      if (await moveToCut([row.dataset.id!], select.value || null)) location.reload();
+      else select.value = select.dataset.current ?? '';
+    });
+  });
+
   // Selección múltiple y asignación masiva
   const picks = () => [...root.querySelectorAll<HTMLInputElement>('.pick')];
   const bar = root.querySelector<HTMLElement>('#bulk-bar');
@@ -64,6 +84,14 @@ if (root && root.dataset.config) {
     refreshBar();
   });
   picks().forEach((pick) => pick.addEventListener('change', refreshBar));
+
+  root.querySelector<HTMLButtonElement>('#bulk-cut-apply')?.addEventListener('click', async () => {
+    const choice = root.querySelector<HTMLElement & { value: string }>('#bulk-cut')!.value;
+    if (!choice) return;
+    const ids = picks().filter((pick) => pick.checked).map((pick) => pick.closest<HTMLElement>('tr')!.dataset.id!);
+    if (ids.length === 0) return;
+    if (await moveToCut(ids, choice === 'date' ? null : choice)) location.reload();
+  });
 
   root.querySelector<HTMLButtonElement>('#bulk-apply')?.addEventListener('click', async () => {
     const choice = root.querySelector<HTMLElement & { value: string }>('#bulk-category')!.value;

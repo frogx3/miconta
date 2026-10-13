@@ -31,7 +31,8 @@
     "smoke:convert": "python3 -I scripts/smoke-convert.py",
     "smoke:groups": "python3 -I scripts/smoke-groups.py",
     "smoke:cards": "python3 -I scripts/smoke-cards.py",
-    "smoke:cuts": "python3 -I scripts/smoke-cuts.py"
+    "smoke:cuts": "python3 -I scripts/smoke-cuts.py",
+    "smoke:cutmove": "python3 -I scripts/smoke-cutmove.py"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.4",
