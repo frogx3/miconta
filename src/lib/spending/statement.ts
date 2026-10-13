@@ -130,8 +130,16 @@ export interface StatementSummary {
   /** Todo lo cargado en el periodo: lo que se debe pagar para no generar intereses (si el corte anterior se pagó completo). */
   chargesMinor: number;
   chargeCount: number;
-  /** Abonos y pagos del periodo; no se restan porque incluyen el pago del corte anterior. */
+  /** Todos los abonos del periodo: el pago del corte anterior, devoluciones y compras convertidas a meses. */
   creditsMinor: number;
+  /** Abonos que no son pagos a la tarjeta (devoluciones, la compra original que se convierte a meses): sí reducen lo que se debe. */
+  refundsMinor: number;
+  /**
+   * Pago para no generar intereses. Con el adeudo del corte anterior (su "pago para no generar intereses") es exacto, igual
+   * que el banco: adeudo anterior + cargos − abonos. Sin él se supone que ese corte se pagó completo: cargos − devoluciones.
+   */
+  payMinor: number;
+  payBasis: 'exact' | 'estimate';
   planChargesMinor: number;
   byPlan: PlanChargeTotal[];
   spendMinor: number;
@@ -142,7 +150,13 @@ export interface StatementSummary {
   antCount: number;
 }
 
-export function summarizeStatement(rows: readonly SpendRow[], thresholdMinor: number): StatementSummary {
+/**
+ * Un abono que es el pago a la tarjeta ("PAGO BANCA DIGITAL / SUCURSAL, GRACIAS.", "PAGO RECIBIDO"). Los demás abonos
+ * (devoluciones, la compra original que el banco abona al convertirla a meses) reducen el pago para no generar intereses.
+ */
+export const isCardPayment = (descriptionNorm: string): boolean => /^(PAGO|SU PAGO|ABONO)\b|\bGRACIAS\b|^SPEI\b/.test(descriptionNorm);
+
+export function summarizeStatement(rows: readonly SpendRow[], thresholdMinor: number, previousOwedMinor: number | null = null): StatementSummary {
   const sum = (list: readonly SpendRow[]) => list.reduce((total, row) => total + row.chargeMinor, 0);
   const charges = rows.filter((row) => row.chargeMinor > 0);
   const spend = rows.filter(isSpend);
@@ -158,10 +172,16 @@ export function summarizeStatement(rows: readonly SpendRow[], thresholdMinor: nu
     byPlan.set(row.planId!, entry);
   }
   const planChargesMinor = sum(planRows);
+  const chargesMinor = sum(charges);
+  const creditsMinor = rows.reduce((total, row) => total + row.creditMinor, 0);
+  const refundsMinor = rows.filter((row) => row.creditMinor > 0 && !isCardPayment(row.descriptionNorm)).reduce((total, row) => total + row.creditMinor, 0);
   return {
-    chargesMinor: sum(charges),
+    chargesMinor,
     chargeCount: charges.length,
-    creditsMinor: rows.reduce((total, row) => total + row.creditMinor, 0),
+    creditsMinor,
+    refundsMinor,
+    payMinor: Math.max(0, previousOwedMinor !== null ? previousOwedMinor + chargesMinor - creditsMinor : chargesMinor - refundsMinor),
+    payBasis: previousOwedMinor !== null ? 'exact' : 'estimate',
     planChargesMinor,
     byPlan: [...byPlan.values()].sort((a, b) => b.amountMinor - a.amountMinor),
     spendMinor: sum(spend),

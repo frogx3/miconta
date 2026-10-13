@@ -82,7 +82,7 @@ if (account && primary) {
     recordId: records.find((record) => record.cutoffDate === cut?.cutoff)?.id ?? '',
     // Sin cortes, el último día de corte según la tarjeta; con ellos, el mes siguiente al último corte real.
     suggestedCutoff: cut?.cutoff ?? (lastCut ? cutoffInMonth(primary.cutoffDay!, shiftMonth(lastCut.month, 1)) : lastCutoffDate(primary.cutoffDay!, today)),
-    summary: from && to ? summarizeStatement(rows, thresholdMinor) : null,
+    summary: from && to ? summarizeStatement(rows, thresholdMinor, cut && index > 0 ? (cuts[index - 1]?.recorded.officialPayMinor ?? null) : null) : null,
     thresholdMinor,
     planNames: new Map(plans.map((plan) => [plan.id, plan.name])),
     prev: index > 0 ? items[index - 1]! : null,
@@ -150,8 +150,11 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
               <div class="stats">
                 <div class="stat stat-pay">
                   <span class="muted">{t(locale, 'statement.pay')}</span>
-                  <strong>{money(view.summary.chargesMinor)}</strong>
-                  <span class="hint">{t(locale, 'statement.payHint', { n: String(view.summary.chargeCount) })}</span>
+                  <strong>{money(view.summary.payMinor)}</strong>
+                  <span class="hint">{t(locale, view.summary.payBasis === 'exact' ? 'statement.payHintExact' : 'statement.payHint', { n: String(view.summary.chargeCount) })}</span>
+                  {view.summary.refundsMinor > 0 && (
+                    <span class="hint">{t(locale, 'statement.payRefunds', { charges: money(view.summary.chargesMinor), refunds: money(view.summary.refundsMinor) })}</span>
+                  )}
                   {view.dueDate && <span class="hint"><strong>{t(locale, 'statement.due', { date: formatDate(view.dueDate, locale) })}</strong></span>}
                 </div>
                 {official !== null && (
@@ -159,9 +162,9 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                     <span class="muted">{t(locale, 'statement.official')}</span>
                     <strong>{money(official)}</strong>
                     <span class="hint">
-                      {view.summary.chargesMinor === official
+                      {view.summary.payMinor === official
                         ? t(locale, 'statement.matches')
-                        : t(locale, 'statement.difference', { amount: `${view.summary.chargesMinor > official ? '+' : '−'}${money(Math.abs(view.summary.chargesMinor - official))}` })}
+                        : t(locale, 'statement.difference', { amount: `${view.summary.payMinor > official ? '+' : '−'}${money(Math.abs(view.summary.payMinor - official))}` })}
                     </span>
                   </div>
                 )}
