@@ -187,7 +187,6 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                   {view.summary.refundsMinor > 0 && (
                     <span class="hint">{t(locale, 'statement.payRefunds', { charges: money(view.summary.chargesMinor), refunds: money(view.summary.refundsMinor) })}</span>
                   )}
-                  {view.dueDate && <span class="hint"><strong>{t(locale, 'statement.due', { date: formatDate(view.dueDate, locale) })}</strong></span>}
                 </div>
                 {official !== null && (
                   <div class="stat">
@@ -228,7 +227,7 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                   <span class="hint">{t(locale, 'statement.creditsHint')}</span>
                 </div>
               </div>
-
+              {view.dueDate && <span class="hint"><strong>{t(locale, 'statement.due', { date: formatDate(view.dueDate, locale) })}</strong></span>}
               <h2>{t(locale, 'statement.byPlan')}</h2>
               {
                 view.summary.byPlan.length === 0 ? (

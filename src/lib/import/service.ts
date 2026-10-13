@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { cards, importBatches, importProfiles, movements, planEvents, plans, statementCutoffs } from '../../db/schema';
 import type { Db } from '../auth/hooks';
@@ -450,7 +450,12 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
 
     // El archivo es el estado de cuenta de ese periodo: queda como corte real de la cuenta (las dos tarjetas de una cuenta,
     // física y digital, comparten corte). Si ya había uno con esa fecha se conserva su monto oficial.
+    // Hay un corte por mes: si el mes ya tenía uno con otra fecha (corregida a mano), se actualiza ese en lugar de crear un segundo.
     statements.push(
+      db
+        .update(statementCutoffs)
+        .set(startDate ? { cutoffDate: input.cutoffDate, startDate } : { cutoffDate: input.cutoffDate })
+        .where(and(eq(statementCutoffs.accountId, input.account.id), sql`substr(${statementCutoffs.cutoffDate}, 1, 7) = ${input.cutoffDate.slice(0, 7)}`, ne(statementCutoffs.cutoffDate, input.cutoffDate))),
       db
         .insert(statementCutoffs)
         .values({ workspaceId: input.workspaceId, accountId: input.account.id, cutoffDate: input.cutoffDate, startDate })

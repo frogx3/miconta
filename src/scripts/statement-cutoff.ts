@@ -29,6 +29,7 @@ if (section && form) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         accountId: section.dataset.accountId,
+        id: section.dataset.recordId || undefined,
         cutoffDate: data.get('cutoffDate'),
         startDate: data.get('startDate'),
         officialPay: data.get('officialPay'),

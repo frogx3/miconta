@@ -5,7 +5,7 @@ import { listCards } from '../../../lib/accounts/repo';
 import { deleteCutoff, saveCutoff } from '../../../lib/spending/repo';
 import { validateCutoff } from '../../../lib/spending/validation';
 
-/** Guarda (o reemplaza) el corte real de una cuenta, tomado de su estado de cuenta. */
+/** Guarda el corte real de una cuenta, tomado de su estado de cuenta; con `id` edita ese corte (también su fecha). */
 export const POST: APIRoute = async ({ request, locals }) => {
   const access = await requireWorkspaceWithBody(locals, request);
   if ('response' in access) return access.response;
@@ -18,8 +18,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const parsed = validateCutoff(access.body, locals.locale, currency);
   if (!parsed.ok) return validationError(parsed.errors);
 
-  if (!(await saveCutoff(db, access.workspace.id, parsed.value))) return json(404, { code: 'NOT_FOUND' });
-  return json(200, { ok: true });
+  const recordId = typeof access.body.id === 'string' && access.body.id ? access.body.id : undefined;
+  const saved = await saveCutoff(db, access.workspace.id, parsed.value, recordId);
+  if (saved.ok) return json(200, { ok: true });
+  return saved.reason === 'not_found' ? json(404, { code: 'NOT_FOUND' }) : validationError([{ field: 'cutoffDate', code: 'month_taken' }]);
 };
 
 /** Quita un corte capturado. */

@@ -358,15 +358,37 @@ export interface CutoffInput {
   officialPayMinor: number | null;
 }
 
-/** Guarda el corte real de una cuenta; si ya había uno con esa fecha, lo reemplaza. Falso si la cuenta no es del espacio. */
-export async function saveCutoff(db: Db, workspaceId: string, input: CutoffInput): Promise<boolean> {
+export type SaveCutoffResult = { ok: true } | { ok: false; reason: 'not_found' | 'month_taken' };
+
+/**
+ * Guarda el corte real de una cuenta. Un corte se identifica por el mes en que cierra (hay uno por mes): si se edita uno
+ * existente (`recordId`, o el que ya cierra en ese mes) se actualiza, incluida su fecha, en vez de crear un segundo. Mover
+ * la fecha a un mes que ya tiene otro corte se rechaza.
+ */
+export async function saveCutoff(db: Db, workspaceId: string, input: CutoffInput, recordId?: string): Promise<SaveCutoffResult> {
   const [account] = await db.select({ id: accounts.id }).from(accounts).where(and(eq(accounts.id, input.accountId), eq(accounts.workspaceId, workspaceId))).limit(1);
-  if (!account) return false;
-  await db
-    .insert(statementCutoffs)
-    .values({ workspaceId, ...input })
-    .onConflictDoUpdate({ target: [statementCutoffs.accountId, statementCutoffs.cutoffDate], set: { startDate: input.startDate, officialPayMinor: input.officialPayMinor } });
-  return true;
+  if (!account) return { ok: false, reason: 'not_found' };
+
+  const month = input.cutoffDate.slice(0, 7);
+  const inAccount = and(eq(statementCutoffs.workspaceId, workspaceId), eq(statementCutoffs.accountId, input.accountId))!;
+  const [edited] = recordId ? await db.select().from(statementCutoffs).where(and(inAccount, eq(statementCutoffs.id, recordId))).limit(1) : [];
+  if (recordId && !edited) return { ok: false, reason: 'not_found' };
+  const [sameMonth] = await db
+    .select()
+    .from(statementCutoffs)
+    .where(and(inAccount, sql`substr(${statementCutoffs.cutoffDate}, 1, 7) = ${month}`))
+    .limit(1);
+  if (edited && sameMonth && sameMonth.id !== edited.id) return { ok: false, reason: 'month_taken' };
+
+  const target = edited ?? sameMonth;
+  if (target) {
+    await db.update(statementCutoffs).set({ cutoffDate: input.cutoffDate, startDate: input.startDate, officialPayMinor: input.officialPayMinor }).where(eq(statementCutoffs.id, target.id));
+    // Si el corte cambió de mes, los movimientos asignados a él ya no tienen a dónde ir: vuelven a contarse por su fecha.
+    if (target.cutoffDate.slice(0, 7) !== month) await clearOrphanMoves(db, workspaceId, input.accountId);
+  } else {
+    await db.insert(statementCutoffs).values({ workspaceId, ...input });
+  }
+  return { ok: true };
 }
 
 export async function deleteCutoff(db: Db, workspaceId: string, cutoffId: string): Promise<boolean> {

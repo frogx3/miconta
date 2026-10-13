@@ -267,13 +267,18 @@ export async function setBatchPeriod(db: Db, workspaceId: string, batchId: strin
 
   const statements: BatchItem<'sqlite'>[] = [
     db.update(importBatches).set({ cutoffDate: input.cutoffDate }).where(eq(importBatches.id, batchId)),
+    // Hay un corte por mes: si ese mes ya tenía uno con otra fecha, se mueve (conserva su monto oficial) en lugar de crear un segundo.
+    db
+      .update(statementCutoffs)
+      .set({ cutoffDate: input.cutoffDate, startDate: input.startDate })
+      .where(and(eq(statementCutoffs.accountId, batch.accountId), sql`substr(${statementCutoffs.cutoffDate}, 1, 7) = ${input.cutoffDate.slice(0, 7)}`, sql`${statementCutoffs.cutoffDate} <> ${input.cutoffDate}`)),
     db
       .insert(statementCutoffs)
       .values({ workspaceId, accountId: batch.accountId, cutoffDate: input.cutoffDate, startDate: input.startDate })
       .onConflictDoUpdate({ target: [statementCutoffs.accountId, statementCutoffs.cutoffDate], set: { startDate: input.startDate } }),
   ];
   const previous = batch.cutoffDate;
-  if (previous && previous !== input.cutoffDate) {
+  if (previous && previous.slice(0, 7) !== input.cutoffDate.slice(0, 7)) {
     const [shared] = await db
       .select({ n: sql<number>`count(*)` })
       .from(importBatches)
