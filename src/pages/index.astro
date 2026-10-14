@@ -1,4 +1,19 @@
 ---
-const { user } = Astro.locals;
-return Astro.redirect(!user ? '/login' : user.role === 'admin' ? '/admin' : '/app');
+import Base from '../layouts/Base.astro';
+import BrandIcon from '../components/BrandIcon.astro';
 ---
+
+<Base title="Don Bigo">
+  <main class="home-logo">
+    <BrandIcon size={160} source={240} />
+  </main>
+</Base>
+
+<style>
+  .home-logo {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+  }
+</style>
