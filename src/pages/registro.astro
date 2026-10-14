@@ -3,12 +3,19 @@ import AuthLayout from '../layouts/AuthLayout.astro';
 import { t, messagesFor } from '../i18n/messages';
 import { getDb, getSetupConfig, isSignupAllowedByConfig } from '../lib/auth';
 import { isSignupOpen } from '../lib/auth/hooks';
+import { LEGAL_PATHS } from '../lib/legal';
 
 const { locale } = Astro.locals;
 const { open, firstUser } = await isSignupOpen(getDb(), isSignupAllowedByConfig());
 // Solo quien reclama el sistema (primer usuario) necesita el código de configuración.
 const setupRequired = firstUser && getSetupConfig().required;
 const messages = messagesFor(locale, ['auth.']);
+
+const consentHtml = (loc: typeof locale) =>
+  t(loc, 'legal.consent', {
+    privacy: `<a href="${LEGAL_PATHS.privacy}">${t(loc, 'legal.privacy')}</a>`,
+    terms: `<a href="${LEGAL_PATHS.terms}">${t(loc, 'legal.terms')}</a>`,
+  });
 ---
 
 <AuthLayout
@@ -63,6 +70,7 @@ const messages = messagesFor(locale, ['auth.']);
               <span class="field-error" id="setupCode-error" />
             </div>
           )}
+          <p class="consent" set:html={consentHtml(locale)} />
           <button class="btn" type="submit">
             {t(locale, 'auth.signup.submit')}
           </button>

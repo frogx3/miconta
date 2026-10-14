@@ -1,0 +1,194 @@
+---
+import LegalLayout from '../layouts/LegalLayout.astro';
+import { LEGAL, LEGAL_PATHS } from '../lib/legal';
+
+const sections = [
+  { id: 'responsable', title: 'Quién es el responsable de tus datos' },
+  { id: 'datos', title: 'Qué datos personales recabamos' },
+  { id: 'finalidades', title: 'Para qué usamos tus datos' },
+  { id: 'transferencias', title: 'Con quién compartimos tus datos' },
+  { id: 'espacios', title: 'Espacios compartidos y miembros' },
+  { id: 'seguridad', title: 'Cómo protegemos tu información' },
+  { id: 'cookies', title: 'Cookies y almacenamiento local' },
+  { id: 'derechos', title: 'Tus derechos: acceso, rectificación, cancelación y oposición' },
+  { id: 'conservacion', title: 'Cuánto tiempo conservamos tus datos' },
+  { id: 'menores', title: 'Menores de edad' },
+  { id: 'cambios', title: 'Cambios a este aviso' },
+  { id: 'consentimiento', title: 'Consentimiento y autoridad' },
+];
+---
+
+<LegalLayout title="Aviso de privacidad" other="terms" sections={sections}>
+  <p class="legal-intro">
+    En Don Bigo cuidamos tus datos personales y financieros con el mismo cuidado con que tú cuidas tus pagos. Este aviso de privacidad
+    integral se emite en cumplimiento de la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (la «Ley»), su
+    reglamento y demás disposiciones aplicables en México. Te explica, sin rodeos, qué datos tratamos, para qué y cómo puedes ejercer tus derechos.
+  </p>
+
+  <section id="responsable">
+    <h2>1. Quién es el responsable de tus datos</h2>
+    <p>
+      El responsable del tratamiento de tus datos personales es <strong>{LEGAL.responsable}</strong> (en adelante, «Don Bigo», «nosotros»),
+      quien opera el sitio y la aplicación disponibles en <strong>{LEGAL.sitio}</strong>.
+    </p>
+    <p>Domicilio para oír y recibir notificaciones: {LEGAL.domicilio}.</p>
+    <p>Correo de contacto en materia de privacidad: <strong>{LEGAL.correoPrivacidad}</strong>.</p>
+  </section>
+
+  <section id="datos">
+    <h2>2. Qué datos personales recabamos</h2>
+    <p>Recabamos datos que tú nos das o que se generan cuando usas el servicio:</p>
+    <ul>
+      <li><strong>Datos de identificación y de cuenta:</strong> nombre, correo electrónico, contraseña (que guardamos únicamente en forma cifrada irreversible) e idioma preferido.</li>
+      <li>
+        <strong>Datos financieros y patrimoniales que tú capturas o importas:</strong> movimientos de los archivos CSV de tu banco (fecha,
+        concepto, cargo, abono), nombres de cuentas y tarjetas, los últimos 4 dígitos de cada tarjeta, límites de crédito, fechas de corte y de pago,
+        planes de pago (MSI, meses con intereses y pagos fijos), metas, categorías, etiquetas y presupuestos.
+      </li>
+      <li><strong>Datos de otros miembros de tu espacio:</strong> nombre, correo y rol de las personas a quienes invitas.</li>
+      <li>
+        <strong>Datos técnicos:</strong> dirección IP, tipo de navegador y dispositivo, y fecha y hora de cada sesión, que se generan
+        automáticamente al iniciar sesión y se usan para la seguridad de tu cuenta.
+      </li>
+    </ul>
+    <p>
+      <strong>Lo que no pedimos:</strong> Don Bigo no solicita ni almacena números completos de tarjeta, NIP, código de seguridad (CVV), contraseñas
+      de banca en línea ni credenciales de tu banco, y no se conecta a tu banco. Tampoco recabamos datos personales sensibles. Te pedimos no
+      escribirlos en los campos de texto libre (por ejemplo, notas o nombres de planes).
+    </p>
+  </section>
+
+  <section id="finalidades">
+    <h2>3. Para qué usamos tus datos</h2>
+    <h3>Finalidades necesarias</h3>
+    <p>Son indispensables para darte el servicio; sin ellas no podríamos operar tu cuenta:</p>
+    <ul>
+      <li>Crear, administrar y autenticar tu cuenta y tu espacio de trabajo.</li>
+      <li>Importar tus movimientos, calcular tus mensualidades, tu carga mensual y tu fecha de libertad de pagos, y mostrarte la información.</li>
+      <li>Permitir que compartas tu espacio con las personas que tú invites, con los permisos que elijas.</li>
+      <li>Mantener la seguridad del servicio: prevenir accesos no autorizados, fraude y abuso, y limitar intentos repetidos de inicio de sesión.</li>
+      <li>Atender tus solicitudes, dudas y el ejercicio de tus derechos.</li>
+      <li>Cumplir obligaciones legales y atender requerimientos de autoridad competente.</li>
+    </ul>
+    <h3>Finalidades secundarias</h3>
+    <p>
+      Hoy no tratamos tus datos para fines distintos de los anteriores: no hacemos publicidad, no vendemos ni rentamos tus datos y no elaboramos perfiles
+      comerciales. Si en el futuro quisiéramos usar tus datos para una finalidad adicional (por ejemplo, avisos de novedades o mejoras basadas en
+      estadísticas de uso), te lo informaremos por este medio y te pediremos tu consentimiento antes de hacerlo; podrás negarte o retirarlo en cualquier
+      momento escribiéndonos al correo indicado, sin que ello afecte el servicio.
+    </p>
+  </section>
+
+  <section id="transferencias">
+    <h2>4. Con quién compartimos tus datos</h2>
+    <p>No vendemos ni transferimos tus datos personales a terceros. Solo los compartimos en estos casos:</p>
+    <ul>
+      <li>
+        <strong>Proveedores que nos prestan servicios (encargados):</strong> usamos la infraestructura de Cloudflare, Inc. para alojar la aplicación,
+        la base de datos y el almacenamiento de archivos, y para protegerla de ataques. Estos proveedores solo tratan tus datos siguiendo
+        nuestras instrucciones y bajo obligaciones de confidencialidad y seguridad. Sus servidores pueden encontrarse fuera de México, por lo que tus datos pueden
+        tratarse en otros países. Esta comunicación no requiere tu consentimiento por tratarse de una remisión a un encargado.
+      </li>
+      <li><strong>Autoridades:</strong> cuando una ley, resolución o mandato de autoridad competente nos lo exija.</li>
+      <li><strong>Las personas que tú decidas:</strong> los miembros de un espacio compartido, como se explica en la siguiente sección.</li>
+    </ul>
+    <p>Si algún día necesitáramos realizar una transferencia distinta, te lo informaremos y recabaremos tu consentimiento cuando la Ley lo requiera.</p>
+  </section>
+
+  <section id="espacios">
+    <h2>5. Espacios compartidos y miembros</h2>
+    <p>
+      Don Bigo permite invitar a otras personas (por ejemplo, tu familia) a tu espacio. Las personas invitadas podrán ver, y según su rol modificar, la
+      información financiera de ese espacio. Tú decides a quién invitar y con qué rol, y puedes retirar a un miembro cuando quieras. Antes de invitar a alguien,
+      asegúrate de contar con su autorización para que usemos su nombre y correo con ese fin. Quien administra el sistema puede ver los datos de cuenta
+      (nombre, correo, rol y estado) para dar de alta, suspender o dar de baja usuarios.
+    </p>
+  </section>
+
+  <section id="seguridad">
+    <h2>6. Cómo protegemos tu información</h2>
+    <p>
+      Aplicamos medidas de seguridad administrativas, técnicas y físicas (estas últimas, a cargo de nuestro proveedor de infraestructura) razonables para
+      proteger tus datos contra daño, pérdida, alteración, destrucción o uso, acceso o tratamiento no autorizado. Entre ellas: conexión cifrada (HTTPS),
+      contraseñas almacenadas con cifrado irreversible, límite de intentos de inicio de sesión, control de acceso por roles, separación de la información de cada espacio y
+      encabezados de seguridad en el navegador. Ningún sistema es infalible; si ocurriera una vulneración que afecte de forma significativa tus derechos
+      patrimoniales o morales, te lo informaremos sin dilación para que puedas tomar las medidas necesarias.
+    </p>
+    <p>Tú también ayudas: usa una contraseña larga y única, no la compartas y cierra sesión en equipos que no sean tuyos.</p>
+  </section>
+
+  <section id="cookies">
+    <h2>7. Cookies y almacenamiento local</h2>
+    <p>
+      Usamos una cookie de sesión estrictamente necesaria para mantenerte dentro de tu cuenta, y guardamos en tu navegador tu preferencia de tema (claro u oscuro).
+      No usamos cookies publicitarias ni herramientas de analítica o rastreo de terceros. Puedes borrar estos datos desde la configuración de tu navegador; si eliminas la cookie
+      de sesión, tendrás que iniciar sesión de nuevo.
+    </p>
+  </section>
+
+  <section id="derechos">
+    <h2>8. Tus derechos: acceso, rectificación, cancelación y oposición</h2>
+    <p>Tienes derecho a:</p>
+    <ul>
+      <li><strong>Acceder</strong> a tus datos personales y conocer cómo los tratamos.</li>
+      <li><strong>Rectificarlos</strong> cuando sean inexactos o estén incompletos. Muchos puedes corregirlos tú mismo dentro de la aplicación.</li>
+      <li><strong>Cancelarlos</strong> (que se bloqueen y después se supriman) cuando consideres que no se necesitan para las finalidades descritas.</li>
+      <li><strong>Oponerte</strong> al tratamiento de tus datos para fines específicos.</li>
+      <li><strong>Revocar tu consentimiento</strong> y <strong>limitar el uso o divulgación</strong> de tus datos.</li>
+    </ul>
+    <p>Para ejercerlos, envía una solicitud a <strong>{LEGAL.correoPrivacidad}</strong> o a nuestro domicilio, con lo siguiente:</p>
+    <ol>
+      <li>Tu nombre y el correo con el que te registraste, o cualquier otro medio para comunicarte la respuesta.</li>
+      <li>Una copia de tu identificación oficial vigente (o de tu representante, con carta poder) que acredite tu identidad.</li>
+      <li>La descripción clara y precisa de los datos y del derecho que quieres ejercer.</li>
+      <li>Cualquier elemento que facilite localizar tus datos y, en caso de rectificación, la documentación que sustente el cambio.</li>
+    </ol>
+    <p>
+      Te responderemos en un plazo máximo de 20 días hábiles contados desde la recepción de tu solicitud y, si resulta procedente, la haremos efectiva dentro de los
+      15 días hábiles siguientes a la respuesta. Estos plazos pueden ampliarse una sola vez por un periodo igual cuando las circunstancias lo justifiquen. El ejercicio de tus derechos es
+      gratuito; solo podrías cubrir los costos de reproducción o envío de la información, en su caso. Podremos negar el ejercicio de un derecho en los supuestos que
+      prevé la Ley, por ejemplo cuando debamos conservar los datos por una obligación legal.
+    </p>
+    <p>
+      Si consideras que tu derecho a la protección de datos personales ha sido vulnerado, puedes acudir a la autoridad en la materia, actualmente la Secretaría
+      Anticorrupción y Buen Gobierno, o a la que la sustituya conforme a la ley.
+    </p>
+  </section>
+
+  <section id="conservacion">
+    <h2>9. Cuánto tiempo conservamos tus datos</h2>
+    <p>
+      Conservamos tus datos mientras tu cuenta esté activa y el tiempo necesario para cumplir las finalidades de este aviso y las obligaciones legales aplicables.
+      Cuando se cancele tu cuenta o ejerzas tu derecho de cancelación, bloquearemos tus datos y los suprimiremos en un plazo razonable, que no excederá de 90 días naturales,
+      salvo que una ley nos obligue a conservarlos más tiempo. Las copias de respaldo se sobrescriben en su ciclo normal de rotación.
+    </p>
+  </section>
+
+  <section id="menores">
+    <h2>10. Menores de edad</h2>
+    <p>
+      Don Bigo está dirigido a personas mayores de 18 años. No recabamos intencionalmente datos de menores de edad. Si detectamos que una cuenta pertenece a una persona
+      menor, la daremos de baja y suprimiremos sus datos. Si crees que ocurrió, avísanos al correo de privacidad.
+    </p>
+  </section>
+
+  <section id="cambios">
+    <h2>11. Cambios a este aviso</h2>
+    <p>
+      Podemos actualizar este aviso por cambios legales, en nuestras prácticas o en el servicio. Publicaremos la versión vigente en esta misma página, con su fecha
+      de última actualización, y cuando el cambio sea relevante te lo haremos saber dentro de la aplicación o por correo electrónico.
+    </p>
+  </section>
+
+  <section id="consentimiento">
+    <h2>12. Consentimiento y autoridad</h2>
+    <p>
+      Al crear tu cuenta, iniciar sesión y capturar o importar tu información, manifiestas que leíste este aviso y otorgas tu consentimiento expreso para el tratamiento de tus
+      datos personales, incluidos los financieros y patrimoniales, en los términos aquí descritos. Puedes retirarlo en cualquier momento siguiendo el procedimiento de la sección 8; ello
+      puede implicar que ya no podamos prestarte el servicio.
+    </p>
+    <p>
+      Este aviso debe leerse junto con nuestras <a href={LEGAL_PATHS.terms}>Políticas de servicio</a>.
+    </p>
+  </section>
+</LegalLayout>

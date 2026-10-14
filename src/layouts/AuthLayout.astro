@@ -1,6 +1,7 @@
 ---
 import Base from './Base.astro';
 import BrandIcon from '../components/BrandIcon.astro';
+import LegalLinks from '../components/LegalLinks.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
 import { t } from '../i18n/messages';
 
@@ -26,5 +27,6 @@ const { locale } = Astro.locals;
       {lead && <p class="lead">{lead}</p>}
       <slot />
     </div>
+    <LegalLinks class="auth-legal" />
   </main>
 </Base>

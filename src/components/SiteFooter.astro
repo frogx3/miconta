@@ -1,5 +1,6 @@
 ---
 import Icon from './Icon.astro';
+import LegalLinks from './LegalLinks.astro';
 import { t } from '../i18n/messages';
 import { navFor } from '../lib/nav';
 
@@ -38,5 +39,8 @@ const year = String(new Date().getFullYear());
       </ul>
     </nav>
   </div>
-  <p class="footer-legal">{t(locale, 'footer.rights', { year })}</p>
+  <div class="footer-legal">
+    <p>{t(locale, 'footer.rights', { year })}</p>
+    <LegalLinks />
+  </div>
 </footer>

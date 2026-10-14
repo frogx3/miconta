@@ -1,0 +1,16 @@
+---
+import { t } from '../i18n/messages';
+import { LEGAL_PATHS } from '../lib/legal';
+
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+const { locale } = Astro.locals;
+---
+
+<nav class:list={['legal-links', className]} aria-label={t(locale, 'legal.nav')}>
+  <a href={LEGAL_PATHS.privacy}>{t(locale, 'legal.privacy')}</a>
+  <a href={LEGAL_PATHS.terms}>{t(locale, 'legal.terms')}</a>
+</nav>

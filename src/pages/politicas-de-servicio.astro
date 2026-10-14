@@ -1,0 +1,176 @@
+---
+import LegalLayout from '../layouts/LegalLayout.astro';
+import { LEGAL, LEGAL_PATHS } from '../lib/legal';
+
+const sections = [
+  { id: 'aceptacion', title: 'Aceptación y objeto' },
+  { id: 'alcance', title: 'Qué es Don Bigo y qué no es' },
+  { id: 'cuenta', title: 'Tu cuenta' },
+  { id: 'espacios', title: 'Espacios, miembros y roles' },
+  { id: 'uso', title: 'Uso permitido' },
+  { id: 'datos', title: 'Tus datos y tu contenido' },
+  { id: 'calculos', title: 'Cálculos, sugerencias y exactitud' },
+  { id: 'disponibilidad', title: 'Disponibilidad del servicio' },
+  { id: 'propiedad', title: 'Propiedad intelectual' },
+  { id: 'costos', title: 'Costo del servicio' },
+  { id: 'responsabilidad', title: 'Limitación de responsabilidad' },
+  { id: 'terminacion', title: 'Suspensión y baja' },
+  { id: 'privacidad', title: 'Privacidad' },
+  { id: 'cambios', title: 'Cambios a estas políticas' },
+  { id: 'ley', title: 'Ley aplicable y contacto' },
+];
+---
+
+<LegalLayout title="Políticas de servicio" other="privacy" sections={sections}>
+  <p class="legal-intro">
+    Estas políticas de servicio (los «Términos») regulan el acceso y uso de Don Bigo, disponible en {LEGAL.sitio}. Léelas con calma: son el acuerdo entre tú y
+    {LEGAL.responsable} («Don Bigo», «nosotros»). Si no estás de acuerdo con ellas, por favor no uses el servicio.
+  </p>
+
+  <section id="aceptacion">
+    <h2>1. Aceptación y objeto</h2>
+    <p>
+      Al crear una cuenta, iniciar sesión o usar Don Bigo aceptas estos Términos y nuestro <a href={LEGAL_PATHS.privacy}>Aviso de privacidad</a>. Don Bigo es una
+      herramienta web de seguimiento de deudas a plazos (MSI, meses con intereses y pagos fijos) que te ayuda a ver cuánto pagas cada mes, cuándo terminas y cómo vas.
+    </p>
+  </section>
+
+  <section id="alcance">
+    <h2>2. Qué es Don Bigo y qué no es</h2>
+    <ul>
+      <li>Es una herramienta de <strong>seguimiento personal</strong>: organiza la información que tú importas o capturas.</li>
+      <li>
+        <strong>No es un banco</strong>, ni una institución financiera, ni una entidad regulada por la Comisión Nacional Bancaria y de Valores; no recibe, guarda ni mueve
+        dinero, no realiza pagos y no se conecta a tu banco.
+      </li>
+      <li>
+        <strong>No brinda asesoría financiera, fiscal, contable ni legal.</strong> Lo que ves son datos organizados, no recomendaciones de inversión, crédito o pago. Para esas
+        decisiones consulta a un profesional.
+      </li>
+      <li><strong>No sustituye tus estados de cuenta.</strong> La información oficial siempre es la de tu banco o institución emisora.</li>
+    </ul>
+  </section>
+
+  <section id="cuenta">
+    <h2>3. Tu cuenta</h2>
+    <ul>
+      <li>Debes ser mayor de 18 años y tener capacidad legal para aceptar estos Términos.</li>
+      <li>El acceso es por invitación o alta que realiza quien administra Don Bigo; el registro público puede estar cerrado.</li>
+      <li>Debes darnos datos veraces y mantenerlos actualizados.</li>
+      <li>Tu cuenta es personal e intransferible. Eres responsable de resguardar tu contraseña y de la actividad realizada con tu sesión.</li>
+      <li>Avísanos de inmediato si sospechas un uso no autorizado de tu cuenta.</li>
+    </ul>
+  </section>
+
+  <section id="espacios">
+    <h2>4. Espacios, miembros y roles</h2>
+    <p>
+      La información se organiza en espacios (personales o familiares). Quien invita a otras personas decide su rol: quienes tienen rol de lectura solo consultan, y quienes
+      tienen permisos de edición pueden importar, capturar, modificar y archivar información. Si invitas a alguien, eres responsable de contar con su autorización para compartir
+      su correo y nombre, y de la información que decidas poner a su alcance. Los miembros de un espacio ven la información de ese espacio.
+    </p>
+  </section>
+
+  <section id="uso">
+    <h2>5. Uso permitido</h2>
+    <p>Te comprometes a usar Don Bigo de forma lícita y de buena fe. Está prohibido:</p>
+    <ul>
+      <li>Acceder a cuentas, espacios o datos de otras personas sin autorización.</li>
+      <li>Intentar vulnerar, probar o burlar la seguridad del servicio, o sobrecargarlo con accesos automatizados.</li>
+      <li>Cargar archivos con virus, código malicioso o información que no tengas derecho a usar.</li>
+      <li>Usar el servicio para actividades ilícitas, incluido el lavado de dinero o el fraude.</li>
+      <li>Copiar, descompilar, revender o explotar comercialmente el servicio sin nuestra autorización por escrito.</li>
+    </ul>
+  </section>
+
+  <section id="datos">
+    <h2>6. Tus datos y tu contenido</h2>
+    <p>
+      Tus datos son tuyos. Conservas la titularidad de la información que importas o capturas (movimientos, planes, metas, etc.). Nos otorgas únicamente el permiso limitado,
+      no exclusivo y revocable que necesitamos para almacenarla, procesarla y mostrártela con el fin de prestarte el servicio. Eres responsable de que los archivos que cargas provengan
+      de tus propias cuentas o de cuentas que estés autorizado a consultar, y de la exactitud de lo que captures a mano. Puedes corregir, archivar o liquidar tus registros y solicitar tu baja
+      en cualquier momento. El tratamiento de datos personales se rige por el <a href={LEGAL_PATHS.privacy}>Aviso de privacidad</a>.
+    </p>
+  </section>
+
+  <section id="calculos">
+    <h2>7. Cálculos, sugerencias y exactitud</h2>
+    <p>
+      Don Bigo calcula saldos, mensualidades, cargas mensuales y la fecha estimada de libertad de pagos con base en lo que tú importas y capturas. Las sugerencias (por ejemplo,
+      qué cargo parece ser la siguiente mensualidad) son orientativas: nunca se aplican solas y requieren tu confirmación. Las cifras pueden diferir de las de tu banco por intereses, comisiones,
+      cambios de condiciones, fechas de corte, errores de captura o archivos incompletos. Verifica siempre con tu banco antes de tomar decisiones o realizar pagos.
+    </p>
+  </section>
+
+  <section id="disponibilidad">
+    <h2>8. Disponibilidad del servicio</h2>
+    <p>
+      Hacemos un esfuerzo razonable por mantener el servicio disponible y por respaldar la información, pero se ofrece «tal cual» y «según disponibilidad». Puede haber interrupciones por mantenimiento,
+      fallas de proveedores o causas de fuerza mayor. Puede cambiar, mejorar o retirarse alguna función; si el cambio te afecta de forma importante, te avisaremos con anticipación razonable. Te recomendamos conservar
+      tus estados de cuenta y archivos originales.
+    </p>
+  </section>
+
+  <section id="propiedad">
+    <h2>9. Propiedad intelectual</h2>
+    <p>
+      El software, el diseño, el nombre y logotipo «Don Bigo», los textos y demás elementos del servicio son propiedad de {LEGAL.responsable} o de sus licenciantes y están protegidos por la
+      Ley Federal del Derecho de Autor, la Ley Federal de Protección a la Propiedad Industrial y demás normas aplicables. Estos Términos no te transfieren derecho alguno sobre ellos, salvo el
+      derecho personal, limitado, revocable e intransferible de usar el servicio conforme a estas políticas.
+    </p>
+  </section>
+
+  <section id="costos">
+    <h2>10. Costo del servicio</h2>
+    <p>
+      Si en el futuro se establecen cargos por todo o parte del servicio, te informaremos de forma clara el precio, la forma de pago y las condiciones antes de cobrarte, y nada se cobrará sin tu aceptación expresa.
+    </p>
+  </section>
+
+  <section id="responsabilidad">
+    <h2>11. Limitación de responsabilidad</h2>
+    <p>
+      En la máxima medida permitida por la ley, Don Bigo no será responsable por decisiones financieras que tomes con base en la información mostrada, por pagos omitidos o realizados fuera de tiempo, por intereses o recargos
+      que te cobre un tercero, por errores en archivos o captura de datos, ni por daños indirectos, lucro cesante o pérdida de oportunidades derivados del uso o la imposibilidad de uso del servicio. Tampoco respondemos
+      por fallas de internet, de tu dispositivo o de servicios de terceros fuera de nuestro control, ni por el uso de tu cuenta por quien obtenga tu contraseña por causas que no nos sean imputables.
+    </p>
+    <p>
+      Lo anterior no excluye ni limita la responsabilidad que por ley no pueda excluirse o limitarse, como la derivada de dolo o mala fe, ni los derechos irrenunciables que
+      te correspondan como consumidor conforme a la Ley Federal de Protección al Consumidor.
+    </p>
+  </section>
+
+  <section id="terminacion">
+    <h2>12. Suspensión y baja</h2>
+    <p>
+      Puedes pedir la baja de tu cuenta en cualquier momento escribiendo a {LEGAL.correoPrivacidad} o a quien administra Don Bigo. Podemos suspender o dar de baja una cuenta, avisándote cuando sea posible, si incumples estos Términos, si
+      hay riesgo para la seguridad del servicio o de otros usuarios, si lo exige una autoridad o si la cuenta permanece inactiva por un periodo prolongado. Al darse de baja, tus datos se tratarán conforme al
+      Aviso de privacidad. Las secciones que por su naturaleza deban seguir vigentes (propiedad intelectual, limitación de responsabilidad y ley aplicable) lo seguirán después de la baja.
+    </p>
+  </section>
+
+  <section id="privacidad">
+    <h2>13. Privacidad</h2>
+    <p>
+      Tratamos tus datos personales conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares y a nuestro <a href={LEGAL_PATHS.privacy}>Aviso de privacidad</a>, donde también encontrarás cómo ejercer tus derechos de acceso,
+      rectificación, cancelación y oposición.
+    </p>
+  </section>
+
+  <section id="cambios">
+    <h2>14. Cambios a estas políticas</h2>
+    <p>
+      Podemos modificar estos Términos. Publicaremos la versión vigente en esta página con su fecha de actualización y, si el cambio es relevante, te avisaremos dentro de la aplicación o por correo. Si sigues usando
+      Don Bigo después de que el cambio entre en vigor, se entenderá que lo aceptas; si no estás de acuerdo, puedes pedir tu baja.
+    </p>
+  </section>
+
+  <section id="ley">
+    <h2>15. Ley aplicable y contacto</h2>
+    <p>
+      Estos Términos se rigen por las leyes federales de los Estados Unidos Mexicanos. Para su interpretación y cumplimiento, las partes se someten a los tribunales competentes de {LEGAL.jurisdiccion}, salvo que
+      la ley te otorgue el derecho de acudir a otra jurisdicción o a la Procuraduría Federal del Consumidor. Si alguna disposición resultara inválida, las demás seguirán vigentes.
+    </p>
+    <p>Dudas sobre estas políticas: {LEGAL.correoPrivacidad}. Domicilio: {LEGAL.domicilio}.</p>
+  </section>
+</LegalLayout>

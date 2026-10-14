@@ -1,0 +1,68 @@
+---
+import Base from './Base.astro';
+import BrandIcon from '../components/BrandIcon.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import LegalLinks from '../components/LegalLinks.astro';
+import { t } from '../i18n/messages';
+import { LEGAL, LEGAL_PATHS } from '../lib/legal';
+
+interface Props {
+  title: string;
+  /** Documento hermano al que se enlaza al final. */
+  other: keyof typeof LEGAL_PATHS;
+  sections: { id: string; title: string }[];
+}
+
+const { title, other, sections } = Astro.props;
+const { locale, user } = Astro.locals;
+const home = !user ? '/login' : user.role === 'admin' ? '/admin' : '/app';
+const year = String(new Date().getFullYear());
+---
+
+<Base title={title}>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href={home} aria-label={t(locale, 'app.name')}>
+        <BrandIcon size={36} />
+        <span>Don <span class="brand-bigo">Bigo</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="legal-back" href={home}>{t(locale, 'legal.back')}</a>
+        <ThemeToggle />
+      </div>
+    </div>
+  </header>
+
+  <main class="legal-shell" id="main" tabindex="-1" lang="es-MX">
+    <article class="legal-doc">
+      <header class="legal-head">
+        <h1>{title}</h1>
+        <p class="legal-meta">{t(locale, 'legal.updated', { date: LEGAL.actualizado })}</p>
+      </header>
+
+      <nav class="legal-toc" aria-labelledby="legal-toc-title">
+        <h2 id="legal-toc-title">{t(locale, 'legal.toc')}</h2>
+        <ol>
+          {sections.map((section) => <li><a href={`#${section.id}`}>{section.title}</a></li>)}
+        </ol>
+      </nav>
+
+      <div class="legal-body">
+        <slot />
+      </div>
+
+      <aside class="legal-other">
+        <p>{t(locale, 'legal.otherDoc')}</p>
+        <a class="btn-link" href={LEGAL_PATHS[other]}>{t(locale, other === 'privacy' ? 'legal.privacy' : 'legal.terms')}</a>
+      </aside>
+    </article>
+  </main>
+
+  <footer class="site-footer legal-footer">
+    <div class="site-footer-inner">
+      <span class="brand-word">Don <span class="brand-bigo">Bigo</span></span>
+      <LegalLinks />
+    </div>
+    <p class="footer-legal">{t(locale, 'footer.rights', { year })}</p>
+  </footer>
+</Base>
