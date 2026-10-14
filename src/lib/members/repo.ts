@@ -132,7 +132,7 @@ export async function removeMember(db: Db, workspaceId: string, actorRole: Works
   const ownId = crypto.randomUUID();
   await db.batch([
     db.delete(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId))),
-    db.insert(workspaces).values({ id: ownId, name: person?.name ?? 'MiConta', locale: person?.locale ?? 'es-MX', defaultCurrency: defaultCurrencyForLocale(person?.locale ?? 'es-MX') }),
+    db.insert(workspaces).values({ id: ownId, name: person?.name ?? 'Don Bigo', locale: person?.locale ?? 'es-MX', defaultCurrency: defaultCurrencyForLocale(person?.locale ?? 'es-MX') }),
     db.insert(workspaceMembers).values({ workspaceId: ownId, userId, role: 'owner' }),
   ]);
   return { ok: true };

@@ -10,7 +10,7 @@ web
 Personas que se sienten ahogadas por deudas a plazos (MSI, meses con intereses, pagos fijos de tarjetas) y necesitan claridad sobre cuánto deben cada mes y cuándo quedan libres. Primero uso personal y familiar; después producto abierto. Se usa sobre todo en el celular, a una mano. Existe además un rol admin que gestiona el sistema (usuarios, no finanzas) y no usa la app de finanzas.
 
 ## Product Purpose
-miconta da seguimiento a deudas a plazos, no a gastos diarios. Importa el CSV del portal del banco (Banorte), deja que el usuario cree los planes a mano y sugiere (nunca aplica solo) qué cargo es la siguiente mensualidad. Éxito: el usuario ve su "escalera" de compromisos mes a mes y la fecha de libertad de pagos, y confía en que los datos son suyos y corregibles.
+Don Bigo da seguimiento a deudas a plazos, no a gastos diarios. Importa el CSV del portal del banco (Banorte), deja que el usuario cree los planes a mano y sugiere (nunca aplica solo) qué cargo es la siguiente mensualidad. Éxito: el usuario ve su "escalera" de compromisos mes a mes y la fecha de libertad de pagos, y confía en que los datos son suyos y corregibles.
 
 ## Positioning
 Sigue deudas a plazos, no gastos: los planes (MSI, intereses, fijos) son el objeto central; los movimientos del banco solo son la fuente. Todo parámetro es editable a mano con historial, los pagos nunca se borran y nada se aplica sin confirmación del usuario.
@@ -28,7 +28,7 @@ Flujo: descargar el CSV del portal del banco hasta el último corte → importar
 
 ## Brand Commitments
 Compromisos vinculantes indicados por el usuario:
-- Nombre: miconta. Logo existente; el usuario lo adjuntará cuando se le pida (aún no está en el repo).
+- Nombre: Don Bigo (antes MiConta; dominio donbigo.com). Los recursos de infraestructura conservan el nombre `miconta`. Logo existente; el usuario lo adjuntará cuando se le pida (aún no está en el repo).
 - Tipografía: Montserrat.
 - Colores: principal #1D3557, alternativo #C5A047, blanco #FFFFFF.
 - Voz: cercana, español de México, sin jerga bancaria.

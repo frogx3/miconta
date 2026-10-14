@@ -1,4 +1,4 @@
-# miconta
+# Don Bigo
 
 Seguimiento de pagos a plazos (meses sin intereses, meses con intereses y pagos fijos) a partir del CSV
 que el banco deja descargar, más análisis de gastos hormiga y categorías. Pensada para uso personal y

@@ -1,5 +1,5 @@
 ---
-name: miconta
+name: Don Bigo
 description: Seguimiento sereno de deudas a plazos; una escalera hacia la libertad de pagos.
 colors:
   navy: "#1D3557"
@@ -125,15 +125,15 @@ components:
     padding: "0.1rem 0.5rem"
 ---
 
-# Design System: miconta
+# Design System: Don Bigo
 
-<!-- La marca ya está aplicada en src/styles/global.css (tokens navy/dorado, Montserrat variable autoalojada vía @fontsource-variable/montserrat). El icono del schnauzer ES el logo: public/brand/miconta-icon.png (navy, fondos claros) y miconta-icon-white.png (blanco, fondos oscuros; se elige con <picture> y prefers-color-scheme). El wordmark "MiConta" es texto vivo en Montserrat, con "Conta" en dorado: es la única excepción a la regla de no usar dorado como texto, porque así es la marca. -->
+<!-- La marca ya está aplicada en src/styles/global.css (tokens navy/dorado, Montserrat variable autoalojada vía @fontsource-variable/montserrat). El icono del schnauzer ES el logo: public/brand/miconta-icon.png (navy, fondos claros) y miconta-icon-white.png (blanco, fondos oscuros; se elige con <picture> y prefers-color-scheme). El wordmark "Don Bigo" es texto vivo en Montserrat, con "Bigo" en dorado: es la única excepción a la regla de no usar dorado como texto, porque así es la marca. -->
 
 ## Overview
 
 **Creative North Star: "La escalera hacia la libertad"**
 
-miconta existe para quien se siente ahogado por deudas a plazos, así que el sistema visual trabaja como una escalera: cada pago es un peldaño y el progreso se lee de un vistazo. Lo importante (la carga del mes y la fecha de libertad de pagos) es lo primero que se ve; todo lo demás se subordina. La voz visual es serena y de confianza, no bancaria ni culpabilizadora: cifras claras sobre fondo claro, navy como tinta, dorado como marca de lo que ya se liberó.
+Don Bigo existe para quien se siente ahogado por deudas a plazos, así que el sistema visual trabaja como una escalera: cada pago es un peldaño y el progreso se lee de un vistazo. Lo importante (la carga del mes y la fecha de libertad de pagos) es lo primero que se ve; todo lo demás se subordina. La voz visual es serena y de confianza, no bancaria ni culpabilizadora: cifras claras sobre fondo claro, navy como tinta, dorado como marca de lo que ya se liberó.
 
 Es una interfaz de trabajo (Operate): densidad media, tablas y listas legibles, una sola columna principal de hasta 60rem. Se usa sobre todo en el celular a una mano, así que las acciones principales viven al alcance del pulgar y los objetivos táctiles son holgados. La profundidad es plana: líneas finas de 1px, sin sombras.
 
@@ -227,7 +227,7 @@ Esquinas suaves y consistentes: 10px en tarjetas, 8px en botones, campos y panel
 - **Error:** borde Peligro y mensaje de 0.8125rem debajo, ligado con `aria-describedby`/`aria-invalid`; el aviso general antepone "Error:" en negrita y recibe el foco. El campo inválido nunca depende solo del color.
 
 ### Navigation
-Encabezado fijo con marca a la izquierda y, a la derecha, acciones de solo ícono (Importar, Cerrar sesión) más el botón de menú. El menú es siempre hamburguesa y abre un panel lateral (`<dialog>`) con los destinos y un ícono por cada uno; la página actual lleva el ícono relleno en Dorado Peldaño. Íconos de trazo propios (24px, trazo 1.75, una sola familia en `src/lib/icons.ts`). El pie de página repite la navegación y lleva el aviso legal (MiConta no es un banco ni sustituye los estados de cuenta). En móvil, la acción principal de una lista (Nueva cuenta) se ofrece como botón flotante al alcance del pulgar. Cada pantalla de detalle abre con una miga de pan (`Cuentas › Mi Banorte`), y el primer elemento enfocable de la página es "Saltar al contenido". Las entidades se enlazan entre sí: una cuenta ofrece enlaces a sus planes, movimientos, gastos e importación (solo si hay datos), y las vistas filtradas por cuenta o tarjeta muestran una pastilla "Mostrando: …" con una X de 44px para quitar el filtro.
+Encabezado fijo con marca a la izquierda y, a la derecha, acciones de solo ícono (Importar, Cerrar sesión) más el botón de menú. El menú es siempre hamburguesa y abre un panel lateral (`<dialog>`) con los destinos y un ícono por cada uno; la página actual lleva el ícono relleno en Dorado Peldaño. Íconos de trazo propios (24px, trazo 1.75, una sola familia en `src/lib/icons.ts`). El pie de página repite la navegación y lleva el aviso legal (Don Bigo no es un banco ni sustituye los estados de cuenta). En móvil, la acción principal de una lista (Nueva cuenta) se ofrece como botón flotante al alcance del pulgar. Cada pantalla de detalle abre con una miga de pan (`Cuentas › Mi Banorte`), y el primer elemento enfocable de la página es "Saltar al contenido". Las entidades se enlazan entre sí: una cuenta ofrece enlaces a sus planes, movimientos, gastos e importación (solo si hay datos), y las vistas filtradas por cuenta o tarjeta muestran una pastilla "Mostrando: …" con una X de 44px para quitar el filtro.
 
 ### Escalera de compromisos (signature)
 Lista mes a mes de lo que se debe pagar, con la fecha de libertad de pagos al final. Cada mes es un peldaño: cuando un plan se libera, su peldaño se marca en dorado. Las barras de avance son píldoras de Línea Fina con relleno dorado; en tarjetas de plan, base navy con relleno dorado de lo pagado.

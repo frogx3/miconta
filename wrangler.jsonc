@@ -5,6 +5,8 @@
   "compatibility_flags": ["nodejs_compat"],
   // Registros de la aplicación en el panel de Cloudflare (Workers → miconta → Logs).
   "observability": { "enabled": true },
+  // Dominio propio (la zona donbigo.com está en esta misma cuenta de Cloudflare).
+  "routes": [{ "pattern": "donbigo.com", "custom_domain": true }],
   "vars": {
     // Registro público cerrado: el primer usuario se crea libremente (admin) y el resto los da de alta un admin.
     "ALLOW_SIGNUP": "false"
