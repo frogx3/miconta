@@ -180,16 +180,8 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
           ) : (
             <section class="card">
               <div class="stats">
-                <div class="stat stat-pay">
-                  <span class="muted">{t(locale, 'statement.pay')}</span>
-                  <strong>{money(view.summary.payMinor)}</strong>
-                  <span class="hint">{t(locale, view.summary.payBasis === 'exact' ? 'statement.payHintExact' : 'statement.payHint', { n: String(view.summary.chargeCount) })}</span>
-                  {view.summary.refundsMinor > 0 && (
-                    <span class="hint">{t(locale, 'statement.payRefunds', { charges: money(view.summary.chargesMinor), refunds: money(view.summary.refundsMinor) })}</span>
-                  )}
-                </div>
                 {official !== null && (
-                  <div class="stat">
+                  <div class="stat stat-pay">
                     <span class="muted">{t(locale, 'statement.official')}</span>
                     <strong>{money(official)}</strong>
                     <span class="hint">
@@ -199,6 +191,14 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                     </span>
                   </div>
                 )}
+                <div class:list={['stat', official === null && 'stat-pay']}>
+                  <span class="muted">{t(locale, 'statement.pay')}</span>
+                  <strong>{money(view.summary.payMinor)}</strong>
+                  <span class="hint">{t(locale, view.summary.payBasis === 'exact' ? 'statement.payHintExact' : 'statement.payHint', { n: String(view.summary.chargeCount) })}</span>
+                  {view.summary.refundsMinor > 0 && (
+                    <span class="hint">{t(locale, 'statement.payRefunds', { charges: money(view.summary.chargesMinor), refunds: money(view.summary.refundsMinor) })}</span>
+                  )}
+                </div>
                 <div class="stat">
                   <span class="muted">{t(locale, 'statement.plans')}</span>
                   <strong>{money(view.summary.planChargesMinor)}</strong>
