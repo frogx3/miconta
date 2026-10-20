@@ -47,7 +47,7 @@ export async function listBatches(db: Db, workspaceId: string): Promise<BatchLis
     .from(importBatches)
     .innerJoin(accounts, eq(accounts.id, importBatches.accountId))
     .innerJoin(user, eq(user.id, importBatches.createdBy))
-    .where(eq(importBatches.workspaceId, workspaceId))
+    .where(and(eq(importBatches.workspaceId, workspaceId), eq(importBatches.source, 'csv')))
     .orderBy(desc(importBatches.createdAt), desc(sql`${importBatches}.rowid`));
 
   const cutRows = await db.select({ accountId: statementCutoffs.accountId, cutoffDate: statementCutoffs.cutoffDate, startDate: statementCutoffs.startDate }).from(statementCutoffs).where(eq(statementCutoffs.workspaceId, workspaceId));
@@ -104,7 +104,7 @@ async function evaluate(db: Db, workspaceId: string, batchId: string): Promise<G
   const [latest] = await db
     .select({ id: importBatches.id })
     .from(importBatches)
-    .where(and(eq(importBatches.workspaceId, workspaceId), eq(importBatches.accountId, batch.accountId), eq(importBatches.status, 'applied')))
+    .where(and(eq(importBatches.workspaceId, workspaceId), eq(importBatches.accountId, batch.accountId), eq(importBatches.status, 'applied'), eq(importBatches.source, 'csv')))
     .orderBy(desc(importBatches.createdAt), desc(sql`${importBatches}.rowid`))
     .limit(1);
 

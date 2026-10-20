@@ -1762,6 +1762,20 @@ textarea {
   padding: 0 1rem 1rem;
 }
 
+.movement-add {
+  margin: 0 0 1rem;
+}
+
+.movement-add > form,
+.movement-add > .hint {
+  margin: 0;
+  padding: 0 1rem 1rem;
+}
+
+.movement-add .alert {
+  grid-column: 1 / -1;
+}
+
 .save-status {
   min-height: 1.25rem;
   font-size: 0.875rem;

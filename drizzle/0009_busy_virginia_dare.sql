@@ -1,0 +1,1 @@
+ALTER TABLE `import_batches` ADD `source` text DEFAULT 'csv' NOT NULL;

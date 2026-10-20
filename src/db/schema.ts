@@ -230,6 +230,8 @@ export const importBatches = sqliteTable(
     cutoffDate: text('cutoff_date'),
     summary: text('summary', { mode: 'json' }),
     status: text('status', { enum: ['applied', 'reverted'] }).notNull().default('applied'),
+    /** `manual` = lote que agrupa los movimientos capturados a mano de una cuenta; no es una carga y no aparece en el historial. */
+    source: text('source', { enum: ['csv', 'manual'] }).notNull().default('csv'),
     createdBy: text('created_by').notNull().references(() => user.id, { onDelete: 'restrict' }),
     createdAt: createdAt(),
     revertedAt: integer('reverted_at', { mode: 'timestamp_ms' }),
