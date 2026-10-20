@@ -39,3 +39,8 @@ backups/
 # python
 __pycache__/
 *.pyc
+
+# herramientas de agentes (skills instaladas y configuración local de Claude)
+.agents/
+.claude/
+skills-lock.json
