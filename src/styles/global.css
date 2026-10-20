@@ -1003,10 +1003,12 @@ details.sample {
   flex: 1 1 18rem;
 }
 
-.category-fields input[name='name'] {
+/* Mismo aspecto que los demás campos (`.field input`): estos no van dentro de un `.field`. */
+.category-fields input[type='text'] {
   font: inherit;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--line);
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--field-line);
   border-radius: 8px;
   background: var(--bg);
   color: var(--text);
@@ -2416,8 +2418,8 @@ textarea {
 }
 
 /* Presupuestos por categoría */
-.budget-input {
-  max-width: 11rem;
+.category-fields input.budget-input {
+  flex: 0 1 11rem;
 }
 
 .budget-chip {
