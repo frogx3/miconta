@@ -126,6 +126,9 @@ const ariaSort = (column: SortColumn) => (sortBy === column ? (sortDir === 'asc'
 const canWrite = workspace.role !== 'viewer';
 const messages = messagesFor(locale, ['movements.', 'common.', 'import.plan.', 'validation.']);
 const addableCards = accounts.filter((account) => !account.archivedAt).flatMap((account) => account.cards.filter((card) => !card.archivedAt).map((card) => ({ id: card.id, label: `${account.name} ···· ${card.last4 ?? '—'}${card.label ? ` · ${card.label}` : ''}` })));
+// Tarjeta sugerida: la filtrada o, si se llegó desde una cuenta con una sola tarjeta, esa.
+const accountCards = addableCards.filter((card) => scopedAccount?.cards.some((own) => own.id === card.id));
+const defaultCardId = cardFilter || (accountCards.length === 1 ? accountCards[0]!.id : '');
 const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
 ---
 
@@ -137,7 +140,7 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
   {scopeLabel && <FilterChip name={scopeLabel} nameHref={`/app/cuentas/${scopedAccount!.id}`} clearHref="/app/gastos/movimientos" />}
 
   {canWrite && (
-    <details class="card-add movement-add" id="movement-add">
+    <details class="card-add movement-add" id="movement-add" open={params.get('agregar') === '1'}>
       <summary>{t(locale, 'movements.add.toggle')}</summary>
       {addableCards.length === 0 ? (
         <p class="hint">{t(locale, 'movements.add.noCards')}</p>
@@ -147,7 +150,7 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
             <label for="m-card">{t(locale, 'movements.add.card')}</label>
             <select id="m-card" name="cardId" required>
               <option value="">{t(locale, 'movements.add.cardChoose')}</option>
-              {addableCards.map((card) => <option value={card.id} selected={card.id === cardFilter}>{card.label}</option>)}
+              {addableCards.map((card) => <option value={card.id} selected={card.id === defaultCardId}>{card.label}</option>)}
             </select>
           </div>
           <div class="field">
