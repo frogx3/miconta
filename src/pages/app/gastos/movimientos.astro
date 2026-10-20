@@ -125,6 +125,10 @@ const sortHref = (column: SortColumn) => {
 const ariaSort = (column: SortColumn) => (sortBy === column ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
 const canWrite = workspace.role !== 'viewer';
 const messages = messagesFor(locale, ['movements.', 'common.', 'import.plan.', 'validation.']);
+const addableCards = accounts.filter((account) => !account.archivedAt).flatMap((account) => account.cards.filter((card) => !card.archivedAt).map((card) => ({ id: card.id, label: `${account.name} ···· ${card.last4 ?? '—'}${card.label ? ` · ${card.label}` : ''}` })));
+// Tarjeta sugerida: la filtrada o, si se llegó desde una cuenta con una sola tarjeta, esa.
+const accountCards = addableCards.filter((card) => scopedAccount?.cards.some((own) => own.id === card.id));
+const defaultCardId = cardFilter || (accountCards.length === 1 ? accountCards[0]!.id : '');
 const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
 ---
 
@@ -134,6 +138,58 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
   <SpendingTabs active="movements" month={isMonth(period) ? period : undefined} accountId={scopedAccount?.id} />
   {batch && <FilterChip name={t(locale, 'movements.batch.name', { name: batch.fileName })} clearHref="/app/gastos/movimientos" />}
   {scopeLabel && <FilterChip name={scopeLabel} nameHref={`/app/cuentas/${scopedAccount!.id}`} clearHref="/app/gastos/movimientos" />}
+
+  {canWrite && (
+    <details class="card-add movement-add" id="movement-add" open={params.get('agregar') === '1'}>
+      <summary>{t(locale, 'movements.add.toggle')}</summary>
+      {addableCards.length === 0 ? (
+        <p class="hint">{t(locale, 'movements.add.noCards')}</p>
+      ) : (
+        <form id="movement-form" class="form-grid" novalidate>
+          <div class="field">
+            <label for="m-card">{t(locale, 'movements.add.card')}</label>
+            <select id="m-card" name="cardId" required>
+              <option value="">{t(locale, 'movements.add.cardChoose')}</option>
+              {addableCards.map((card) => <option value={card.id} selected={card.id === defaultCardId}>{card.label}</option>)}
+            </select>
+          </div>
+          <div class="field">
+            <label for="m-kind">{t(locale, 'movements.add.kind')}</label>
+            <select id="m-kind" name="kind">
+              <option value="charge">{t(locale, 'movements.add.kindCharge')}</option>
+              <option value="credit">{t(locale, 'movements.add.kindCredit')}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="m-date">{t(locale, 'movements.add.date')}</label>
+            <input id="m-date" name="date" type="date" value={today} required />
+          </div>
+          <div class="field">
+            <label for="m-description">{t(locale, 'movements.add.description')}</label>
+            <input id="m-description" name="description" maxlength="120" required />
+          </div>
+          <div class="field">
+            <label for="m-amount">{t(locale, 'movements.add.amount')}</label>
+            <input id="m-amount" name="amount" inputmode="decimal" required />
+          </div>
+          <div class="field" id="m-category-field">
+            <label for="m-category">{t(locale, 'movements.add.category')}</label>
+            <select id="m-category" name="categoryId">
+              <option value="">{t(locale, 'movements.add.categoryNone')}</option>
+              {categories.map((category) => <option value={category.id}>{category.name}</option>)}
+              <option value="__new__">{t(locale, 'movements.add.categoryNew')}</option>
+            </select>
+          </div>
+          <div class="field" id="m-new-category-field" hidden>
+            <label for="m-new-category">{t(locale, 'movements.add.newCategory')}</label>
+            <input id="m-new-category" name="newCategory" maxlength="40" />
+          </div>
+          <div id="movement-form-error" class="alert" role="alert" hidden></div>
+          <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'movements.add.submit')}</button></div>
+        </form>
+      )}
+    </details>
+  )}
 
   <form class="card filters form-grid" method="get" action="/app/gastos/movimientos">
     {batch && <input type="hidden" name="lote" value={batch.id} />}
@@ -321,4 +377,5 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
 
 <script>
   import '../../../scripts/spending-movements';
+  import '../../../scripts/movement-form';
 </script>

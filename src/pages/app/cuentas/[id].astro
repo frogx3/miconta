@@ -28,6 +28,7 @@ const readOnly = workspace.role === 'viewer';
 const messages = messagesFor(locale, ['card.', 'cards.', 'validation.', 'common.', 'auth.error.label']);
 const openAdd = !readOnly && (account.cards.length === 0 || Astro.url.searchParams.get('agregar') === '1');
 const scopeLinks = `a:${account.id}`;
+const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&agregar=1#movement-add`;
 ---
 
 <AppLayout title={account.name} active="accounts">
@@ -98,6 +99,7 @@ const scopeLinks = `a:${account.id}`;
           {!readOnly && (
             <p class="activity-import">
               <a class="touch-link" href={`/app/importar?cuenta=${account.id}`}><Icon name="upload" size={18} /> {t(locale, 'account.activity.import')}</a>
+              <a class="touch-link" href={addMovementHref}><Icon name="plus" size={18} /> {t(locale, 'account.activity.addManual')}</a>
               {activity.lastImport && <span class="muted">{t(locale, 'account.activity.lastImport', { date: formatDate(activity.lastImport, locale) })}</span>}
             </p>
           )}
@@ -105,7 +107,12 @@ const scopeLinks = `a:${account.id}`;
       ) : (
         <>
           <p class="empty">{t(locale, 'account.activity.empty')}</p>
-          {!readOnly && <a class="btn btn-link" href={`/app/importar?cuenta=${account.id}`}><Icon name="upload" size={18} /> {t(locale, 'account.activity.import')}</a>}
+          {!readOnly && (
+            <p class="activity-import">
+              <a class="btn btn-link" href={`/app/importar?cuenta=${account.id}`}><Icon name="upload" size={18} /> {t(locale, 'account.activity.import')}</a>
+              <a class="btn btn-link" href={addMovementHref}><Icon name="plus" size={18} /> {t(locale, 'account.activity.addManual')}</a>
+            </p>
+          )}
         </>
       )
     }

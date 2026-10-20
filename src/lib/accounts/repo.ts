@@ -182,7 +182,7 @@ export async function accountActivity(db: Db, workspaceId: string, accountId: st
   const [last] = await db
     .select({ cutoffDate: importBatches.cutoffDate, createdAt: importBatches.createdAt })
     .from(importBatches)
-    .where(and(eq(importBatches.workspaceId, workspaceId), eq(importBatches.accountId, accountId), eq(importBatches.status, 'applied')))
+    .where(and(eq(importBatches.workspaceId, workspaceId), eq(importBatches.accountId, accountId), eq(importBatches.status, 'applied'), eq(importBatches.source, 'csv')))
     .orderBy(desc(importBatches.createdAt), desc(sql`${importBatches}.rowid`))
     .limit(1);
 

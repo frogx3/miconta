@@ -1,7 +1,7 @@
 import type { IconName } from './icons';
 import type { MessageKey } from '../i18n/messages';
 
-export type NavKey = 'dashboard' | 'accounts' | 'plans' | 'spending' | 'import' | 'users' | 'members' | 'goals';
+export type NavKey = 'dashboard' | 'accounts' | 'plans' | 'spending' | 'categories' | 'import' | 'users' | 'members' | 'goals';
 
 export interface NavItem {
   key: NavKey;
@@ -15,6 +15,7 @@ const APP: NavItem[] = [
   { key: 'accounts', href: '/app/cuentas', icon: 'landmark', label: 'nav.accounts' },
   { key: 'plans', href: '/app/planes', icon: 'stairs', label: 'nav.plans' },
   { key: 'spending', href: '/app/gastos', icon: 'chart', label: 'nav.spending' },
+  { key: 'categories', href: '/app/gastos/categorias', icon: 'tag', label: 'nav.categories' },
   { key: 'import', href: '/app/importar', icon: 'upload', label: 'nav.import' },
   { key: 'goals', href: '/app/metas', icon: 'target', label: 'nav.goals' },
   { key: 'members', href: '/app/miembros', icon: 'users', label: 'nav.members' },

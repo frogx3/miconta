@@ -1003,10 +1003,12 @@ details.sample {
   flex: 1 1 18rem;
 }
 
-.category-fields input[name='name'] {
+/* Mismo aspecto que los demás campos (`.field input`): estos no van dentro de un `.field`. */
+.category-fields input[type='text'] {
   font: inherit;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--line);
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--field-line);
   border-radius: 8px;
   background: var(--bg);
   color: var(--text);
@@ -1042,12 +1044,16 @@ details.sample {
   height: 1.15rem;
   border-radius: 50%;
   cursor: pointer;
-  border: 2px solid transparent;
+  transition: opacity 0.15s ease;
 }
 
-.swatch input:checked + span {
-  border-color: var(--text);
-  box-shadow: 0 0 0 2px var(--surface) inset;
+/* El color elegido se queda a opacidad completa y los demás se atenúan (sin borde). */
+.swatches:has(input:checked) .swatch input:not(:checked) + span {
+  opacity: 0.35;
+}
+
+.swatches:has(input:checked) .swatch:hover input:not(:checked) + span {
+  opacity: 0.75;
 }
 
 .swatch input:focus-visible + span {
@@ -1762,6 +1768,20 @@ textarea {
   padding: 0 1rem 1rem;
 }
 
+.movement-add {
+  margin: 0 0 1rem;
+}
+
+.movement-add > form,
+.movement-add > .hint {
+  margin: 0;
+  padding: 0 1rem 1rem;
+}
+
+.movement-add .alert {
+  grid-column: 1 / -1;
+}
+
 .save-status {
   min-height: 1.25rem;
   font-size: 0.875rem;
@@ -2402,8 +2422,8 @@ textarea {
 }
 
 /* Presupuestos por categoría */
-.budget-input {
-  max-width: 11rem;
+.category-fields input.budget-input {
+  flex: 0 1 11rem;
 }
 
 .budget-chip {

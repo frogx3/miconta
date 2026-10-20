@@ -7,7 +7,7 @@ export const CATEGORY_COLORS = ['#0f6b4f', '#2563eb', '#d97706', '#dc2626', '#7c
 
 export interface SpendingFieldError {
   field: string;
-  code: 'required' | 'too_long' | 'too_short' | 'invalid_color' | 'invalid_amount' | 'invalid_category' | 'invalid_date' | 'invalid_range';
+  code: 'required' | 'too_long' | 'too_short' | 'invalid_color' | 'invalid_amount' | 'invalid_category' | 'invalid_date' | 'invalid_range' | 'invalid_card' | 'invalid_kind';
 }
 
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
@@ -99,4 +99,41 @@ export function validateCutoff(raw: Record<string, unknown>, locale: string, cur
   }
 
   return errors.length ? { ok: false, errors } : { ok: true, value: { accountId, cutoffDate, startDate: startDate || null, officialPayMinor } };
+}
+
+export interface MovementValues {
+  cardId: string;
+  date: string;
+  description: string;
+  kind: 'charge' | 'credit';
+  /** El monto se interpreta con la moneda de la tarjeta, por eso llega como texto hasta conocerla. */
+  amountInput: string;
+  categoryId: string | null;
+  newCategory: string | null;
+}
+
+/** Movimiento capturado a mano; el monto se termina de validar con la moneda de la tarjeta (`parseMovementAmount`). */
+export function validateMovement(raw: Record<string, unknown>): { ok: true; value: MovementValues } | { ok: false; errors: SpendingFieldError[] } {
+  const errors: SpendingFieldError[] = [];
+  const cardId = text(raw.cardId);
+  if (!cardId) errors.push({ field: 'cardId', code: 'invalid_card' });
+  const date = text(raw.date);
+  if (!isValidISODate(date)) errors.push({ field: 'date', code: 'invalid_date' });
+  const description = text(raw.description).replace(/\s+/g, ' ');
+  if (!description) errors.push({ field: 'description', code: 'required' });
+  else if (description.length > 120) errors.push({ field: 'description', code: 'too_long' });
+  const kind = raw.kind === 'charge' || raw.kind === 'credit' ? raw.kind : null;
+  if (!kind) errors.push({ field: 'kind', code: 'invalid_kind' });
+  const amountInput = typeof raw.amount === 'number' ? String(raw.amount) : text(raw.amount);
+  if (!amountInput) errors.push({ field: 'amount', code: 'required' });
+  const newCategory = text(raw.newCategory).replace(/\s+/g, ' ');
+  if (newCategory.length > 40) errors.push({ field: 'newCategory', code: 'too_long' });
+  return errors.length
+    ? { ok: false, errors }
+    : { ok: true, value: { cardId, date, description, kind: kind!, amountInput, categoryId: text(raw.categoryId) || null, newCategory: newCategory || null } };
+}
+
+export function parseMovementAmount(input: string, locale: string, currency: string): number | null {
+  const minor = currencyDigits(currency) === null ? null : parseMoneyInput(input, locale, currency);
+  return minor !== null && minor > 0 ? minor : null;
 }
