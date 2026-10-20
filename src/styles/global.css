@@ -1044,12 +1044,16 @@ details.sample {
   height: 1.15rem;
   border-radius: 50%;
   cursor: pointer;
-  border: 2px solid transparent;
+  transition: opacity 0.15s ease;
 }
 
-.swatch input:checked + span {
-  border-color: var(--text);
-  box-shadow: 0 0 0 2px var(--surface) inset;
+/* El color elegido se queda a opacidad completa y los demás se atenúan (sin borde). */
+.swatches:has(input:checked) .swatch input:not(:checked) + span {
+  opacity: 0.35;
+}
+
+.swatches:has(input:checked) .swatch:hover input:not(:checked) + span {
+  opacity: 0.75;
 }
 
 .swatch input:focus-visible + span {
