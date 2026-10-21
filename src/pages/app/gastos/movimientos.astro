@@ -1,5 +1,6 @@
 ---
 import AppLayout from '../../../layouts/AppLayout.astro';
+import Help from '../../../components/Help.astro';
 import SpendingTabs from '../../../components/SpendingTabs.astro';
 import { messagesFor, t } from '../../../i18n/messages';
 import FilterChip from '../../../components/FilterChip.astro';
@@ -133,7 +134,7 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
 ---
 
 <AppLayout title={t(locale, 'movements.title')} active="spending">
-  <h1>{t(locale, 'spending.title')}</h1>
+  <h1>{t(locale, 'spending.title')}<Help topic="spending.movements" term={t(locale, 'spending.title')} /></h1>
   {scopedAccount && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopedAccount.name, href: `/app/cuentas/${scopedAccount.id}` }, { label: t(locale, 'movements.title') }]} />}
   <SpendingTabs active="movements" month={isMonth(period) ? period : undefined} accountId={scopedAccount?.id} />
   {batch && <FilterChip name={t(locale, 'movements.batch.name', { name: batch.fileName })} clearHref="/app/gastos/movimientos" />}
@@ -299,6 +300,7 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                           <path d="M5 13 1.5 8.5h7z" fill="currentColor" opacity={sortBy === column && sortDir === 'desc' ? 1 : 0.28}></path>
                         </svg>
                       </a>
+                      <Help topic={`movements.col.${label}`} />
                     </th>
                   ))}
                 </tr>

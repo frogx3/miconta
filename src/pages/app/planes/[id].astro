@@ -1,5 +1,6 @@
 ---
 import AppLayout from '../../../layouts/AppLayout.astro';
+import Help from '../../../components/Help.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
 import { messagesFor, t, type MessageKey } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
@@ -61,27 +62,27 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
       <span class="bar bar-wide" aria-hidden="true"><span style={`width:${paidPct}%`} /></span>
     </div>
     <dl class="facts">
-      <dt>{t(locale, 'plan.card')}</dt>
+      <dt>{t(locale, 'plan.card')}<Help topic="plan.card" /></dt>
       <dd>
         <a href={`/app/cuentas/${card.accountId}`}>{card.name}</a>
         <span class="muted"> · </span>
         <a href={`/app/gastos/movimientos?mes=todo&filtro=c:${card.id}`}>{t(locale, 'plan.viewCharges')}</a>
       </dd>
-      <dt>{t(locale, 'plan.installment')}</dt>
+      <dt>{t(locale, 'plan.installment')}<Help topic="plan.installment" /></dt>
       <dd>{money(plan.installmentAmountMinor)}</dd>
-      <dt>{t(locale, 'plan.remainingInstallments')}</dt>
+      <dt>{t(locale, 'plan.remainingInstallments')}<Help topic="plan.remainingInstallments" /></dt>
       <dd>{open ? remainingInstallments(plan) : 0}</dd>
-      <dt>{t(locale, 'plan.remainingBalance')}</dt>
+      <dt>{t(locale, 'plan.remainingBalance')}<Help topic="plan.remainingBalance" /></dt>
       <dd>
         {open ? money(remainingBalanceMinor(plan)) : money(0)}
         {open && plan.reportedBalanceDate && <span class="muted"> · {t(locale, 'plan.balanceBank', { date: formatDate(plan.reportedBalanceDate, locale) })}</span>}
       </dd>
-      <dt>{t(locale, 'plan.totalAmount')}</dt>
+      <dt>{t(locale, 'plan.totalAmount')}<Help topic="plan.totalAmount" /></dt>
       <dd>{money(plan.totalAmountMinor)}</dd>
-      {plan.type !== 'msi' && (<><dt>{t(locale, 'plan.interest')}</dt><dd>{formatRate(plan.interestRateBp, locale)}</dd></>)}
-      <dt>{t(locale, 'plan.firstCharge')}</dt>
+      {plan.type !== 'msi' && (<><dt>{t(locale, 'plan.interest')}<Help topic="plan.interest" /></dt><dd>{formatRate(plan.interestRateBp, locale)}</dd></>)}
+      <dt>{t(locale, 'plan.firstCharge')}<Help topic="plan.firstCharge" /></dt>
       <dd>{formatDate(plan.firstChargeDate, locale)}</dd>
-      <dt>{t(locale, 'plan.naturalEnd')}</dt>
+      <dt>{t(locale, 'plan.naturalEnd')}<Help topic="plan.naturalEnd" /></dt>
       <dd>{formatDate(naturalEndDate(plan), locale)}</dd>
     </dl>
     {plan.status === 'settled_manual' && plan.settlementNote && <p class="alert note">{t(locale, 'plan.settle.note', { note: plan.settlementNote })}</p>}
@@ -101,7 +102,7 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
     {
       !readOnly && open && (
         <form id="settle-box" class="settle-box" hidden novalidate>
-          <h2>{t(locale, 'plan.settle.title')}</h2>
+          <h2>{t(locale, 'plan.settle.title')}<Help topic="plan.settle.title" /></h2>
           <p class="hint">{t(locale, 'plan.settle.hint')}</p>
           <div class="field">
             <label for="settle-comment">{t(locale, 'plan.settle.comment')}</label>
@@ -115,7 +116,7 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
   </section>
 
   <section class="card" id="tags" data-plan-id={plan.id} data-messages={JSON.stringify(messages)}>
-    <h2>{t(locale, 'plan.tags.title')}</h2>
+    <h2>{t(locale, 'plan.tags.title')}<Help topic="plan.tags.title" /></h2>
     {!readOnly && <p class="hint">{t(locale, 'plan.tags.hint')}</p>}
     <div id="tags-error" class="alert" role="alert" hidden></div>
     <ul class="tag-list" id="tag-list">
@@ -140,7 +141,7 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
   </section>
 
   <section class="card">
-    <h2>{t(locale, 'plan.edit.title')}</h2>
+    <h2>{t(locale, 'plan.edit.title')}<Help topic="plan.edit.title" /></h2>
     <p class="hint">{readOnly ? t(locale, 'plan.edit.readOnlyNote') : t(locale, 'plan.edit.hint')}</p>
     <div id="edit-error" class="alert" role="alert" hidden></div>
     <div id="edit-done" class="alert ok" role="status" hidden></div>
@@ -206,16 +207,16 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
   </section>
 
   <section class="card">
-    <h2>{t(locale, 'plan.schedule.title')}</h2>
+    <h2>{t(locale, 'plan.schedule.title')}<Help topic="plan.schedule.title" /></h2>
     <div class="table-scroll">
       <table class="import-table">
 <caption class="sr-only">{t(locale, 'table.sr.events')}</caption>
         <thead>
           <tr>
-            <th scope="col">{t(locale, 'plan.schedule.no')}</th>
-            <th scope="col">{t(locale, 'plan.schedule.date')}</th>
-            <th scope="col" class="num">{t(locale, 'plan.schedule.amount')}</th>
-            <th scope="col">{t(locale, 'plan.schedule.state')}</th>
+            <th scope="col">{t(locale, 'plan.schedule.no')}<Help topic="plan.schedule.no" /></th>
+            <th scope="col">{t(locale, 'plan.schedule.date')}<Help topic="plan.schedule.date" /></th>
+            <th scope="col" class="num">{t(locale, 'plan.schedule.amount')}<Help topic="plan.schedule.amount" /></th>
+            <th scope="col">{t(locale, 'plan.schedule.state')}<Help topic="plan.schedule.state" /></th>
           </tr>
         </thead>
         <tbody>
@@ -235,7 +236,7 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
   </section>
 
   <section class="card">
-    <h2>{t(locale, 'plan.movements.title')}</h2>
+    <h2>{t(locale, 'plan.movements.title')}<Help topic="plan.movements.title" /></h2>
     {
       movements.length === 0 ? (
         <p class="empty">{t(locale, 'plan.movements.empty')}</p>
@@ -260,7 +261,7 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
   </section>
 
   <section class="card">
-    <h2>{t(locale, 'plan.history.title')}</h2>
+    <h2>{t(locale, 'plan.history.title')}<Help topic="plan.history.title" /></h2>
     <ol class="timeline">
       {
         events.map((event) => {

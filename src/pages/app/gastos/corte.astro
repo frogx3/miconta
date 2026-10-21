@@ -1,5 +1,6 @@
 ---
 import AppLayout from '../../../layouts/AppLayout.astro';
+import Help from '../../../components/Help.astro';
 import SpendingTabs from '../../../components/SpendingTabs.astro';
 import { listAccounts } from '../../../lib/accounts/repo';
 import { messagesFor, t } from '../../../i18n/messages';
@@ -128,7 +129,7 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
 ---
 
 <AppLayout title={t(locale, 'statement.title')} active="spending">
-  <h1>{t(locale, 'spending.title')}</h1>
+  <h1>{t(locale, 'spending.title')}<Help topic="spending.statement" term={t(locale, 'spending.title')} /></h1>
   <SpendingTabs active="statement" />
 
   {
@@ -192,7 +193,7 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                   </div>
                 )}
                 <div class:list={['stat', official === null && 'stat-pay']}>
-                  <span class="muted">{t(locale, 'statement.pay')}</span>
+                  <span class="muted">{t(locale, 'statement.pay')}<Help topic="statement.pay" /></span>
                   <strong>{money(view.summary.payMinor)}</strong>
                   <span class="hint">{t(locale, view.summary.payBasis === 'exact' ? 'statement.payHintExact' : 'statement.payHint', { n: String(view.summary.chargeCount) })}</span>
                   {view.summary.refundsMinor > 0 && (
@@ -200,35 +201,35 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                   )}
                 </div>
                 <div class="stat">
-                  <span class="muted">{t(locale, 'statement.plans')}</span>
+                  <span class="muted">{t(locale, 'statement.plans')}<Help topic="statement.plans" /></span>
                   <strong>{money(view.summary.planChargesMinor)}</strong>
                   <span class="hint">{t(locale, 'statement.plansHint')}</span>
                 </div>
                 <div class="stat">
-                  <span class="muted">{t(locale, 'statement.spend')}</span>
+                  <span class="muted">{t(locale, 'statement.spend')}<Help topic="statement.spend" /></span>
                   <strong>{money(view.summary.spendMinor)}</strong>
                   <span class="hint">{t(locale, 'movements.count', { n: String(view.summary.spendCount) })}</span>
                 </div>
                 {view.summary.financeMinor > 0 && (
                   <div class="stat">
-                    <span class="muted">{t(locale, 'statement.finance')}</span>
+                    <span class="muted">{t(locale, 'statement.finance')}<Help topic="statement.finance" /></span>
                     <strong>{money(view.summary.financeMinor)}</strong>
                     <span class="hint">{t(locale, 'statement.financeHint')}</span>
                   </div>
                 )}
                 <div class="stat stat-ant">
-                  <span class="muted">{t(locale, 'statement.ant')}</span>
+                  <span class="muted">{t(locale, 'statement.ant')}<Help topic="statement.ant" /></span>
                   <strong>{money(view.summary.antMinor)}</strong>
                   <span class="hint">{t(locale, 'statement.antHint', { n: String(view.summary.antCount), threshold: money(view.thresholdMinor) })}</span>
                 </div>
                 <div class="stat">
-                  <span class="muted">{t(locale, 'statement.credits')}</span>
+                  <span class="muted">{t(locale, 'statement.credits')}<Help topic="statement.credits" /></span>
                   <strong>{money(view.summary.creditsMinor)}</strong>
                   <span class="hint">{t(locale, 'statement.creditsHint')}</span>
                 </div>
               </div>
               {view.dueDate && <span class="hint"><strong>{t(locale, 'statement.due', { date: formatDate(view.dueDate, locale) })}</strong></span>}
-              <h2>{t(locale, 'statement.byPlan')}</h2>
+              <h2>{t(locale, 'statement.byPlan')}<Help topic="statement.byPlan" /></h2>
               {
                 view.summary.byPlan.length === 0 ? (
                   <p class="empty">{t(locale, 'statement.noPlans')}</p>
@@ -259,7 +260,7 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
 
         {view.suggestion && (
           <section class="card suggestion" id="suggestion" data-messages={JSON.stringify(messages)}>
-            <h2>{t(locale, 'statement.suggest.title')}</h2>
+            <h2>{t(locale, 'statement.suggest.title')}<Help topic="statement.suggest.title" /></h2>
             <p>{t(locale, view.suggestion.direction === 'out' ? 'statement.suggest.body.out' : 'statement.suggest.body.in', { amount: money(view.suggestion.amountMinor) })}</p>
             <ul class="group-lines">
               {view.suggestion.units.map((unit) => <li><span>{formatDate(unit.date, locale)} · {unit.label}</span><span class="num">{money(unit.effectMinor)}</span></li>)}
@@ -275,7 +276,7 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
 
         {view.adjustments && (view.adjustments.in.length > 0 || view.adjustments.out.length > 0) && (
           <section class="card" id="adjustments" data-messages={JSON.stringify(messages)}>
-            <h2>{t(locale, 'statement.moves.title')}</h2>
+            <h2>{t(locale, 'statement.moves.title')}<Help topic="statement.moves.title" /></h2>
             <p class="hint">{t(locale, 'statement.moves.hint')}</p>
             {(['in', 'out'] as const).map((side) => view!.adjustments![side].length > 0 && (
               <>
@@ -298,7 +299,7 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
 
         {canWrite && (
           <section class="card" id="cutoff" data-messages={JSON.stringify(messages)} data-account-id={account.id} data-record-id={view.recordId}>
-            <h2>{t(locale, view.kind === 'cut' ? 'statement.real.title' : 'statement.real.titleNew')}</h2>
+            <h2>{t(locale, view.kind === 'cut' ? 'statement.real.title' : 'statement.real.titleNew')}<Help topic="statement.real.title" term={t(locale, view.kind === 'cut' ? 'statement.real.title' : 'statement.real.titleNew')} /></h2>
             <p class="hint">{t(locale, 'statement.real.hint')}</p>
             <div id="cutoff-done" class="alert ok" role="status" hidden />
             <div id="cutoff-error" class="alert" role="alert" hidden />

@@ -1,0 +1,221 @@
+import type { Locale } from '../lib/locale';
+
+/**
+ * Textos de los globos de ayuda (componente `Help`). La clave es, siempre que existe, la clave del
+ * título o encabezado que explican (p. ej. 'plans.col.end'); así el componente toma el término de
+ * `t()` y no hay que repetirlo. Tono: cercano y en lenguaje de todos los días, sin jerga bancaria.
+ */
+const es = {
+  // Páginas principales
+  'accounts.title': 'Aquí viven tus cuentas del banco. Dentro de cada una agregas sus tarjetas y ves cuánto pagas cada mes. Empieza por crear una cuenta; es la base para importar tus movimientos.',
+  'plans.title': 'Un plan es una compra que estás pagando poco a poco: meses sin intereses, meses con intereses o un pago fijo. Aquí ves cuánto debes, cuánto pagas cada mes y cuándo terminas.',
+  'goals.title': 'Ponte un objetivo y mira cómo vas: terminar de pagar tus planes, mantener bajo control tus gastos pequeños o juntar un ahorro. Los avances son estimaciones para guiarte.',
+  'members.title': 'Las personas que pueden entrar a este espacio. Puedes invitar a alguien de confianza y decidir si solo mira o también puede capturar y cambiar datos.',
+  'import.title': 'Aquí subes el archivo CSV que descargas del portal de tu banco. Antes de guardar nada, te mostramos lo que encontramos para que lo revises y confirmes.',
+  'batches.title': 'La lista de todos los archivos que has importado. Si una carga salió mal, aquí puedes deshacerla y volver a subir el archivo.',
+  'spending.summary': 'Un panorama de a dónde se fue tu dinero en el mes que elijas: cuánto gastaste, en qué y cuánto se te va en compras pequeñas. Los pagos de planes y los intereses se muestran aparte.',
+  'spending.movements': 'Todas tus compras, pagos y abonos, una por una. Puedes buscarlas, filtrarlas y asignarles una categoría para entender mejor en qué gastas.',
+  'spending.statement': 'Reúne los movimientos de una tarjeta entre dos fechas de corte para calcular cuánto te va a cobrar el banco. Es una estimación: el monto oficial siempre es el de tu estado de cuenta.',
+  'spending.categories': 'Las categorías ordenan tus gastos (despensa, transporte, restaurantes…). Aquí las creas y defines reglas para que se asignen solas.',
+
+  // Cuentas
+  'account.status.thisMonth': 'Lo que te toca pagar este mes por los planes de esta cuenta: la suma de sus mensualidades.',
+  'account.status.remaining': 'Lo que todavía debes por los planes de esta cuenta. Si cargaste los saldos del banco, usamos esos datos reales; si no, es un cálculo aproximado.',
+  'account.status.freedom': 'La fecha en que terminas de pagar todos los planes de esta cuenta, si sigues pagando tus mensualidades como hasta ahora.',
+  'account.activity.title': 'Un resumen de lo que ya está registrado en esta cuenta y atajos para importar tu archivo del banco o capturar un movimiento a mano.',
+  'cards.title': 'Cada tarjeta que tienes en esta cuenta, física o digital. Los últimos 4 dígitos nos ayudan a saber a qué tarjeta pertenece cada cargo de tu archivo.',
+  'card.fact.limit': 'El máximo que el banco te permite gastar con esta tarjeta de crédito.',
+  'card.fact.cutoff': 'El día del mes en que el banco cierra tu estado de cuenta y suma lo que gastaste hasta ese momento.',
+  'card.fact.due': 'El día límite para pagar tu tarjeta sin que te cobren intereses ni recargos. Llega unos días después del corte.',
+
+  // Planes (resumen)
+  'plans.summary.remaining': 'Lo que todavía te falta pagar por todos tus planes activos. Cuando subes los saldos del banco, es la cifra real; si no, es un cálculo aproximado.',
+  'plans.summary.thisMonth': 'Lo que vence este mes: la suma de las mensualidades de tus planes. Si hay pagos que aún no registras, también se incluyen y los avisamos.',
+  'plans.summary.active': 'Cuántos planes sigues pagando hoy. Un plan deja de estar activo cuando se paga la última mensualidad.',
+  'plans.summary.debtFree': 'El mes en que terminas el último de tus planes activos. Desde esa fecha ya no tendrás estas mensualidades.',
+  'plans.byCard.title': 'El mismo resumen, pero separado por tarjeta, para que veas cuál pesa más en tu bolsillo cada mes.',
+  'plans.projection.title': 'Un vistazo a los próximos meses: cuánto pagarás en cada uno por tus planes y cómo baja esa cifra cuando alguno termina.',
+  'plans.projection.month': 'El mes en que vencen las mensualidades de esa fila.',
+  'plans.projection.amount': 'Lo que pagarás ese mes sumando las mensualidades de todos tus planes. La barra te ayuda a comparar un mes con otro.',
+  'plans.projection.plans': 'Cuántos planes distintos tienen un pago ese mes. Si el número baja, es porque alguno terminó.',
+  'plans.projection.delta': 'Cuánto menos pagas ese mes comparado con el anterior. Si un plan termina, aquí ves el dinero que te queda libre. Si sube, verás un signo +.',
+  'plans.col.name': 'El nombre del plan, normalmente el comercio o la compra que estás pagando.',
+  'plans.col.card': 'La tarjeta con la que se hizo esta compra y a la que llegan sus cobros.',
+  'plans.col.progress': 'Cuántos pagos llevas respecto al total. Por ejemplo, 4 de 12 significa que ya pagaste 4 mensualidades y faltan 8.',
+  'plans.col.installment': 'Lo que pagas cada mes por este plan.',
+  'plans.col.remaining': 'Lo que todavía falta por pagar de este plan.',
+  'plans.col.end': 'La fecha estimada de tu último pago, si sigues pagando cada mensualidad.',
+  'balances.current': 'Lo que calculamos nosotros con los pagos que llevas registrados.',
+  'balances.bank': 'Lo que dice tu banco que todavía debes de este plan. Es el dato oficial y es el que se guardará.',
+
+  // Detalle de un plan
+  'plan.card': 'La tarjeta a la que se cobra este plan.',
+  'plan.installment': 'Lo que pagas cada mes por este plan.',
+  'plan.remainingInstallments': 'Cuántas mensualidades te faltan para terminar.',
+  'plan.remainingBalance': 'Lo que todavía debes de este plan. Si el banco nos dio su saldo, usamos ese; si no, lo calculamos.',
+  'plan.totalAmount': 'El valor de la compra o del crédito completo, sumando todas las mensualidades.',
+  'plan.interest': 'El porcentaje de interés que cobra el banco en un año por este plan. En meses sin intereses no hay.',
+  'plan.firstCharge': 'La fecha del primer cobro de este plan.',
+  'plan.naturalEnd': 'La fecha en que se paga la última mensualidad si no haces abonos extra ni cambios.',
+  'plan.schedule.title': 'La lista de todos los pagos del plan, mes por mes, y en cuál vas.',
+  'plan.schedule.no': 'El número de la mensualidad. El pago 3 de 12 es el tercero de doce.',
+  'plan.schedule.date': 'La fecha en que toca ese pago.',
+  'plan.schedule.amount': 'Lo que se paga en esa mensualidad.',
+  'plan.schedule.state': 'Si ese pago ya se hizo (Pagado), es el que sigue (Siguiente), todavía no llega (Pendiente) o ya pasó y falta registrarlo (Por registrar).',
+  'plan.settle.title': 'Úsalo cuando liquidaste el plan por otro camino, por ejemplo con un pago anticipado. Dejarás una nota y el plan pasa a liquidado.',
+  'plan.tags.title': 'Las etiquetas te sirven para agrupar planes a tu manera, como “casa”, “viaje” o “de Ana”, y filtrarlos después.',
+  'plan.edit.title': 'Si algo cambió (un abono extra, otra mensualidad…), puedes corregir aquí los datos del plan. Cada cambio queda guardado en el historial.',
+  'plan.movements.title': 'Los cargos de tus archivos del banco que corresponden a mensualidades de este plan.',
+  'plan.history.title': 'La bitácora del plan: cuándo se creó, qué pagos se registraron y quién cambió qué.',
+
+  // Gastos: resumen
+  'spending.tile.spend': 'Lo que gastaste en el mes en compras del día a día. No incluye pagos de planes, abonos ni intereses.',
+  'spending.tile.ant': 'Compras pequeñas, como un café o una botana, que por separado parecen poco pero juntas pesan. Tú decides qué monto cuenta como pequeño.',
+  'spending.tile.year': 'Lo que gastarías en un año en compras pequeñas si cada mes te salieran igual que este. Sirve para dimensionar el efecto de esos gastos.',
+  'spending.tile.uncategorized': 'Compras que todavía no tienen categoría. Mientras más ordenadas estén, más claro ves en qué gastas.',
+  'spending.tile.plans': 'Lo que pagaste este mes por mensualidades de tus planes. Se muestra aparte porque ya es un compromiso que adquiriste antes.',
+  'spending.tile.finance': 'Lo que el banco te cobra por darte el crédito: intereses y el IVA de esos intereses. No es algo que compraste, por eso no cuenta como gasto.',
+  'spending.category.title': 'Cuánto gastaste en cada categoría este mes y qué parte del total representa.',
+  'spending.budget.title': 'Si le pones un tope mensual a una categoría, aquí ves cuánto llevas y cuánto te queda para no pasarte.',
+  'spending.ant.title': 'Los lugares donde más dinero se te va en compras pequeñas este mes. Es un buen punto de partida para ahorrar sin sentirlo.',
+  'spending.ant.merchant': 'El comercio o lugar donde hiciste la compra.',
+  'spending.ant.count': 'Cuántas compras pequeñas hiciste ahí este mes.',
+  'spending.ant.average': 'Lo que gastas, en promedio, cada vez que compras ahí.',
+  'spending.ant.total': 'Todo lo que gastaste ahí este mes en compras pequeñas.',
+  'spending.trend.title': 'Cómo se ha movido tu gasto mes con mes, para ver si vas subiendo, bajando o te mantienes.',
+  'spending.settings.title': 'Tú decides qué es “pequeño”. Cualquier compra igual o menor al monto que pongas aquí (y que no sea de un plan) cuenta como gasto hormiga.',
+
+  // Gastos: movimientos
+  'movements.col.date': 'El día en que se hizo la operación, según tu archivo del banco.',
+  'movements.col.description': 'El texto con que el banco registra el movimiento, normalmente el nombre del comercio.',
+  'movements.col.amount': 'Cuánto fue. Los cargos son lo que gastaste y los abonos son dinero que regresa a tu tarjeta, como un pago o una devolución.',
+  'movements.col.card': 'La cuenta y la tarjeta a las que pertenece este movimiento.',
+  'movements.col.category': 'El grupo de gasto al que pertenece (despensa, transporte…). Puedes cambiarlo cuando quieras.',
+
+  // Gastos: por corte
+  'statement.pay': 'Una estimación de lo que el banco te va a pedir pagar en este corte, calculada con los movimientos que has registrado. El monto oficial es el de tu estado de cuenta.',
+  'statement.plans': 'Las mensualidades de tus planes que caen dentro de este corte.',
+  'statement.finance': 'Lo que el banco cobra por el crédito. Se suma a lo que pagas, pero no es algo que hayas comprado.',
+  'statement.spend': 'Tus compras del periodo, sin contar mensualidades de planes ni intereses.',
+  'statement.ant': 'Las compras pequeñas del periodo. Ya están incluidas en tus gastos; aquí las vemos por separado.',
+  'statement.credits': 'Pagos que hiciste a la tarjeta y devoluciones. Solo las devoluciones bajan lo que debes de este corte; el pago del corte anterior no.',
+  'statement.byPlan': 'Cuánto te cobró cada plan dentro de este corte.',
+  'statement.moves.title': 'Movimientos que cuentan en este corte aunque por su fecha pertenecerían a otro, o al revés. Los ajustaste tú o los aceptaste como sugerencia.',
+  'statement.suggest.title': 'Notamos que un grupo de cargos podría cobrarse en otro corte y explicaría la diferencia con tu estado de cuenta. Tú decides si aplicas el cambio.',
+  'statement.real.title': 'Escribe aquí los datos de tu estado de cuenta: la fecha de corte y el pago. Así comparamos tu estimación con lo real y vemos qué diferencia hay.',
+
+  // Categorías
+  'categories.list.title': 'Los grupos en que ordenas tus gastos. Puedes ponerles color y, si quieres, un presupuesto mensual.',
+  'rules.title': 'Reglas que categorizan por ti. Por ejemplo, si el concepto contiene “OXXO”, el movimiento va a “Despensa”. Se aplican solas cada vez que importas un archivo.',
+  'triage.title': 'Tus compras sin categoría, agrupadas por comercio. Con una sola regla ordenas todas las compras de un mismo lugar.',
+
+  // Panel
+  'app.dashboard.accountsList': 'Un atajo a tus cuentas y a lo que pagas este mes en cada una.',
+  'goals.dashboard.title': 'Tus objetivos y qué tan avanzado vas en cada uno.',
+} as const;
+
+export type HelpTopic = keyof typeof es;
+
+const en: Record<HelpTopic, string> = {
+  'accounts.title': 'This is where your bank accounts live. Inside each one you add its cards and see how much you pay each month. Start by creating an account: it is the base for importing your transactions.',
+  'plans.title': 'A plan is a purchase you are paying off over time: interest-free months, months with interest or a fixed payment. Here you see what you owe, what you pay each month and when you finish.',
+  'goals.title': 'Set a goal and see how you are doing: finish paying your plans, keep small expenses in check or build up some savings. Progress is an estimate to guide you.',
+  'members.title': 'The people who can enter this space. You can invite someone you trust and decide whether they only look or can also add and change data.',
+  'import.title': 'Upload the CSV file you download from your bank’s portal. Before anything is saved, we show you what we found so you can review and confirm it.',
+  'batches.title': 'The list of every file you have imported. If an upload went wrong, you can undo it here and upload the file again.',
+  'spending.summary': 'An overview of where your money went in the month you choose: how much you spent, on what, and how much goes to small purchases. Plan payments and interest are shown separately.',
+  'spending.movements': 'Every purchase, payment and credit, one by one. You can search, filter and give them a category to better understand where your money goes.',
+  'spending.statement': 'Gathers a card’s transactions between two statement dates to estimate what the bank will charge you. It is an estimate: the official amount is always the one on your statement.',
+  'spending.categories': 'Categories organize your spending (groceries, transport, dining…). Create them here and set rules so they are assigned automatically.',
+
+  'account.status.thisMonth': 'What you have to pay this month for this account’s plans: the sum of their monthly payments.',
+  'account.status.remaining': 'What you still owe on this account’s plans. If you uploaded the bank’s balances we use those real figures; otherwise it is an approximate calculation.',
+  'account.status.freedom': 'The date you finish paying all of this account’s plans, if you keep making your monthly payments as you do now.',
+  'account.activity.title': 'A summary of what is already recorded in this account, with shortcuts to import your bank file or add a transaction by hand.',
+  'cards.title': 'Every card you have in this account, physical or digital. The last 4 digits help us know which card each charge in your file belongs to.',
+  'card.fact.limit': 'The most the bank lets you spend with this credit card.',
+  'card.fact.cutoff': 'The day of the month when the bank closes your statement and adds up what you spent until then.',
+  'card.fact.due': 'The last day to pay your card without interest or late fees. It falls a few days after the statement date.',
+
+  'plans.summary.remaining': 'What you still have to pay across all your active plans. When you upload the bank’s balances this is the real figure; otherwise it is an approximate calculation.',
+  'plans.summary.thisMonth': 'What is due this month: the sum of your plans’ monthly payments. Payments you have not recorded yet are included too, and we point them out.',
+  'plans.summary.active': 'How many plans you are paying right now. A plan stops being active when its last payment is made.',
+  'plans.summary.debtFree': 'The month you finish your last active plan. From then on you will no longer have these monthly payments.',
+  'plans.byCard.title': 'The same summary, split by card, so you can see which one weighs most on your wallet each month.',
+  'plans.projection.title': 'A look at the coming months: how much you will pay in each one for your plans, and how that figure drops when one ends.',
+  'plans.projection.month': 'The month in which that row’s payments are due.',
+  'plans.projection.amount': 'What you will pay that month adding up all your plans’ payments. The bar helps you compare one month with another.',
+  'plans.projection.plans': 'How many different plans have a payment that month. If the number drops, one of them has ended.',
+  'plans.projection.delta': 'How much less you pay that month compared with the previous one. When a plan ends, this is the money freed up. If it goes up you will see a + sign.',
+  'plans.col.name': 'The plan’s name, usually the store or purchase you are paying off.',
+  'plans.col.card': 'The card this purchase was made with and where its charges arrive.',
+  'plans.col.progress': 'How many payments you have made out of the total. For example, 4 of 12 means you have paid 4 and 8 remain.',
+  'plans.col.installment': 'What you pay each month for this plan.',
+  'plans.col.remaining': 'What is still left to pay on this plan.',
+  'plans.col.end': 'The estimated date of your last payment, if you keep paying every month.',
+  'balances.current': 'What we calculate ourselves from the payments you have recorded.',
+  'balances.bank': 'What your bank says you still owe on this plan. It is the official figure and the one that will be saved.',
+
+  'plan.card': 'The card this plan is charged to.',
+  'plan.installment': 'What you pay each month for this plan.',
+  'plan.remainingInstallments': 'How many monthly payments are left until you finish.',
+  'plan.remainingBalance': 'What you still owe on this plan. If the bank gave us its balance we use it; otherwise we calculate it.',
+  'plan.totalAmount': 'The value of the whole purchase or loan, adding up every monthly payment.',
+  'plan.interest': 'The yearly interest percentage the bank charges on this plan. Interest-free plans have none.',
+  'plan.firstCharge': 'The date of this plan’s first charge.',
+  'plan.naturalEnd': 'The date the last payment is made if you make no extra payments or changes.',
+  'plan.schedule.title': 'The list of all of the plan’s payments, month by month, and which one you are on.',
+  'plan.schedule.no': 'The payment number. Payment 3 of 12 is the third of twelve.',
+  'plan.schedule.date': 'The date that payment is due.',
+  'plan.schedule.amount': 'What is paid in that installment.',
+  'plan.schedule.state': 'Whether that payment is done (Paid), is next (Next), has not arrived yet (Pending) or has passed and still needs recording (To record).',
+  'plan.settle.title': 'Use this when you paid off the plan another way, such as an early payment. You leave a note and the plan becomes settled.',
+  'plan.tags.title': 'Tags let you group plans your own way, like “home”, “trip” or “Ana’s”, and filter them later.',
+  'plan.edit.title': 'If something changed (an extra payment, a different monthly amount…), you can correct the plan’s data here. Every change is saved in the history.',
+  'plan.movements.title': 'The charges in your bank files that match this plan’s monthly payments.',
+  'plan.history.title': 'The plan’s log: when it was created, which payments were recorded and who changed what.',
+
+  'spending.tile.spend': 'What you spent during the month on everyday purchases. It does not include plan payments, credits or interest.',
+  'spending.tile.ant': 'Small purchases, like a coffee or a snack, that look like little on their own but add up. You decide what amount counts as small.',
+  'spending.tile.year': 'What you would spend in a year on small purchases if every month looked like this one. It helps you see the effect of those expenses.',
+  'spending.tile.uncategorized': 'Purchases that have no category yet. The more organized they are, the clearer you see where your money goes.',
+  'spending.tile.plans': 'What you paid this month for your plans’ monthly payments. It is shown separately because it is a commitment you made earlier.',
+  'spending.tile.finance': 'What the bank charges you for giving you credit: interest and the VAT on that interest. It is not something you bought, so it does not count as spending.',
+  'spending.category.title': 'How much you spent in each category this month and what share of the total it is.',
+  'spending.budget.title': 'If you set a monthly limit on a category, here you see how much you have used and how much is left so you do not go over.',
+  'spending.ant.title': 'The places where most of your money goes on small purchases this month. A good starting point to save without feeling it.',
+  'spending.ant.merchant': 'The store or place where you made the purchase.',
+  'spending.ant.count': 'How many small purchases you made there this month.',
+  'spending.ant.average': 'What you spend on average each time you buy there.',
+  'spending.ant.total': 'Everything you spent there this month on small purchases.',
+  'spending.trend.title': 'How your spending has moved month by month, so you can see whether it is rising, falling or steady.',
+  'spending.settings.title': 'You decide what “small” means. Any purchase equal to or below the amount you set here (and not part of a plan) counts as a small expense.',
+
+  'movements.col.date': 'The day the transaction happened, according to your bank file.',
+  'movements.col.description': 'The text the bank uses for the transaction, usually the store’s name.',
+  'movements.col.amount': 'How much it was. Charges are what you spent and credits are money returning to your card, like a payment or a refund.',
+  'movements.col.card': 'The account and card this transaction belongs to.',
+  'movements.col.category': 'The spending group it belongs to (groceries, transport…). You can change it whenever you like.',
+
+  'statement.pay': 'An estimate of what the bank will ask you to pay for this statement, calculated from the transactions you have recorded. The official amount is the one on your statement.',
+  'statement.plans': 'Your plans’ monthly payments that fall within this statement.',
+  'statement.finance': 'What the bank charges for the credit. It adds to what you pay, but it is not something you bought.',
+  'statement.spend': 'Your purchases in the period, not counting plan payments or interest.',
+  'statement.ant': 'The small purchases of the period. They are already included in your spending; here we see them separately.',
+  'statement.credits': 'Payments you made to the card and refunds. Only refunds lower what you owe for this statement; the previous statement’s payment does not.',
+  'statement.byPlan': 'How much each plan charged you within this statement.',
+  'statement.moves.title': 'Transactions that count in this statement even though by date they would belong to another, or the other way round. You moved them, or accepted them as a suggestion.',
+  'statement.suggest.title': 'We noticed a group of charges may be billed in another statement, which would explain the difference with your statement. You decide whether to apply the change.',
+  'statement.real.title': 'Enter your statement’s details here: the statement date and the payment. We then compare your estimate with the real figure and show the difference.',
+
+  'categories.list.title': 'The groups you organize your spending in. You can give them a color and, if you want, a monthly budget.',
+  'rules.title': 'Rules that categorize for you. For example, if the description contains “OXXO”, the transaction goes to “Groceries”. They apply automatically each time you import a file.',
+  'triage.title': 'Your purchases without a category, grouped by store. One rule sorts every purchase from the same place.',
+
+  'app.dashboard.accountsList': 'A shortcut to your accounts and what you pay this month in each.',
+  'goals.dashboard.title': 'Your goals and how far along you are with each.',
+};
+
+export function helpText(locale: Locale, topic: HelpTopic): string {
+  return locale.startsWith('es') ? es[topic] : en[topic];
+}

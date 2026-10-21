@@ -1,0 +1,25 @@
+---
+import Icon from './Icon.astro';
+import { helpText, type HelpTopic } from '../i18n/help';
+import { t, type MessageKey } from '../i18n/messages';
+
+interface Props {
+  topic: HelpTopic;
+  /** Nombre del término que se explica; por omisión, el texto de la clave `topic`. */
+  term?: string;
+}
+
+const { topic, term } = Astro.props;
+const { locale } = Astro.locals;
+const id = `help-${crypto.randomUUID().slice(0, 8)}`;
+const name = term ?? t(locale, topic as MessageKey);
+---
+
+<button type="button" class="help-btn" popovertarget={id} aria-label={t(locale, 'help.open', { term: name })}>
+  <Icon name="help" size={16} />
+</button>
+<div popover="auto" id={id} class="help-pop" role="note">{helpText(locale, topic)}</div>
+
+<script>
+  import '../scripts/help';
+</script>
