@@ -1,5 +1,6 @@
 ---
 import AppLayout from '../../../layouts/AppLayout.astro';
+import Help from '../../../components/Help.astro';
 import SpendingTabs from '../../../components/SpendingTabs.astro';
 import FilterChip from '../../../components/FilterChip.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
@@ -42,7 +43,7 @@ const thresholdMinor = thresholdOf(settings.currency);
 
 <AppLayout title={t(locale, 'spending.title')} active="spending">
   {scopeAccount && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopeAccount.name, href: `/app/cuentas/${scopeAccount.id}` }, { label: t(locale, 'spending.title') }]} />}
-  <h1>{t(locale, 'spending.title')}</h1>
+  <h1>{t(locale, 'spending.title')}<Help topic="spending.summary" term={t(locale, 'spending.title')} /></h1>
   <SpendingTabs active="summary" month={month} accountId={scopeAccount?.id} />
   {scopeAccount && <FilterChip name={scopeAccount.name} nameHref={`/app/cuentas/${scopeAccount.id}`} clearHref={`/app/gastos?mes=${month}`} />}
 
@@ -75,37 +76,37 @@ const thresholdMinor = thresholdOf(settings.currency);
             <section class="card">
               <div class="stats">
                 <div class="stat">
-                  <span class="muted">{t(locale, 'spending.tile.spend')} · {analysis.currency}</span>
+                  <span class="muted">{t(locale, 'spending.tile.spend')} · {analysis.currency}<Help topic="spending.tile.spend" /></span>
                   <strong>{money(analysis.spendMinor)}</strong>
                   <span class="hint">{t(locale, 'spending.tile.spendHint', { n: analysis.spendCount })}</span>
                 </div>
                 <div class="stat stat-ant">
-                  <span class="muted">{t(locale, 'spending.tile.ant')}</span>
+                  <span class="muted">{t(locale, 'spending.tile.ant')}<Help topic="spending.tile.ant" /></span>
                   <strong>{money(analysis.antMinor)}</strong>
                   <span class="hint">{t(locale, 'spending.tile.antHint', { n: analysis.antCount, threshold: money(analysis.thresholdMinor), share: Math.round(analysis.antShare * 100) })}</span>
                 </div>
                 <div class="stat">
-                  <span class="muted">{t(locale, 'spending.tile.year')}</span>
+                  <span class="muted">{t(locale, 'spending.tile.year')}<Help topic="spending.tile.year" /></span>
                   <strong>{money(annualized(analysis.antMinor))}</strong>
                   <span class="hint">{t(locale, 'spending.tile.yearHint')}</span>
                 </div>
                 {analysis.uncategorizedCount > 0 && (
                   <div class="stat">
-                    <span class="muted">{t(locale, 'spending.tile.uncategorized')}</span>
+                    <span class="muted">{t(locale, 'spending.tile.uncategorized')}<Help topic="spending.tile.uncategorized" /></span>
                     <strong>{money(analysis.uncategorizedMinor)}</strong>
                     <a class="hint" href={`/app/gastos/movimientos?mes=${month}&categoria=none${scope ? `&filtro=a:${scopeAccount!.id}` : ''}`}>{t(locale, 'spending.tile.uncategorizedHint', { n: analysis.uncategorizedCount })}</a>
                   </div>
                 )}
                 {analysis.financeMinor > 0 && (
                   <div class="stat">
-                    <span class="muted">{t(locale, 'spending.tile.finance')}</span>
+                    <span class="muted">{t(locale, 'spending.tile.finance')}<Help topic="spending.tile.finance" /></span>
                     <strong>{money(analysis.financeMinor)}</strong>
                     <span class="hint">{t(locale, 'spending.tile.financeHint')}</span>
                   </div>
                 )}
                 {analysis.planChargesMinor > 0 && (
                   <div class="stat">
-                    <span class="muted">{t(locale, 'spending.tile.plans')}</span>
+                    <span class="muted">{t(locale, 'spending.tile.plans')}<Help topic="spending.tile.plans" /></span>
                     <strong>{money(analysis.planChargesMinor)}</strong>
                     <a class="hint" href="/app/planes">{t(locale, 'plans.title')} →</a>
                   </div>
@@ -124,14 +125,14 @@ const thresholdMinor = thresholdOf(settings.currency);
                   const status = budgetStatus(totalSpent, totalBudget);
                   return (
                     <div class:list={['stat budget-summary', `budget-${status.state}`]}>
-                      <span class="muted">{t(locale, 'spending.budget.title')}</span>
+                      <span class="muted">{t(locale, 'spending.budget.title')}<Help topic="spending.budget.title" /></span>
                       <strong>{money(totalSpent)} / {money(totalBudget)}</strong>
                       <span class="hint">{status.remainingMinor >= 0 ? t(locale, 'spending.budget.left', { amount: money(status.remainingMinor) }) : t(locale, 'spending.budget.over', { amount: money(-status.remainingMinor) })}</span>
                     </div>
                   );
                 })()
               }
-              <h2>{t(locale, 'spending.category.title')}</h2>
+              <h2>{t(locale, 'spending.category.title')}<Help topic="spending.category.title" /></h2>
               <ul class="category-bars">
                 {analysis.byCategory.map((entry) => {
                   const category = entry.categoryId ? byId.get(entry.categoryId) : undefined;
@@ -155,7 +156,7 @@ const thresholdMinor = thresholdOf(settings.currency);
                 })}
               </ul>
 
-              <h2>{t(locale, 'spending.ant.title')}</h2>
+              <h2>{t(locale, 'spending.ant.title')}<Help topic="spending.ant.title" /></h2>
               {analysis.topAnt.length === 0 ? (
                 <p class="empty">{t(locale, 'spending.ant.none')}</p>
               ) : (
@@ -166,10 +167,10 @@ const thresholdMinor = thresholdOf(settings.currency);
 <caption class="sr-only">{t(locale, 'table.sr.merchants')}</caption>
                       <thead>
                         <tr>
-                          <th scope="col">{t(locale, 'spending.ant.merchant')}</th>
-                          <th scope="col" class="num">{t(locale, 'spending.ant.count')}</th>
-                          <th scope="col" class="num">{t(locale, 'spending.ant.average')}</th>
-                          <th scope="col" class="num">{t(locale, 'spending.ant.total')}</th>
+                          <th scope="col">{t(locale, 'spending.ant.merchant')}<Help topic="spending.ant.merchant" /></th>
+                          <th scope="col" class="num">{t(locale, 'spending.ant.count')}<Help topic="spending.ant.count" /></th>
+                          <th scope="col" class="num">{t(locale, 'spending.ant.average')}<Help topic="spending.ant.average" /></th>
+                          <th scope="col" class="num">{t(locale, 'spending.ant.total')}<Help topic="spending.ant.total" /></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -187,7 +188,7 @@ const thresholdMinor = thresholdOf(settings.currency);
                 </>
               )}
 
-              <h2>{t(locale, 'spending.trend.title')}</h2>
+              <h2>{t(locale, 'spending.trend.title')}<Help topic="spending.trend.title" /></h2>
               <div class="table-scroll">
               <table class="import-table trend">
 <caption class="sr-only">{t(locale, 'table.sr.trend')}</caption>
@@ -214,7 +215,7 @@ const thresholdMinor = thresholdOf(settings.currency);
         })}
 
         <section class="card" id="settings" data-messages={JSON.stringify(messages)}>
-          <h2>{t(locale, 'spending.settings.title')}</h2>
+          <h2>{t(locale, 'spending.settings.title')}<Help topic="spending.settings.title" /></h2>
           <p class="hint">{t(locale, 'spending.settings.hint')}</p>
           {
             canEditSettings ? (

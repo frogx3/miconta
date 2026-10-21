@@ -1,5 +1,6 @@
 ---
 import AppLayout from '../../../layouts/AppLayout.astro';
+import Help from '../../../components/Help.astro';
 import FilterChip from '../../../components/FilterChip.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
 import { messagesFor, t } from '../../../i18n/messages';
@@ -52,7 +53,7 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
 
 <AppLayout title={t(locale, 'plans.title')} active="plans">
   {accountFilter && scopeName && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopeName, href: `/app/cuentas/${accountFilter}` }, { label: t(locale, 'plans.title') }]} />}
-  <h1>{t(locale, 'plans.title')}</h1>
+  <h1>{t(locale, 'plans.title')}<Help topic="plans.title" /></h1>
   {accountFilter && scopeName && <FilterChip name={scopeName} nameHref={`/app/cuentas/${accountFilter}`} clearHref="/app/planes" />}
 
   {
@@ -93,21 +94,21 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
             <section class="card">
               <div class="stats">
                 <div class="stat">
-                  <span class="muted">{t(locale, 'plans.summary.remaining')}</span>
+                  <span class="muted">{t(locale, 'plans.summary.remaining')}<Help topic="plans.summary.remaining" /></span>
                   <strong>{money(summary.remainingBalanceMinor)}</strong>
                 </div>
                 <div class="stat">
-                  <span class="muted">{t(locale, 'plans.summary.thisMonth')}</span>
+                  <span class="muted">{t(locale, 'plans.summary.thisMonth')}<Help topic="plans.summary.thisMonth" /></span>
                   <strong>{money(summary.thisMonthMinor)}</strong>
                   {summary.overdueInstallments > 0 && <span class="hint">{t(locale, 'plans.summary.overdue', { n: summary.overdueInstallments })}</span>}
                 </div>
                 <div class="stat">
-                  <span class="muted">{t(locale, 'plans.summary.active')}</span>
+                  <span class="muted">{t(locale, 'plans.summary.active')}<Help topic="plans.summary.active" /></span>
                   <strong>{summary.openPlans}</strong>
                 </div>
                 {summary.debtFreeDate && (
                   <div class="stat">
-                    <span class="muted">{t(locale, 'plans.summary.debtFree')}</span>
+                    <span class="muted">{t(locale, 'plans.summary.debtFree')}<Help topic="plans.summary.debtFree" /></span>
                     <strong class="milestone">{formatDate(summary.debtFreeDate, locale)}</strong>
                   </div>
                 )}
@@ -119,17 +120,17 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
                   if (cardsOfCurrency.length < 2) return null;
                   return (
                     <>
-                      <h2>{t(locale, 'plans.byCard.title')} · {summary.currency}</h2>
+                      <h2>{t(locale, 'plans.byCard.title')} · {summary.currency}<Help topic="plans.byCard.title" /></h2>
                       <div class="table-scroll">
                         <table class="import-table">
                           <caption class="sr-only">{t(locale, 'plans.byCard.title')}</caption>
                           <thead>
                             <tr>
-                              <th scope="col">{t(locale, 'plans.col.card')}</th>
-                              <th scope="col" class="num">{t(locale, 'plans.summary.active')}</th>
-                              <th scope="col" class="num">{t(locale, 'plans.summary.thisMonth')}</th>
-                              <th scope="col" class="num">{t(locale, 'plans.summary.remaining')}</th>
-                              <th scope="col">{t(locale, 'plans.summary.debtFree')}</th>
+                              <th scope="col">{t(locale, 'plans.col.card')}<Help topic="plans.col.card" /></th>
+                              <th scope="col" class="num">{t(locale, 'plans.summary.active')}<Help topic="plans.summary.active" /></th>
+                              <th scope="col" class="num">{t(locale, 'plans.summary.thisMonth')}<Help topic="plans.summary.thisMonth" /></th>
+                              <th scope="col" class="num">{t(locale, 'plans.summary.remaining')}<Help topic="plans.summary.remaining" /></th>
+                              <th scope="col">{t(locale, 'plans.summary.debtFree')}<Help topic="plans.summary.debtFree" /></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -161,18 +162,18 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
               }
               <h2>
                 {t(locale, 'plans.projection.title')} · {summary.currency}
-              </h2>
+              <Help topic="plans.projection.title" /></h2>
               <p class="hint">{t(locale, 'plans.projection.hint')}</p>
               <div class="table-scroll">
                 <table class="import-table ladder">
 <caption class="sr-only">{t(locale, 'table.sr.ladder')}</caption>
                   <thead>
                     <tr>
-                      <th scope="col">{t(locale, 'plans.projection.month')}</th>
+                      <th scope="col">{t(locale, 'plans.projection.month')}<Help topic="plans.projection.month" /></th>
                       <th scope="col" />
-                      <th scope="col" class="num">{t(locale, 'plans.projection.amount')}</th>
-                      <th scope="col" class="num">{t(locale, 'plans.projection.plans')}</th>
-                      <th scope="col" class="num">{t(locale, 'plans.projection.delta')}</th>
+                      <th scope="col" class="num">{t(locale, 'plans.projection.amount')}<Help topic="plans.projection.amount" /></th>
+                      <th scope="col" class="num">{t(locale, 'plans.projection.plans')}<Help topic="plans.projection.plans" /></th>
+                      <th scope="col" class="num">{t(locale, 'plans.projection.delta')}<Help topic="plans.projection.delta" /></th>
                     </tr>
                   </thead>
                   <tbody>{summary.months.slice(0, VISIBLE_MONTHS).map((month, index) => row(month, index))}</tbody>
@@ -223,12 +224,12 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
 <caption class="sr-only">{t(locale, 'table.sr.plans')}</caption>
                   <thead>
                     <tr>
-                      <th scope="col">{t(locale, 'plans.col.name')}</th>
-                      <th scope="col">{t(locale, 'plans.col.card')}</th>
-                      <th scope="col">{t(locale, 'plans.col.progress')}</th>
-                      <th scope="col" class="num">{t(locale, 'plans.col.installment')}</th>
-                      <th scope="col" class="num">{t(locale, 'plans.col.remaining')}</th>
-                      <th scope="col">{t(locale, 'plans.col.end')}</th>
+                      <th scope="col">{t(locale, 'plans.col.name')}<Help topic="plans.col.name" /></th>
+                      <th scope="col">{t(locale, 'plans.col.card')}<Help topic="plans.col.card" /></th>
+                      <th scope="col">{t(locale, 'plans.col.progress')}<Help topic="plans.col.progress" /></th>
+                      <th scope="col" class="num">{t(locale, 'plans.col.installment')}<Help topic="plans.col.installment" /></th>
+                      <th scope="col" class="num">{t(locale, 'plans.col.remaining')}<Help topic="plans.col.remaining" /></th>
+                      <th scope="col">{t(locale, 'plans.col.end')}<Help topic="plans.col.end" /></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -290,7 +291,7 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
               <div class="table-scroll">
                 <table class="import-table">
                   <caption class="sr-only">{t(locale, 'balances.matches')}</caption>
-                  <thead><tr><th scope="col">{t(locale, 'plans.col.name')}</th><th scope="col" class="num">{t(locale, 'balances.current')}</th><th scope="col" class="num">{t(locale, 'balances.bank')}</th></tr></thead>
+                  <thead><tr><th scope="col">{t(locale, 'plans.col.name')}<Help topic="plans.col.name" /></th><th scope="col" class="num">{t(locale, 'balances.current')}<Help topic="balances.current" /></th><th scope="col" class="num">{t(locale, 'balances.bank')}<Help topic="balances.bank" /></th></tr></thead>
                   <tbody id="balances-rows"></tbody>
                 </table>
               </div>

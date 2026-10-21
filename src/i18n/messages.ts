@@ -2,6 +2,7 @@ import { DEFAULT_LOCALE, type Locale } from '../lib/locale';
 
 const es = {
   'app.name': 'Don Bigo',
+  'help.open': 'Ayuda sobre «{term}»',
   'auth.login.title': 'Iniciar sesión',
   'auth.login.submit': 'Entrar',
   'auth.login.noAccount': '¿Aún no tienes cuenta?',
@@ -879,6 +880,7 @@ export type MessageKey = keyof typeof es;
 type Dictionary = Record<MessageKey, string>;
 
 const en: Dictionary = {
+  'help.open': 'Help about “{term}”',
   'app.name': 'Don Bigo',
   'auth.login.title': 'Sign in',
   'auth.login.submit': 'Sign in',

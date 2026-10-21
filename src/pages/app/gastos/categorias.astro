@@ -1,5 +1,6 @@
 ---
 import AppLayout from '../../../layouts/AppLayout.astro';
+import Help from '../../../components/Help.astro';
 import SpendingTabs from '../../../components/SpendingTabs.astro';
 import { messagesFor, t } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
@@ -43,7 +44,7 @@ const messages = messagesFor(locale, ['categories.', 'rules.', 'validation.', 'c
 ---
 
 <AppLayout title={t(locale, 'categories.title')} active="categories">
-  <h1>{t(locale, 'spending.title')}</h1>
+  <h1>{t(locale, 'spending.title')}<Help topic="spending.categories" term={t(locale, 'spending.title')} /></h1>
   <SpendingTabs active="categories" />
 
   <div id="categories-app" data-config={JSON.stringify(config)} data-messages={JSON.stringify(messages)}>
@@ -51,7 +52,7 @@ const messages = messagesFor(locale, ['categories.', 'rules.', 'validation.', 'c
     <div id="app-done" class="alert ok" role="status" hidden></div>
 
     <section class="card">
-      <h2>{t(locale, 'categories.list.title')}</h2>
+      <h2>{t(locale, 'categories.list.title')}<Help topic="categories.list.title" /></h2>
       <p class="hint">{t(locale, 'categories.budgetHint', { currency: workspace.defaultCurrency })}</p>
       {
         categories.length === 0 ? (
@@ -110,7 +111,7 @@ const messages = messagesFor(locale, ['categories.', 'rules.', 'validation.', 'c
     </section>
 
     <section class="card" id="rules-card">
-      <h2>{t(locale, 'rules.title')}</h2>
+      <h2>{t(locale, 'rules.title')}<Help topic="rules.title" /></h2>
       <p class="hint">{t(locale, 'rules.hint')}</p>
       {
         rules.length === 0 ? (
@@ -161,7 +162,7 @@ const messages = messagesFor(locale, ['categories.', 'rules.', 'validation.', 'c
     </section>
 
     <section class="card">
-      <h2>{t(locale, 'triage.title')}</h2>
+      <h2>{t(locale, 'triage.title')}<Help topic="triage.title" /></h2>
       <p class="hint">{t(locale, 'triage.hint')}</p>
       {
         triage.length === 0 ? (

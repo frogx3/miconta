@@ -1,5 +1,6 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
+import Help from '../../components/Help.astro';
 import { messagesFor, t, tn } from '../../i18n/messages';
 import { getDb } from '../../lib/auth';
 import { formatDate } from '../../lib/date-format';
@@ -18,7 +19,7 @@ const iso = (date: Date) => date.toISOString().slice(0, 10);
 ---
 
 <AppLayout title={t(locale, 'members.title')} active="members">
-  <h1>{t(locale, 'members.title')}</h1>
+  <h1>{t(locale, 'members.title')}<Help topic="members.title" /></h1>
   <p class="hint">{t(locale, 'members.hint')}</p>
 
   <section class="card" id="members" data-messages={JSON.stringify(messages)}>
