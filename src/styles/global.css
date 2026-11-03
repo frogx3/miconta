@@ -275,6 +275,14 @@ h1 {
   cursor: pointer;
 }
 
+/* Botón con icono: icono y texto centrados en la misma línea. */
+.btn:has(> .icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
 .btn:hover:not([disabled]):not(.btn-ghost) {
   background: color-mix(in srgb, var(--accent) 86%, var(--text));
 }
@@ -3007,6 +3015,11 @@ form + .row-actions {
 .help-btn:hover,
 .help-btn:has(+ .help-pop:popover-open) {
   color: var(--accent);
+}
+
+/* Reglas de contenedor como `.status-line div { display: grid }` vencen al `display: none` del navegador para un popover cerrado. */
+.help-pop:not(:popover-open) {
+  display: none;
 }
 
 .help-pop {

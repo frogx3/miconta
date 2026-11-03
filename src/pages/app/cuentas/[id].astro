@@ -155,12 +155,12 @@ const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&a
                       </>
                     )}
                   </dl>
-                  {(counts?.openPlans || counts?.movements) && (
+                  {(counts?.openPlans || counts?.movements) ? (
                     <p class="card-quick">
                       {counts!.openPlans > 0 && <a href={`/app/planes?tarjeta=${card.id}`}>{tn(locale, 'card.links.plans', counts!.openPlans)}</a>}
                       {counts!.movements > 0 && <a href={`/app/gastos/movimientos?mes=todo&filtro=c:${card.id}`}>{tn(locale, 'card.links.movements', counts!.movements)}</a>}
                     </p>
-                  )}
+                  ) : null}
                 </div>
                 {!readOnly && (
                   <button class="card-toggle" type="button" aria-expanded="false" aria-controls={`edit-${card.id}`} data-card-toggle data-open-label={t(locale, 'card.edit')} data-close-label={t(locale, 'card.edit.close')}>

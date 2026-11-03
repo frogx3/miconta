@@ -54,7 +54,7 @@ const clientMessages = messagesFor(locale, ['email.', 'common.']);
     ) : (
       <>
         <p>{t(locale, 'email.privacy')}</p>
-        {!readOnly && <button class="btn" type="button" data-inbox-action="enable"><Icon name="plus" size={18} /> {t(locale, 'email.enable')}</button>}
+        {!readOnly && <button class="btn btn-auto" type="button" data-inbox-action="enable"><Icon name="plus" size={18} /> {t(locale, 'email.enable')}</button>}
         <p><a href="/app/cuentas/reenvio">{t(locale, 'email.howTo')}</a></p>
       </>
     )
