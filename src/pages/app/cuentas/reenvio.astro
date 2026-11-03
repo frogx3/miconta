@@ -1,0 +1,48 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import { t, type MessageKey } from '../../../i18n/messages';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const providers = [
+  { id: 'gmail', steps: 4 },
+  { id: 'outlook', steps: 4 },
+  { id: 'icloud', steps: 3 },
+];
+const k = (key: string) => t(locale, key as MessageKey);
+---
+
+<AppLayout title={k('forward.title')} active="accounts">
+  <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: k('forward.title') }]} />
+  <h1>{k('forward.title')}</h1>
+  <p class="lead">{k('forward.lead')}</p>
+
+  <section class="card measure">
+    <h2>{k('forward.safe.title')}</h2>
+    <ul>
+      <li>{k('forward.safe.1')}</li>
+      <li>{k('forward.safe.2')}</li>
+      <li>{k('forward.safe.3')}</li>
+      <li>{k('forward.safe.4')}</li>
+    </ul>
+  </section>
+
+  {
+    providers.map((provider) => (
+      <section class="card measure" id={provider.id}>
+        <h2>{k(`forward.${provider.id}.title`)}</h2>
+        <ol>
+          {Array.from({ length: provider.steps }, (_, i) => <li>{k(`forward.${provider.id}.${i + 1}`)}</li>)}
+        </ol>
+        <p class="hint">{k(`forward.${provider.id}.note`)}</p>
+      </section>
+    ))
+  }
+
+  <section class="card measure">
+    <h2>{k('forward.after.title')}</h2>
+    <p>{k('forward.after.body')}</p>
+  </section>
+</AppLayout>

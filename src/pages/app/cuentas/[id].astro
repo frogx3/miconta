@@ -5,6 +5,9 @@ import AccountForm from '../../../components/AccountForm.astro';
 import CardEditor from '../../../components/CardEditor.astro';
 import Icon from '../../../components/Icon.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
+import EmailInbox from '../../../components/EmailInbox.astro';
+import { env } from 'cloudflare:workers';
+import { getInbox, listMessages } from '../../../lib/email/inbound';
 import { messagesFor, t, tn } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { formatDate, todayISO } from '../../../lib/date-format';
@@ -24,6 +27,9 @@ const inUse = await cardsInUse(db, workspace.id, account.id);
 const activity = await accountActivity(db, workspace.id, account.id, account.cards.map((card) => card.id));
 // Lo que cuesta esta cuenta: el mismo cálculo del Panel, solo con los planes de esta cuenta.
 const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO());
+
+const inbox = await getInbox(db, workspace.id, account.id);
+const inboxMessages = inbox ? await listMessages(db, inbox.id) : [];
 
 const readOnly = workspace.role === 'viewer';
 const messages = messagesFor(locale, ['card.', 'cards.', 'validation.', 'common.', 'auth.error.label']);
@@ -188,6 +194,15 @@ const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&a
       )
     }
   </section>
+
+  <EmailInbox
+    accountId={account.id}
+    inbox={inbox}
+    messages={inboxMessages}
+    domain={env.INBOUND_EMAIL_DOMAIN}
+    currency={account.cards[0]?.currency ?? workspace.defaultCurrency}
+    readOnly={readOnly || !!account.archivedAt}
+  />
 
   <details class="card account-details">
     <summary>{t(locale, 'account.details')}</summary>

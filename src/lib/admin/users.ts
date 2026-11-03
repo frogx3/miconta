@@ -87,7 +87,7 @@ export async function checkWipe(db: Db, userId: string): Promise<WipeCheck> {
 }
 
 /**
- * Borra toda la información financiera de los espacios del usuario (cuentas, tarjetas, planes, movimientos,
+ * Borra toda la información financiera de los espacios del usuario (cuentas, tarjetas, planes, movimientos, correos recibidos,
  * cargas, cortes, metas, categorías y etiquetas) conservando el usuario, su membresía y el espacio con su
  * configuración. Debe llamarse solo si `checkWipe` no encontró espacios compartidos. El orden respeta las
  * llaves foráneas (`restrict`) y el lote es atómico.
@@ -98,6 +98,8 @@ export async function wipeUserData(db: Db, userId: string): Promise<void> {
   const s = schema;
   const statements: BatchItem<'sqlite'>[] = [
     db.delete(s.planEvents).where(inArray(s.planEvents.workspaceId, workspaceIds)),
+    db.delete(s.emailMessages).where(inArray(s.emailMessages.workspaceId, workspaceIds)),
+    db.delete(s.emailInboxes).where(inArray(s.emailInboxes.workspaceId, workspaceIds)),
     db.delete(s.movements).where(inArray(s.movements.workspaceId, workspaceIds)),
     db.delete(s.planTags).where(
       inArray(s.planTags.planId, db.select({ id: s.plans.id }).from(s.plans).where(inArray(s.plans.workspaceId, workspaceIds))),

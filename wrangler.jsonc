@@ -1,6 +1,6 @@
 {
   "name": "miconta",
-  "main": "@astrojs/cloudflare/entrypoints/server",
+  "main": "./src/worker.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   // Registros de la aplicación en el panel de Cloudflare (Workers → miconta → Logs).
@@ -9,7 +9,9 @@
   "routes": [{ "pattern": "donbigo.com", "custom_domain": true }],
   "vars": {
     // Registro público cerrado: el primer usuario se crea libremente (admin) y el resto los da de alta un admin.
-    "ALLOW_SIGNUP": "false"
+    "ALLOW_SIGNUP": "false",
+    // Dominio de las direcciones de reenvío (`<token>@in.donbigo.com`): Email Routing con regla comodín hacia este Worker.
+    "INBOUND_EMAIL_DOMAIN": "in.donbigo.com"
     // BETTER_AUTH_URL se define en producción (`wrangler secret put` o aquí); en local vive en .dev.vars.
     // BETTER_AUTH_SECRET es un secreto: `wrangler secret put BETTER_AUTH_SECRET`.
   },

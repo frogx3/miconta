@@ -109,6 +109,19 @@ cuentas existen); el evento muestra `cpuTime`.
 2. Actualiza el secreto `BETTER_AUTH_URL` a la nueva URL.
 3. Si quieres que sigan funcionando ambas URLs, pon la otra en `TRUSTED_ORIGINS`.
 
+### Captura por correo
+
+Cada cuenta puede activar una dirección `<token>@in.donbigo.com` a la que el usuario reenvía los avisos de su banco
+(el dominio sale de `INBOUND_EMAIL_DOMAIN`). El Worker los recibe en su handler `email()` (`src/worker.ts`).
+
+1. Email Routing de la zona: agregar los registros MX/SPF/DKIM del dominio raíz (Settings → Add missing records);
+   los subdominios dependen de él.
+2. Settings → Subdomains → agregar `in`.
+3. Routing rules del subdominio: regla comodín (catch-all) → Send to a Worker → `miconta`.
+4. Recomendado: regla de ciclo de vida en R2 que borre `email/unparsed/` a los 30 días (correos que no se pudieron leer).
+
+Probar en local: `pnpm smoke:email` (simula correos contra `/cdn-cgi/handler/email` del servidor de desarrollo).
+
 ### Seguridad ya aplicada
 
 - Cabeceras: CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`.

@@ -17,6 +17,8 @@ import { detectProfile, headerFingerprint } from './profile';
 import { groupedMemberKeys, paymentGroups, type PaymentGroup } from '../spending/groups';
 import { addDays } from '../spending/statement';
 import { matchPlanInstallments, planHints, scheduledDate, type InstallmentMatch, type MissingInstallment, type PlanHint, type PlanLike } from './plans';
+import { emailReferenceKeys } from '../email/inbound';
+import { normalizeReference } from '../email/notice';
 import type { CardKind, ImportField, ImportProfile, NormalizedMovement, RowError } from './types';
 
 export const MAX_FILE_CHARS = 2_000_000;
@@ -158,6 +160,12 @@ async function analyze(
       .from(movements)
       .where(and(eq(movements.accountId, account.id), gte(movements.date, dates[0]!), lte(movements.date, dates.at(-1)!)));
     for (const row of rows) existingKeys.add(row.key);
+    // Un cargo que ya llegó por aviso de correo (misma referencia y monto) cuenta como ya registrado.
+    const fromEmail = await emailReferenceKeys(db, account.id, dates[0]!, dates.at(-1)!);
+    for (const m of parsed.movements) {
+      const reference = normalizeReference(m.reference);
+      if (reference && fromEmail.has(`${reference}|${m.chargeMinor}|${m.creditMinor}`)) existingKeys.add(m.uniqueKey);
+    }
   }
   const fresh = parsed.movements.filter((m) => !existingKeys.has(m.uniqueKey));
   const coverageEnd = dates.at(-1) ?? null;
