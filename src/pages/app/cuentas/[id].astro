@@ -8,6 +8,7 @@ import Breadcrumb from '../../../components/Breadcrumb.astro';
 import EmailInbox from '../../../components/EmailInbox.astro';
 import { env } from 'cloudflare:workers';
 import { getInbox, listMessages } from '../../../lib/email/inbound';
+import { emailCaptureEnabled } from '../../../lib/email/config';
 import { messagesFor, t, tn } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { formatDate, todayISO } from '../../../lib/date-format';
@@ -28,7 +29,8 @@ const activity = await accountActivity(db, workspace.id, account.id, account.car
 // Lo que cuesta esta cuenta: el mismo cálculo del Panel, solo con los planes de esta cuenta.
 const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO());
 
-const inbox = await getInbox(db, workspace.id, account.id);
+const emailCapture = emailCaptureEnabled();
+const inbox = emailCapture ? await getInbox(db, workspace.id, account.id) : null;
 const inboxMessages = inbox ? await listMessages(db, inbox.id) : [];
 
 const readOnly = workspace.role === 'viewer';
@@ -195,14 +197,14 @@ const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&a
     }
   </section>
 
-  <EmailInbox
+  {emailCapture && <EmailInbox
     accountId={account.id}
     inbox={inbox}
     messages={inboxMessages}
     domain={env.INBOUND_EMAIL_DOMAIN}
     currency={account.cards[0]?.currency ?? workspace.defaultCurrency}
     readOnly={readOnly || !!account.archivedAt}
-  />
+  />}
 
   <details class="card account-details">
     <summary>{t(locale, 'account.details')}</summary>

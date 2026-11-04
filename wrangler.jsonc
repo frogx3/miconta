@@ -11,7 +11,9 @@
     // Registro público cerrado: el primer usuario se crea libremente (admin) y el resto los da de alta un admin.
     "ALLOW_SIGNUP": "false",
     // Dominio de las direcciones de reenvío (`<token>@in.donbigo.com`): Email Routing con regla comodín hacia este Worker.
-    "INBOUND_EMAIL_DOMAIN": "in.donbigo.com"
+    "INBOUND_EMAIL_DOMAIN": "in.donbigo.com",
+    // Captura por correo apagada (sin bancos que manden avisos para probarla); en local se enciende en .dev.vars.
+    "EMAIL_CAPTURE": "false"
     // BETTER_AUTH_URL se define en producción (`wrangler secret put` o aquí); en local vive en .dev.vars.
     // BETTER_AUTH_SECRET es un secreto: `wrangler secret put BETTER_AUTH_SECRET`.
   },

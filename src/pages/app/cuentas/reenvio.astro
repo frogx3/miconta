@@ -2,9 +2,11 @@
 import AppLayout from '../../../layouts/AppLayout.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
 import { t, type MessageKey } from '../../../i18n/messages';
+import { emailCaptureEnabled } from '../../../lib/email/config';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
+if (!emailCaptureEnabled()) return Astro.redirect('/app/cuentas');
 
 const providers = [
   { id: 'gmail', steps: 4 },

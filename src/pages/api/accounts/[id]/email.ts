@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getAccount } from '../../../../lib/accounts/repo';
 import { getDb } from '../../../../lib/auth';
+import { emailCaptureEnabled } from '../../../../lib/email/config';
 import { disableInbox, enableInbox } from '../../../../lib/email/inbound';
 import { json, requireWorkspaceWithBody } from '../../../../lib/http';
 
@@ -8,6 +9,7 @@ import { json, requireWorkspaceWithBody } from '../../../../lib/http';
 export const POST: APIRoute = async ({ request, locals, params }) => {
   const access = await requireWorkspaceWithBody(locals, request);
   if ('response' in access) return access.response;
+  if (!emailCaptureEnabled()) return json(404, { code: 'NOT_FOUND' });
   const db = getDb();
   const account = await getAccount(db, access.workspace.id, params.id!);
   if (!account) return json(404, { code: 'NOT_FOUND' });

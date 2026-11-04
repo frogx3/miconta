@@ -4,7 +4,7 @@ Prueba de humo de la captura por correo: dirección de reenvío por cuenta, corr
 (`/cdn-cgi/handler/email` del servidor de desarrollo), revisión, confianza por firma DKIM, tarjeta desconocida,
 duplicados, correo ilegible y que el CSV no duplique lo que ya llegó por correo.
 
-Requiere: `pnpm exec astro dev --background` y una D1 local VACÍA (sin usuarios):
+Requiere: `EMAIL_CAPTURE=true` en .dev.vars, `pnpm exec astro dev --background` y una D1 local VACÍA (sin usuarios):
   rm -rf .wrangler/state && pnpm exec wrangler d1 migrations apply miconta --local
 Crea usuarios y datos de prueba (@miconta.test).
 """

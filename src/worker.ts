@@ -1,6 +1,7 @@
 import { handle } from '@astrojs/cloudflare/handler';
 import PostalMime from 'postal-mime';
 import { getDb } from './lib/auth';
+import { emailCaptureEnabled } from './lib/email/config';
 import { receiveEmail } from './lib/email/inbound';
 import { dkimPassDomains, htmlToText } from './lib/email/notice';
 import { sha256Hex } from './lib/import/parse';
@@ -16,6 +17,7 @@ export default {
   fetch: handle,
 
   async email(message, env) {
+    if (!emailCaptureEnabled()) return message.setReject('Unknown address');
     if (message.rawSize > MAX_EMAIL_BYTES) return message.setReject('Message too large');
     const token = message.to.split('@')[0]!.split('+')[0]!.toLowerCase();
     if (!/^[a-z2-7]{26}$/.test(token)) return message.setReject('Unknown address');
