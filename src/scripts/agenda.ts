@@ -61,6 +61,17 @@ if (root) {
     });
   });
 
+  // Vincular WhatsApp: pide un código y abre el chat con el mensaje "Vincular CÓDIGO" ya escrito.
+  root.querySelector<HTMLButtonElement>('#agenda-whatsapp-link')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    button.disabled = true;
+    const { ok, data } = await call('POST', '/api/agenda/whatsapp/link', {});
+    button.disabled = false;
+    const url = (data as { url?: string } | null)?.url;
+    if (ok && url) location.href = url;
+    else fail(null, data);
+  });
+
   // Tocar un día filtra la lista sin recargar; tocarlo otra vez (o "Ver todo el mes") la muestra completa.
   const days = [...root.querySelectorAll<HTMLButtonElement>('.agenda-day')];
   const rows = [...root.querySelectorAll<HTMLElement>('.agenda-row')];

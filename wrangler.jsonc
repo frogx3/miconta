@@ -13,7 +13,14 @@
     // Dominio de las direcciones de reenvío (`<token>@in.donbigo.com`): Email Routing con regla comodín hacia este Worker.
     "INBOUND_EMAIL_DOMAIN": "in.donbigo.com",
     // Captura por correo apagada (sin bancos que manden avisos para probarla); en local se enciende en .dev.vars.
-    "EMAIL_CAPTURE": "false"
+    "EMAIL_CAPTURE": "false",
+    // Avisos por WhatsApp (Kapso) apagados. Para encender: nombre de la plantilla aprobada, número del negocio
+    // (dígitos E.164 sin "+", para wa.me) e interruptor en "true"; luego desplegar.
+    "WHATSAPP_NOTIFICATIONS": "false",
+    "KAPSO_REMINDER_TEMPLATE": "",
+    "KAPSO_BUSINESS_PHONE": ""
+    // Secretos de Kapso: `wrangler secret put KAPSO_API_KEY`, `wrangler secret put KAPSO_PHONE_NUMBER_ID`,
+    // `wrangler secret put KAPSO_WEBHOOK_SECRET`.
     // BETTER_AUTH_URL se define en producción (`wrangler secret put` o aquí); en local vive en .dev.vars.
     // BETTER_AUTH_SECRET es un secreto: `wrangler secret put BETTER_AUTH_SECRET`.
   },

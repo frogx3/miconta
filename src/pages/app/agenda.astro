@@ -11,9 +11,12 @@ import { monthResults, projectRecurring, type Entry, type MonthResult } from '..
 import { suggestedCardPayments, type SuggestedCardPayment } from '../../lib/agenda/card-payments';
 import { anchorDays, idsWithChild, listAgenda, listBalances } from '../../lib/agenda/repo';
 import { RECURRENCES } from '../../lib/agenda/validation';
+import { whatsappEnabled } from '../../lib/agenda/whatsapp';
+import { user } from '../../db/schema';
+import { eq } from 'drizzle-orm';
 
-const { workspace, locale } = Astro.locals;
-if (!workspace) return Astro.redirect('/login');
+const { workspace, locale, user: currentUser } = Astro.locals;
+if (!workspace || !currentUser) return Astro.redirect('/login');
 
 const db = getDb();
 const today = todayISO();
@@ -117,6 +120,10 @@ const weekdays = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(loc
 
 const staleBefore = Date.now() - 7 * 86_400_000;
 const defaultDate = month === current ? today : `${month}-01`;
+// Avisos por WhatsApp: son del usuario (no del espacio), así que también los ve un `viewer`.
+const whatsapp = whatsappEnabled()
+  ? ((await db.select({ phone: user.whatsappPhone, optIn: user.whatsappOptIn }).from(user).where(eq(user.id, currentUser.id)).limit(1))[0] ?? null)
+  : null;
 const messages = messagesFor(locale, ['agenda.', 'validation.', 'common.']);
 const title = t(locale, 'agenda.title', { month: monthName(month) });
 ---
@@ -328,6 +335,27 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
         )
       }
     </section>
+    {
+      whatsapp && (
+        <section class="card">
+          <h2>{t(locale, 'agenda.whatsapp.title')}</h2>
+          <p class="hint">{t(locale, 'agenda.whatsapp.hint')}</p>
+          {whatsapp.phone ? (
+            <>
+              <p>{t(locale, 'agenda.whatsapp.linked', { phone: `+${whatsapp.phone}` })}</p>
+              <div class="row-actions">
+                <button type="button" class="btn btn-small" data-action data-method="PATCH" data-url="/api/agenda/whatsapp" data-body={JSON.stringify({ optIn: !whatsapp.optIn })}>
+                  {t(locale, whatsapp.optIn ? 'agenda.whatsapp.pause' : 'agenda.whatsapp.resume')}
+                </button>
+                <button type="button" class="link-button" data-action data-method="DELETE" data-url="/api/agenda/whatsapp" data-body="{}">{t(locale, 'agenda.whatsapp.unlink')}</button>
+              </div>
+            </>
+          ) : (
+            <button type="button" class="btn btn-auto" id="agenda-whatsapp-link">{t(locale, 'agenda.whatsapp.link')}</button>
+          )}
+        </section>
+      )
+    }
   </div>
 </AppLayout>
 
