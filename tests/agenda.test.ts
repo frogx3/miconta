@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { monthResult, monthResults, nextDueDate, type Entry } from '../src/lib/agenda/compute';
 import { cardDuesInMonth } from '../src/lib/agenda/card-payments';
+import { validateBalance, validateItem } from '../src/lib/agenda/validation';
 import { realCuts, recordsByMonth, statementPeriod } from '../src/lib/spending/statement';
 
 const e = (key: string, kind: Entry['kind'], amountMinor: number, dueDate: string, extra: Partial<Entry> = {}): Entry => ({
@@ -159,5 +160,35 @@ describe('cardDuesInMonth', () => {
 
   it('sin día de corte ni cortes no hay nada', () => {
     expect(cardDuesInMonth({ ...card, cutoffDay: null, cuts: [], month: '2026-11' })).toEqual([]);
+  });
+});
+
+describe('validateItem', () => {
+  const ctx = { locale: 'es-MX', currency: 'MXN' };
+  const ok = { kind: 'payable', description: 'Renta', amount: '1,234.50', dueDate: '2026-11-15', recurrence: 'monthly' };
+  const codes = (body: Record<string, unknown>) => {
+    const r = validateItem(body, ctx);
+    return r.ok ? [] : r.errors;
+  };
+  it('acepta un pago válido y lee el monto en es-MX', () => {
+    expect(validateItem(ok, ctx)).toEqual({ ok: true, value: { kind: 'payable', description: 'Renta', amountMinor: 123450, dueDate: '2026-11-15', recurrence: 'monthly' } });
+  });
+  it('rechaza descripción vacía, monto cero, fecha inexistente y repetición desconocida', () => {
+    expect(codes({ ...ok, description: '  ' })).toContainEqual({ field: 'description', code: 'required' });
+    expect(codes({ ...ok, amount: '0' })).toContainEqual({ field: 'amount', code: 'positive' });
+    expect(codes({ ...ok, dueDate: '2026-02-30' })).toContainEqual({ field: 'dueDate', code: 'invalid' });
+    expect(codes({ ...ok, recurrence: 'weekly' })).toContainEqual({ field: 'recurrence', code: 'invalid' });
+    expect(codes({ ...ok, kind: 'gasto' })).toContainEqual({ field: 'kind', code: 'invalid' });
+    expect(codes({ ...ok, description: 'x'.repeat(121) })).toContainEqual({ field: 'description', code: 'too_long' });
+  });
+});
+
+describe('validateBalance', () => {
+  const ctx = { locale: 'es-MX', currency: 'MXN' };
+  it('permite saldo cero o negativo y pide etiqueta en renglones libres', () => {
+    expect(validateBalance({ label: 'Efectivo', amount: '-50' }, ctx)).toEqual({ ok: true, value: { cardId: null, label: 'Efectivo', amountMinor: -5000 } });
+    expect(validateBalance({ cardId: 'c1', amount: '0' }, ctx)).toEqual({ ok: true, value: { cardId: 'c1', label: null, amountMinor: 0 } });
+    const r = validateBalance({ amount: '10' }, ctx);
+    expect(r.ok ? [] : r.errors).toContainEqual({ field: 'label', code: 'required' });
   });
 });
