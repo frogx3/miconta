@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { agendaItems, cards, cashBalances, type AgendaItem, type CashBalance } from '../../db/schema';
 import type { Db } from '../auth/hooks';
 import { todayISO } from '../date-format';
@@ -66,6 +66,35 @@ async function anchorDay(db: Db, workspaceId: string, item: AgendaItem): Promise
     )
     SELECT due_date FROM chain WHERE previous_id IS NULL LIMIT 1`);
   return Number((root?.due_date ?? item.dueDate).slice(8));
+}
+
+/**
+ * Día ancla de varias series a la vez (misma regla que `anchorDay`): id → día del primer registro de su serie.
+ * shortcut: un solo IN (...) con todos los ids; si alguna vez pasan de ~90 (límite de parámetros de D1), partirlo.
+ */
+export async function anchorDays(db: Db, workspaceId: string, items: Pick<AgendaItem, 'id' | 'dueDate'>[]): Promise<Map<string, number>> {
+  const days = new Map(items.map((item) => [item.id, Number(item.dueDate.slice(8))]));
+  if (items.length === 0) return days;
+  const ids = sql.join(items.map((item) => sql`${item.id}`), sql`, `);
+  const roots = await db.all<{ origin: string; due_date: string }>(sql`
+    WITH RECURSIVE chain(origin, id, previous_id, due_date) AS (
+      SELECT id, id, previous_id, due_date FROM agenda_items WHERE workspace_id = ${workspaceId} AND id IN (${ids})
+      UNION ALL
+      SELECT c.origin, a.id, a.previous_id, a.due_date FROM agenda_items a JOIN chain c ON a.id = c.previous_id WHERE a.workspace_id = ${workspaceId}
+    )
+    SELECT origin, due_date FROM chain WHERE previous_id IS NULL`);
+  for (const root of roots) days.set(root.origin, Number(root.due_date.slice(8)));
+  return days;
+}
+
+/** Ids (de los dados) que ya generaron su siguiente ocurrencia: no son la última de su serie. */
+export async function idsWithChild(db: Db, workspaceId: string, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ previousId: agendaItems.previousId })
+    .from(agendaItems)
+    .where(and(eq(agendaItems.workspaceId, workspaceId), inArray(agendaItems.previousId, ids)));
+  return new Set(rows.map((row) => row.previousId!));
 }
 
 /**

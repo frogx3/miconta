@@ -11,10 +11,15 @@ if (root) {
     errorBox.hidden = text === null;
   };
 
-  async function call(method: string, url: string, body: unknown) {
+  /** Sin red (o respuesta ilegible) cuenta como fallo general. */
+  async function call(method: string, url: string, body: unknown): Promise<{ ok: boolean; data: Failure }> {
     show(null);
-    const response = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    return { ok: response.ok, data: (await response.json().catch(() => null)) as Failure };
+    try {
+      const response = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      return { ok: response.ok, data: (await response.json().catch(() => null)) as Failure };
+    } catch {
+      return { ok: false, data: null };
+    }
   }
 
   /** Errores de validación bajo cada campo; cualquier otro fallo, un aviso general. */
@@ -46,10 +51,13 @@ if (root) {
   root.querySelectorAll<HTMLFormElement>('form[data-url]').forEach((form) => {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      const submit = form.querySelector<HTMLButtonElement>('button[type=submit]');
+      if (submit) submit.disabled = true;
       const body = { ...JSON.parse(form.dataset.extra ?? '{}'), ...Object.fromEntries([...new FormData(form)].map(([key, value]) => [key, String(value)])) };
       const { ok, data } = await call(form.dataset.method!, form.dataset.url!, body);
-      if (ok) location.reload();
-      else fail(form, data);
+      if (ok) return location.reload();
+      if (submit) submit.disabled = false;
+      fail(form, data);
     });
   });
 

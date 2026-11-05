@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { monthResult, monthResults, nextDueDate, type Entry } from '../src/lib/agenda/compute';
+import { monthResult, monthResults, nextDueDate, projectRecurring, type Entry, type SeriesItem } from '../src/lib/agenda/compute';
 import { cardDuesInMonth } from '../src/lib/agenda/card-payments';
 import { validateBalance, validateItem } from '../src/lib/agenda/validation';
 import { realCuts, recordsByMonth, statementPeriod } from '../src/lib/spending/statement';
@@ -18,6 +18,29 @@ describe('nextDueDate', () => {
   });
   it('quincenal suma 15 días', () => {
     expect(nextDueDate('2026-02-20', 'biweekly', 20)).toBe('2026-03-07');
+  });
+});
+
+describe('projectRecurring', () => {
+  const s = (dueDate: string, extra: Partial<SeriesItem> = {}): SeriesItem => ({
+    key: 'r', kind: 'payable', description: 'renta', amountMinor: 100_00, currency: 'MXN', dueDate, status: 'pending', recurrence: 'monthly', anchorDay: Number(dueDate.slice(8)), ...extra,
+  });
+  const dates = (out: Entry[]) => out.map((x) => x.dueDate);
+
+  it('mensual del 31 se proyecta a febrero y marzo', () => {
+    const out = projectRecurring([s('2027-01-31')], '2027-03-31');
+    expect(dates(out)).toEqual(['2027-02-28', '2027-03-31']);
+    expect(out[0]).toMatchObject({ key: 'proj:r:2027-02-28', status: 'pending', suggested: false, projected: true, amountMinor: 100_00 });
+  });
+  it('quincenal del 15 de noviembre proyecta el 30 dentro del mes', () => {
+    expect(dates(projectRecurring([s('2026-11-15', { recurrence: 'biweekly' })], '2026-11-30'))).toEqual(['2026-11-30']);
+  });
+  it('nada para sin repetición o no pendientes', () => {
+    expect(projectRecurring([s('2026-11-10', { recurrence: 'none' }), s('2026-11-10', { status: 'done' }), s('2026-11-10', { status: 'cancelled' })], '2027-12-31')).toEqual([]);
+  });
+  it('nada después de through', () => {
+    expect(projectRecurring([s('2026-11-10')], '2026-12-09')).toEqual([]);
+    expect(dates(projectRecurring([s('2026-11-10')], '2026-12-10'))).toEqual(['2026-12-10']);
   });
 });
 

@@ -12,12 +12,41 @@ export interface Entry {
   dueDate: string;
   status: 'pending' | 'done' | 'cancelled';
   suggested: boolean;
+  /** Ocurrencia futura de una serie que aún no existe como registro. */
+  projected?: boolean;
 }
 
 /** Siguiente fecha de una serie. `anchorDay` es el día del primer registro (31 → 28 → 31 no se encoge). */
 export function nextDueDate(dueDate: string, recurrence: Exclude<Recurrence, 'none'>, anchorDay: number): string {
   if (recurrence === 'biweekly') return addDays(dueDate, 15);
   return cutoffInMonth(anchorDay, shiftMonth(monthOf(dueDate), 1));
+}
+
+export interface SeriesItem {
+  key: string;
+  kind: Entry['kind'];
+  description: string;
+  amountMinor: number;
+  currency: string;
+  dueDate: string;
+  status: Entry['status'];
+  recurrence: Recurrence;
+  anchorDay: number;
+}
+
+/**
+ * Ocurrencias siguientes de cada serie hasta `through` (inclusive). Recibe solo la última ocurrencia de cada serie
+ * (la que aún no tiene hijo); las que no están pendientes o no se repiten no proyectan nada.
+ */
+export function projectRecurring(series: SeriesItem[], through: string): Entry[] {
+  const out: Entry[] = [];
+  for (const item of series) {
+    if (item.status !== 'pending' || item.recurrence === 'none') continue;
+    for (let date = nextDueDate(item.dueDate, item.recurrence, item.anchorDay); date <= through; date = nextDueDate(date, item.recurrence, item.anchorDay)) {
+      out.push({ key: `proj:${item.key}:${date}`, kind: item.kind, description: item.description, amountMinor: item.amountMinor, currency: item.currency, dueDate: date, status: 'pending', suggested: false, projected: true });
+    }
+  }
+  return out;
 }
 
 export interface DayPoint {
