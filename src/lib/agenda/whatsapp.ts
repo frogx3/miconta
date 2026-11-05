@@ -112,3 +112,46 @@ export async function redeemLinkCode(db: Db, code: string, phone: string, now: D
   if (consumed.length === 0) return 'invalid';
   return 'linked';
 }
+
+/**
+ * Firma del webhook: HMAC-SHA256(secreto, cuerpo crudo) en hex. Se acepta tal cual (`X-Webhook-Signature`) o con el
+ * prefijo `sha256=` (`X-Hub-Signature-256`); la ruta pasa el encabezado que venga.
+ */
+export async function verifyWebhookSignature(secret: string, rawBody: string, header: string | null): Promise<boolean> {
+  const provided = header?.trim().replace(/^sha256=/i, '').toLowerCase();
+  if (!provided) return false;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody)));
+  return timingSafeEqual(provided, Array.from(signature, (byte) => byte.toString(16).padStart(2, '0')).join(''));
+}
+
+/** Mensajes entrantes que importan; estados, mensajes salientes y otros tipos (imagen, audio…) no se devuelven. */
+export type InboundEvent = { kind: 'button'; from: string; payload: string } | { kind: 'text'; from: string; text: string };
+
+// `any` a propósito: el cuerpo es externo y cada acceso se valida con typeof antes de usarse.
+type Loose = Record<string, any>;
+const asObject = (value: unknown): Loose | null => (value && typeof value === 'object' && !Array.isArray(value) ? (value as Loose) : null);
+const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+function toEvent(raw: unknown, fallbackFrom?: unknown): InboundEvent | null {
+  const message = asObject(raw);
+  if (!message || message.kapso?.direction === 'outbound') return null;
+  const from = String(message.from ?? fallbackFrom ?? '').replace(/\D/g, '');
+  if (!from) return null;
+  if (message.type === 'text' && typeof message.text?.body === 'string') return { kind: 'text', from, text: message.text.body };
+  const payload = message.type === 'button' ? message.button?.payload : message.type === 'interactive' && message.interactive?.type === 'button_reply' ? message.interactive.button_reply?.id : undefined;
+  return typeof payload === 'string' && payload ? { kind: 'button', from, payload } : null;
+}
+
+/**
+ * Lee el cuerpo del webhook en formato Meta (`entry[].changes[].value.messages[]`) o en formato Kapso (`message`
+ * arriba, o un lote `data[]` de esos eventos). Nunca lanza: lo desconocido se ignora.
+ */
+// shortcut: los formatos salen de la documentación pública de Kapso y Meta; confirmarlos en el panel de Kapso antes de encender.
+export function parseInbound(body: unknown): InboundEvent[] {
+  const root = asObject(body);
+  if (!root) return [];
+  const meta = asArray(root.entry).flatMap((entry) => asArray(asObject(entry)?.changes).flatMap((change) => asArray(asObject(asObject(change)?.value)?.messages).map((m) => toEvent(m))));
+  const kapso = [root, ...asArray(root.data)].map((event) => asObject(event)).map((event) => (event?.message ? toEvent(event.message, event.conversation?.phone_number) : null));
+  return [...meta, ...kapso].filter((event): event is InboundEvent => event !== null);
+}

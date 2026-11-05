@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 const env = vi.hoisted(() => ({}) as Record<string, string>);
 vi.mock('cloudflare:workers', () => ({ env }));
 
-import { newLinkCode, parseLinkMessage, signItemToken, verifyItemToken, whatsappConfig, whatsappEnabled, type WhatsappConfig } from '../src/lib/agenda/whatsapp';
+import { readFileSync } from 'node:fs';
+import { newLinkCode, parseInbound, parseLinkMessage, signItemToken, verifyItemToken, verifyWebhookSignature, whatsappConfig, whatsappEnabled, type WhatsappConfig } from '../src/lib/agenda/whatsapp';
 import { sendReminder, sendText } from '../src/lib/agenda/kapso';
 import { mexicoCityToday, reminderOffset, runReminders } from '../src/lib/agenda/reminders';
 import type { Db } from '../src/lib/auth/hooks';
@@ -104,5 +105,51 @@ describe('recordatorios', () => {
     expect(await runReminders(db, cfg, new Date('2026-11-05T15:00:00Z'))).toEqual({ sent: 0, failed: 0, skipped: 0, errors: 2 });
     expect(quiet).toHaveBeenCalledTimes(2);
     quiet.mockRestore();
+  });
+});
+
+describe('webhook de Kapso', () => {
+  const fixture = (name: string): unknown => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));
+  const hexHmac = async (secret: string, body: string) => {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))), (b) => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  it('firma: X-Webhook-Signature (hex) y X-Hub-Signature-256 (sha256=hex)', async () => {
+    const body = '{"a":1}';
+    const hex = await hexHmac('s', body);
+    expect(await verifyWebhookSignature('s', body, hex)).toBe(true);
+    expect(await verifyWebhookSignature('s', body, `sha256=${hex}`)).toBe(true);
+    expect(await verifyWebhookSignature('s', body, hex.toUpperCase())).toBe(true);
+    expect(await verifyWebhookSignature('s', '{"a":2}', hex)).toBe(false);
+    expect(await verifyWebhookSignature('otro', body, hex)).toBe(false);
+    expect(await verifyWebhookSignature('s', body, null)).toBe(false);
+    expect(await verifyWebhookSignature('s', body, '')).toBe(false);
+    expect(await verifyWebhookSignature('s', body, `sha1=${hex}`)).toBe(false);
+  });
+
+  it('botón de plantilla (formato Meta)', () => {
+    expect(parseInbound(fixture('kapso-button.json'))).toEqual([{ kind: 'button', from: '5215512345678', payload: 'item-1.firma' }]);
+  });
+  it('texto (formato Meta)', () => {
+    expect(parseInbound(fixture('kapso-text.json'))).toEqual([{ kind: 'text', from: '5215512345678', text: 'Vincular 7KQ2X9' }]);
+  });
+  it('texto (formato Kapso), también en lote `data`; `from` solo dígitos', () => {
+    const event = { kind: 'text', from: '5215512345678', text: 'hola' };
+    expect(parseInbound(fixture('kapso-text-kapso.json'))).toEqual([event]);
+    expect(parseInbound({ type: 'whatsapp.message.received', batch: true, data: [fixture('kapso-text-kapso.json'), fixture('kapso-text-kapso.json')] })).toEqual([event, event]);
+  });
+  it('botón interactivo: el id es la payload', () => {
+    const message = { from: '5215512345678', type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: 'card:c1:2026-11-20.firma', title: 'Ya lo pagué' } } };
+    expect(parseInbound({ message })).toEqual([{ kind: 'button', from: '5215512345678', payload: 'card:c1:2026-11-20.firma' }]);
+  });
+  it('solo estados, salientes, otros tipos o basura → []', () => {
+    const statuses = { entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.X', status: 'delivered', recipient_id: '5215512345678' }] } }] }] };
+    expect(parseInbound(statuses)).toEqual([]);
+    expect(parseInbound({ message: { from: '5215500000000', type: 'text', text: { body: 'x' }, kapso: { direction: 'outbound' } } })).toEqual([]);
+    expect(parseInbound({ message: { from: '5215512345678', type: 'image', image: { id: 'm' } } })).toEqual([]);
+    expect(parseInbound(null)).toEqual([]);
+    expect(parseInbound('x')).toEqual([]);
+    expect(parseInbound({ entry: 'x' })).toEqual([]);
   });
 });

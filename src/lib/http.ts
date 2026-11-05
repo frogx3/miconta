@@ -9,7 +9,7 @@ export function sameOrigin(request: Request): boolean {
 }
 
 type Workspace = NonNullable<App.Locals['workspace']>;
-const WRITE_ROLES: Workspace['role'][] = ['owner', 'admin', 'member'];
+export const WRITE_ROLES: Workspace['role'][] = ['owner', 'admin', 'member'];
 
 /**
  * Exige sesión y espacio activo; para escribir, además un rol con permiso (no `viewer`) y origen propio.

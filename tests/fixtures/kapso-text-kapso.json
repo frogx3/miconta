@@ -1,0 +1,13 @@
+{
+  "message": {
+    "id": "wamid.KAPSO",
+    "timestamp": "1762300000",
+    "type": "text",
+    "text": { "body": "hola" },
+    "from": "+52 1 55 1234 5678",
+    "kapso": { "direction": "inbound" }
+  },
+  "conversation": { "id": "conv-1", "phone_number": "+5215512345678", "phone_number_id": "987" },
+  "is_new_conversation": false,
+  "phone_number_id": "987"
+}
