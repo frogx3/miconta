@@ -141,8 +141,20 @@ describe('cardDuesInMonth', () => {
     const period = statementPeriod(28, 17, '2026-11', card.todayISO, recordsByMonth(cuts.map((c) => c.recorded)));
     const [due, ...rest] = cardDuesInMonth({ ...card, cutoffDay: 28, cuts, month: '2026-12' });
     expect(rest).toEqual([]);
-    expect(due).toMatchObject({ cutMonth: '2026-11', from: period.from, to: period.to, dueDate: '2026-12-17', recordedPayMinor: null, previousOwedMinor: 2_500_00 });
+    expect(due).toMatchObject({ cutMonth: '2026-11', from: period.from, to: period.to, dueDate: '2026-12-17', recordedPayMinor: null, previousOwedMinor: null });
     expect(due!.from).toBe('2026-10-29');
+  });
+
+  it('corte estimado ya cerrado toma el adeudo del corte real anterior', () => {
+    expect(cardDuesInMonth({ ...card, cutoffDay: 28, cuts: cuts.slice(0, 1), month: '2026-11' })).toEqual([{
+      cardId: 'c1', accountName: 'Banorte', currency: 'MXN', cutMonth: '2026-10', from: '2026-09-29', to: '2026-10-28',
+      dueDate: '2026-11-17', recordedPayMinor: null, previousOwedMinor: 1_000_00,
+    }]);
+  });
+
+  it('dos cortes que vencen el mismo día dan un solo pago (el más reciente)', () => {
+    const dues = cardDuesInMonth({ ...card, cutoffDay: 31, paymentDueDay: 30, cuts: [], month: '2026-02', todayISO: '2026-03-15' });
+    expect(dues.map((d) => [d.cutMonth, d.dueDate])).toEqual([['2026-02', '2026-02-28']]);
   });
 
   it('sin día de corte ni cortes no hay nada', () => {

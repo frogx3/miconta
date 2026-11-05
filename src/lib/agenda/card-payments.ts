@@ -28,20 +28,20 @@ export function cardDuesInMonth(input: { cardId: string; accountName: string; cu
   const { cardId, accountName, currency, cutoffDay, paymentDueDay, cuts, month, todayISO } = input;
   const base = { cardId, accountName, currency };
   const real = cuts
-    .filter((cut) => cut.dueDate?.startsWith(month))
-    .map((cut): CardDue => ({
+    .map((cut, index): CardDue => ({
       ...base,
       cutMonth: cut.month,
       from: cut.from,
       to: cut.to,
-      dueDate: cut.dueDate!,
+      dueDate: cut.dueDate ?? '',
       recordedPayMinor: cut.recorded.officialPayMinor,
-      previousOwedMinor: cuts[cuts.indexOf(cut) - 1]?.recorded.officialPayMinor ?? null,
-    }));
-  if (real.length > 0 || cutoffDay === null) return real;
+      previousOwedMinor: cuts[index - 1]?.recorded.officialPayMinor ?? null,
+    }))
+    .filter((due) => due.dueDate.startsWith(month));
+  if (real.length > 0 || cutoffDay === null) return byDueDate(real);
 
   const records = recordsByMonth(cuts.map((cut) => cut.recorded));
-  return [shiftMonth(month, -1), month]
+  return byDueDate([shiftMonth(month, -1), month]
     .map((cutMonth) => ({ cutMonth, period: statementPeriod(cutoffDay, paymentDueDay, cutMonth, todayISO, records) }))
     .filter(({ period }) => period.dueDate?.startsWith(month))
     .map(({ cutMonth, period }) => ({
@@ -51,10 +51,14 @@ export function cardDuesInMonth(input: { cardId: string; accountName: string; cu
       to: period.to,
       dueDate: period.dueDate!,
       recordedPayMinor: period.recorded?.officialPayMinor ?? null,
-      // Solo el corte real inmediato anterior da el adeudo; con huecos se supone que se pagó completo.
-      previousOwedMinor: records.get(shiftMonth(cutMonth, -1))?.officialPayMinor ?? null,
-    }));
+      // Corte abierto: como en la vista por corte, sin adeudo anterior (ese pago ya aparece con su propia fecha).
+      // Cerrado: solo el corte real inmediato anterior da el adeudo; con huecos se supone que se pagó completo.
+      previousOwedMinor: period.open ? null : (records.get(shiftMonth(cutMonth, -1))?.officialPayMinor ?? null),
+    })));
 }
+
+/** Un pago por fecha: si dos cortes vencen el mismo día (corte 31 y pago 30 en febrero), manda el más reciente. */
+const byDueDate = (dues: CardDue[]): CardDue[] => [...new Map(dues.map((due) => [due.dueDate, due])).values()];
 
 export interface SuggestedCardPayment {
   /** `card:${cardId}:${dueDate}` */
