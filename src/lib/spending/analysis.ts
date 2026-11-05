@@ -101,8 +101,12 @@ function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
 
 /** Análisis de un mes, una entrada por moneda con movimientos ese mes. Nunca mezcla monedas. */
 export function analyzeMonth(rows: readonly SpendRow[], month: string, thresholdOf: (currency: string) => number, topLimit = 10): MonthAnalysis[] {
-  const inMonth = rows.filter((row) => monthOf(row.date) === month);
-  return [...groupBy(inMonth, (row) => row.currency)]
+  return analyzeRows(rows.filter((row) => monthOf(row.date) === month), month, thresholdOf, topLimit);
+}
+
+/** Análisis de un periodo ya filtrado (un mes o un corte, nombrado por `period`), una entrada por moneda. */
+export function analyzeRows(rows: readonly SpendRow[], period: string, thresholdOf: (currency: string) => number, topLimit = 10): MonthAnalysis[] {
+  return [...groupBy([...rows], (row) => row.currency)]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([currency, items]) => {
       const threshold = thresholdOf(currency);
@@ -134,7 +138,7 @@ export function analyzeMonth(rows: readonly SpendRow[], month: string, threshold
       const spendMinor = sum(spend);
       return {
         currency,
-        month,
+        month: period,
         thresholdMinor: threshold,
         spendMinor,
         spendCount: spend.length,

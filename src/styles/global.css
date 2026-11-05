@@ -1098,6 +1098,28 @@ details.sample {
   display: block;
 }
 
+/* Total de los movimientos mostrados: se queda pegado al borde inferior mientras se recorre la tabla. */
+.sticky-total {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 -6px 16px color-mix(in srgb, var(--scrim) 18%, transparent);
+}
+
+.sticky-total strong {
+  font-size: 1.125rem;
+}
+
 /* El botón de regla ocupa el ancho de la celda y parte el texto, como lo hacía el enlace. */
 .suggest .link-button {
   width: 100%;

@@ -2,9 +2,36 @@ import { describe, expect, it } from 'vitest';
 import type { SpendRow } from '../src/lib/spending/analysis';
 import { matchPlanInstallments, type PlanLike } from '../src/lib/import/plans';
 import { findExactSubset, moveCandidates, type SuggestRow } from '../src/lib/spending/suggest';
-import { dueDateFor, isCardPayment, realCuts, sinceLastCut, summarizeStatement, type RecordedCutoff } from '../src/lib/spending/statement';
+import { analyzeRows } from '../src/lib/spending/analysis';
+import { cutPeriod, dueDateFor, isCardPayment, realCuts, selectCut, sinceLastCut, summarizeStatement, type RecordedCutoff } from '../src/lib/spending/statement';
 
 const cut = (cutoffDate: string, startDate: string | null = null): RecordedCutoff => ({ cutoffDate, startDate, officialPayMinor: null });
+
+describe('elegir un corte', () => {
+  const cuts = realCuts([cut('2026-08-04', '2026-07-02'), cut('2026-09-02')], 4, null);
+
+  it('sin pedir uno, el último corte real con sus vecinos', () => {
+    expect(selectCut(cuts, null)).toMatchObject({ key: '2026-09', kind: 'cut', from: '2026-08-05', to: '2026-09-02', prev: '2026-08', next: 'actual' });
+  });
+
+  it('el periodo en curso y uno que no existe', () => {
+    expect(selectCut(cuts, 'actual')).toMatchObject({ kind: 'open', from: '2026-09-03', to: '9999-12-31', prev: '2026-09', next: null });
+    expect(selectCut(cuts, '2020-01').key).toBe('2026-09');
+    expect(selectCut([], null)).toMatchObject({ key: '', kind: 'none', prev: null, next: null });
+  });
+
+  it('periodo de consulta: el corte con sus asignaciones manuales, o desde el último', () => {
+    expect(cutPeriod(cuts, '2026-08')).toEqual({ month: '2026-08', from: '2026-07-02', to: '2026-08-04' });
+    expect(cutPeriod(cuts, 'actual')).toEqual({ month: null, from: '2026-09-03', to: '9999-12-31' });
+    expect(cutPeriod(cuts, '2020-01')).toBeNull();
+  });
+
+  it('analiza un corte aunque cruce meses', () => {
+    const row = (date: string, chargeMinor: number): SpendRow => ({ date, descriptionNorm: 'OXXO', chargeMinor, creditMinor: 0, currency: 'MXN', categoryId: null, planId: null });
+    const [mxn] = analyzeRows([row('2026-08-20', 5_000), row('2026-09-01', 3_000)], '2026-09', () => 20_000);
+    expect(mxn).toMatchObject({ month: '2026-09', spendMinor: 8_000, spendCount: 2 });
+  });
+});
 
 describe('cortes reales', () => {
   it('no inventa cortes: solo existen los capturados, del más antiguo al más reciente', () => {

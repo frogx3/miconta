@@ -109,6 +109,47 @@ export function sinceLastCut(cuts: readonly RealCut[]): { from: string } | null 
   return last ? { from: addDays(last.cutoff, 1) } : null;
 }
 
+export interface CutSelection {
+  /** Mes del corte (`YYYY-MM`), `actual` (lo que va desde el último corte) o vacío si no hay cortes. */
+  key: string;
+  cut: RealCut | undefined;
+  kind: 'cut' | 'open' | 'none';
+  from: string | null;
+  to: string | null;
+  /** Todos los periodos navegables, del más antiguo al en curso. */
+  items: string[];
+  prev: string | null;
+  next: string | null;
+}
+
+/** El corte pedido (o el último real si no existe) con sus vecinos para navegar. */
+export function selectCut(cuts: readonly RealCut[], requested: string | null): CutSelection {
+  const since = sinceLastCut(cuts);
+  const items = [...cuts.map((cut) => cut.month), ...(since ? ['actual'] : [])];
+  const key = requested && items.includes(requested) ? requested : (cuts.at(-1)?.month ?? '');
+  const index = items.indexOf(key);
+  const cut = cuts.find((entry) => entry.month === key);
+  const kind = cut ? 'cut' : since && key === 'actual' ? 'open' : 'none';
+  return {
+    key,
+    cut,
+    kind,
+    from: cut?.from ?? (kind === 'open' ? since!.from : null),
+    to: cut?.to ?? (kind === 'open' ? '9999-12-31' : null),
+    items,
+    prev: index > 0 ? items[index - 1]! : null,
+    next: index >= 0 && index < items.length - 1 ? items[index + 1]! : null,
+  };
+}
+
+/** Periodo de consulta de un corte (`YYYY-MM`) o de lo que va desde el último (`actual`). */
+export function cutPeriod(cuts: readonly RealCut[], key: string): { month: string | null; from: string; to: string } | null {
+  const cut = cuts.find((entry) => entry.month === key);
+  if (cut) return { month: cut.month, from: cut.from, to: cut.to };
+  const since = sinceLastCut(cuts);
+  return key === 'actual' && since ? { month: null, from: since.from, to: '9999-12-31' } : null;
+}
+
 /** Mes del corte más reciente ya ocurrido, o el siguiente si `includeOpen`. */
 export function currentCutoffMonth(cutoffDay: number, todayISO: string, includeOpen = false, records: CutoffRecords = new Map()): string {
   const thisMonth = monthOf(todayISO);

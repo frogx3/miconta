@@ -12,7 +12,7 @@ import { listPlans } from '../../../lib/plans/repo';
 import { shiftMonth, thresholdFor } from '../../../lib/spending/analysis';
 import { cutAdjustments, getWorkspaceSettings, listCutoffs, movementsForAccount, type PeriodMovement } from '../../../lib/spending/repo';
 import { findExactSubset, moveCandidates, type MoveUnit } from '../../../lib/spending/suggest';
-import { cutoffInMonth, realCuts, sinceLastCut, summarizeStatement } from '../../../lib/spending/statement';
+import { cutoffInMonth, realCuts, selectCut, summarizeStatement } from '../../../lib/spending/statement';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -63,15 +63,8 @@ let view: StatementView | null = null;
 if (account && primary) {
   const records = await listCutoffs(db, workspace.id, account.id);
   const cuts = realCuts(records, primary.cutoffDay, primary.paymentDueDay);
-  const since = sinceLastCut(cuts);
-  const items = [...cuts.map((cut) => cut.month), ...(since ? ['actual'] : [])];
-  const requested = params.get('corte');
-  const key = items.includes(requested ?? '') ? requested! : (cuts.at(-1)?.month ?? '');
-  const index = items.indexOf(key);
-  const cut = cuts.find((entry) => entry.month === key);
-  const kind = cut ? 'cut' : since && key === 'actual' ? 'open' : 'none';
-  const from = cut?.from ?? (kind === 'open' ? since!.from : null);
-  const to = cut?.to ?? (kind === 'open' ? '9999-12-31' : null);
+  const { key, cut, kind, from, to, prev, next } = selectCut(cuts, params.get('corte'));
+  const index = cut ? cuts.indexOf(cut) : -1;
   const [rows, settings, plans] = await Promise.all([
     from && to ? movementsForAccount(db, workspace.id, account.id, primary.currency, { month: cut?.month ?? null, from, to }) : Promise.resolve([] as PeriodMovement[]),
     getWorkspaceSettings(db, workspace.id),
@@ -115,8 +108,8 @@ if (account && primary) {
     thresholdMinor,
     planInfo: new Map(plans.map((plan) => [plan.id, { name: plan.name, total: plan.totalInstallments }])),
     installmentOf: rows.reduce((map, row) => (row.planId && row.planInstallmentNo != null ? map.set(row.planId, Math.max(map.get(row.planId) ?? 0, row.planInstallmentNo)) : map), new Map<string, number>()),
-    prev: index > 0 ? items[index - 1]! : null,
-    next: index >= 0 && index < items.length - 1 ? items[index + 1]! : null,
+    prev,
+    next,
     adjustments,
     suggestion,
   };
