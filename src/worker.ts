@@ -45,6 +45,10 @@ export default {
   async scheduled(_controller, _env, ctx) {
     const cfg = whatsappConfig();
     if (!cfg) return;
-    ctx.waitUntil(runReminders(getDb(), cfg, new Date()).then((counts) => console.log(`recordatorios: ${counts.sent} enviados, ${counts.failed} fallidos, ${counts.skipped} saltados`)));
+    ctx.waitUntil(
+      runReminders(getDb(), cfg, new Date())
+        .then((counts) => console.log(`recordatorios: ${counts.sent} enviados, ${counts.failed} fallidos, ${counts.skipped} saltados, ${counts.errors} errores`))
+        .catch((e) => console.error('recordatorios: corrida falló', e instanceof Error ? e.message : e)),
+    );
   },
 } satisfies ExportedHandler<Env>;

@@ -6,7 +6,8 @@ vi.mock('cloudflare:workers', () => ({ env }));
 
 import { newLinkCode, parseLinkMessage, signItemToken, verifyItemToken, whatsappConfig, whatsappEnabled, type WhatsappConfig } from '../src/lib/agenda/whatsapp';
 import { sendReminder, sendText } from '../src/lib/agenda/kapso';
-import { existingAction, mexicoCityToday, reminderOffset } from '../src/lib/agenda/reminders';
+import { mexicoCityToday, reminderOffset, runReminders } from '../src/lib/agenda/reminders';
+import type { Db } from '../src/lib/auth/hooks';
 
 const cfg: WhatsappConfig = { apiKey: 'key-123', phoneNumberId: '987', webhookSecret: 's', template: 'recordatorio_pago', businessPhone: '5215500000000' };
 
@@ -85,9 +86,23 @@ describe('recordatorios', () => {
     expect(reminderOffset('2026-11-05', '2026-11-08')).toBeNull();
     expect(reminderOffset('2026-11-28', '2026-12-05')).toBe('7d');
   });
-  it('fila existente: enviado se salta, con error se reintenta', () => {
-    expect(existingAction({ sentAt: new Date(), error: null })).toBe('skip');
-    expect(existingAction({ sentAt: null, error: 'HTTP 500' })).toBe('retry');
-    expect(existingAction({ sentAt: null, error: null })).toBe('skip');
+  it('un espacio que falla no detiene a los demás', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const rows = [
+      { workspaceId: 'w1', userId: 'u1', phone: '5215500000001', locale: 'es-MX' },
+      { workspaceId: 'w2', userId: 'u2', phone: '5215500000002', locale: 'es-MX' },
+    ];
+    let calls = 0;
+    // Solo la consulta de destinatarios responde; todo lo demás revienta.
+    const db = {
+      select: () => {
+        if (calls++ > 0) throw new Error('boom');
+        const chain = { from: () => chain, innerJoin: () => chain, where: () => Promise.resolve(rows) };
+        return chain;
+      },
+    } as unknown as Db;
+    expect(await runReminders(db, cfg, new Date('2026-11-05T15:00:00Z'))).toEqual({ sent: 0, failed: 0, skipped: 0, errors: 2 });
+    expect(quiet).toHaveBeenCalledTimes(2);
+    quiet.mockRestore();
   });
 });
