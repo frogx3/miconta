@@ -45,6 +45,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     : undefined;
 
+  const assignToCut = Array.isArray(body.assignToCut) ? body.assignToCut : [];
+  if (assignToCut.length > 5000 || !assignToCut.every((key) => typeof key === 'string' && key.length <= 100)) return json(400, { code: 'INVALID_REQUEST' });
+
   const db = getDb();
   const account = await getAccount(db, access.workspace.id, body.accountId);
   if (!account || account.archivedAt) return json(404, { code: 'ACCOUNT_NOT_FOUND' });
@@ -66,6 +69,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       ignoreErrors: body.ignoreErrors === true,
       createMissingCards: body.createMissingCards !== false,
       cardAssignment,
+      assignToCut: assignToCut as string[],
     });
     if (result.ok) return json(201, { batchId: result.batchId, counts: result.counts });
     return json(result.code === 'NOTHING_TO_IMPORT' ? 409 : 400, { code: result.code, details: result.details });

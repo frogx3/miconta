@@ -59,6 +59,8 @@ function start(root: HTMLElement) {
     filter: 'all' as 'all' | 'hints',
     cutoff: '',
     start: '',
+    /** Movimientos con fecha anterior al corte que el usuario desmarcó: cuentan en el corte que les toca por fecha. */
+    keepByDate: new Set<string>(),
     ignoreErrors: false,
     createCards: true,
   };
@@ -112,6 +114,7 @@ function start(root: HTMLElement) {
     state.drafts.clear();
     state.confirmed.clear();
     state.start = '';
+    state.keepByDate.clear();
     state.cardDefault = '';
     state.newCard = null;
     state.showNewCard = false;
@@ -554,11 +557,19 @@ function start(root: HTMLElement) {
 
   // ── Paso 3: confirmar ─────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Movimientos nuevos con fecha anterior al primer día del periodo: el CSV trae la fecha de operación y el banco los cobró
+   * en este corte. Se sugiere asignarlos a él. Los cargos que forman parte de un pago agrupado van con su principal.
+   */
+  const outsideCut = (preview: PreviewResult) =>
+    state.start ? preview.movements.filter((m) => m.status === 'new' && m.date < state.start && m.group?.role !== 'member' && m.group?.role !== 'credit') : [];
+
   function renderConfirm(preview: PreviewResult) {
     const newCards = preview.cards.filter((c) => !c.exists);
     const counts = { movements: preview.summary.fresh, plans: state.drafts.size, linked: state.confirmed.size };
     const unassigned = preview.movements.filter((m) => m.status === 'new' && !m.cardLast4 && !state.cardByMovement.has(m.key) && !state.cardDefault).length;
     const blockedByErrors = preview.errors.length > 0 && !state.ignoreErrors;
+    const outside = outsideCut(preview);
     const canImport = counts.movements > 0 && preview.missingFields.length === 0 && !blockedByErrors && !preview.mixedCurrencies;
 
     $('#confirm-card').innerHTML = `
@@ -587,11 +598,29 @@ function start(root: HTMLElement) {
       <div class="field narrow"><label for="cutoff">${esc(msg('import.cutoff'))}</label>
         <input id="cutoff" type="date" value="${esc(state.cutoff)}" required />
         <span class="hint">${esc(msg('import.cutoff.hint'))}</span></div>
+      ${
+        outside.length
+          ? `<div class="notice outside-cut"><strong>${esc(msg('import.outside.title', { n: outside.length }))}</strong>
+              <p>${esc(msg('import.outside.hint', { date: state.start }))}</p>
+              <ul class="check-list">${outside
+                .map(
+                  (m) => `<li><label class="check"><input type="checkbox" data-outside="${esc(m.key)}" ${state.keepByDate.has(m.key) ? '' : 'checked'} />
+                    <span>${esc(m.date)} · ${esc(m.description)} · ${esc(m.chargeMinor > 0 ? money(m.group?.role === 'principal' ? m.group.totalMinor : m.chargeMinor) : `−${money(m.creditMinor)}`)}</span></label></li>`,
+                )
+                .join('')}</ul></div>`
+          : ''
+      }
       <p>${esc(counts.movements ? msg('import.confirm.summary', counts) : msg('import.confirm.nothing'))}</p>
       <button type="button" class="btn btn-auto" id="do-import" ${canImport ? '' : 'disabled'}>${esc(msg('import.confirm.submit'))}</button>`;
 
     $<HTMLInputElement>('#cutoff').addEventListener('change', (event) => (state.cutoff = (event.target as HTMLInputElement).value));
-    $<HTMLInputElement>('#start').addEventListener('change', (event) => (state.start = (event.target as HTMLInputElement).value));
+    $<HTMLInputElement>('#start').addEventListener('change', (event) => {
+      state.start = (event.target as HTMLInputElement).value;
+      renderConfirm(preview);
+    });
+    root.querySelectorAll<HTMLInputElement>('[data-outside]').forEach((el) =>
+      el.addEventListener('change', () => (el.checked ? state.keepByDate.delete(el.dataset.outside!) : state.keepByDate.add(el.dataset.outside!))),
+    );
     root.querySelector<HTMLInputElement>('#ignore-errors')?.addEventListener('change', (event) => {
       state.ignoreErrors = (event.target as HTMLInputElement).checked;
       renderConfirm(preview);
@@ -627,6 +656,7 @@ function start(root: HTMLElement) {
       ignoreErrors: state.ignoreErrors,
       createMissingCards: state.createCards,
       cardAssignment: { defaultCard: state.cardDefault || null, newCard: state.newCard, byMovement: Object.fromEntries(state.cardByMovement) },
+      assignToCut: outsideCut(preview).filter((m) => !state.keepByDate.has(m.key)).map((m) => m.key),
     });
 
     if (status === 201 && data.counts && data.batchId) return renderDone(data.counts, data.batchId);
@@ -655,6 +685,7 @@ function start(root: HTMLElement) {
       INVALID_CARD: 'import.error.card',
       FILE_TOO_LARGE: 'import.error.fileTooLarge',
       MIXED_CURRENCIES: 'import.error.mixedCurrencies',
+      INVALID_CUT_ASSIGNMENT: 'import.error.cutAssignment',
     };
     showError(errorBox, msg(map[code ?? ''] ?? 'common.error'));
   }
@@ -667,6 +698,7 @@ function start(root: HTMLElement) {
       <h2>${esc(msg('import.done.title'))}</h2>
       <p>${esc(msg('import.done.summary', { movements: counts.movements ?? 0, plans: counts.plansCreated ?? 0, linked: counts.installmentsLinked ?? 0, cards: counts.cardsCreated ?? 0 }))}</p>
       ${counts.categorized ? `<p class="hint">${esc(msg('import.done.categorized', { n: counts.categorized }))}</p>` : ''}
+      ${counts.assignedToCut ? `<p class="hint">${esc(msg('import.done.assigned', { n: counts.assignedToCut }))}</p>` : ''}
       <div class="row-actions">
         <a class="btn btn-link" href="/app/gastos/movimientos?lote=${encodeURIComponent(batchId)}">${esc(msg('import.done.movements'))}</a>
         <a href="/app/cuentas/${esc(state.accountId)}">${esc(msg('import.done.account'))}</a>

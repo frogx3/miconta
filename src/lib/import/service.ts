@@ -304,15 +304,20 @@ export interface ApplyInput {
    * `'new'` (la que describe `newCard`); `byMovement` la cambia movimiento por movimiento (llave única -> id o `'new'`).
    */
   cardAssignment?: { defaultCard: string | null; newCard: Record<string, unknown> | null; byMovement: Record<string, string> };
+  /**
+   * Movimientos nuevos (llaves únicas) que cuentan en el corte que se carga aunque su fecha caiga antes de su inicio: el CSV
+   * trae la fecha de operación y el banco los cobró en este corte. Un pago agrupado se asigna completo.
+   */
+  assignToCut?: string[];
 }
 
 export type ApplyResult =
   | {
       ok: true;
       batchId: string;
-      counts: { movements: number; duplicatesSkipped: number; plansCreated: number; installmentsLinked: number; cardsCreated: number; rowErrorsIgnored: number; categorized: number };
+      counts: { movements: number; duplicatesSkipped: number; plansCreated: number; installmentsLinked: number; cardsCreated: number; rowErrorsIgnored: number; categorized: number; assignedToCut: number };
     }
-  | { ok: false; code: 'INVALID_CUTOFF' | 'PARSE_PROBLEMS' | 'ROW_ERRORS' | 'NOTHING_TO_IMPORT' | 'INVALID_MATCH' | 'INVALID_PLAN' | 'MIXED_CURRENCIES' | 'INVALID_CARD' | 'INVALID_START'; details?: unknown };
+  | { ok: false; code: 'INVALID_CUTOFF' | 'PARSE_PROBLEMS' | 'ROW_ERRORS' | 'NOTHING_TO_IMPORT' | 'INVALID_MATCH' | 'INVALID_PLAN' | 'MIXED_CURRENCIES' | 'INVALID_CARD' | 'INVALID_START' | 'INVALID_CUT_ASSIGNMENT'; details?: unknown };
 
 
 /**
@@ -377,6 +382,14 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
   };
 
   const freshByKey = new Map(fresh.map((m) => [m.uniqueKey, m]));
+  // Asignados al corte que se carga (se nombra por el mes en que cierra). Uno posterior al corte no puede pertenecerle.
+  const toCut = new Set<string>();
+  for (const key of input.assignToCut ?? []) {
+    const movement = freshByKey.get(key);
+    if (!movement || movement.date > input.cutoffDate) return { ok: false, code: 'INVALID_CUT_ASSIGNMENT' };
+    const group = groups.get(key);
+    for (const member of [key, ...(group?.chargeKeys ?? []), ...(group?.creditKeys ?? [])]) toCut.add(member);
+  }
   const linkByMovement = new Map<string, { planId: string; installmentNo: number }>();
   const hiddenInGroup = groupedMemberKeys(groups);
   // Si el movimiento es el "pago requerido" de un pago agrupado, sus intereses e IVA quedan en la misma mensualidad.
@@ -543,6 +556,7 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
         planId: link?.planId ?? null,
         planInstallmentNo: link?.installmentNo ?? null,
         categoryId,
+        statementMonth: toCut.has(m.uniqueKey) ? input.cutoffDate.slice(0, 7) : null,
       };
     });
     for (let i = 0; i < rows.length; i += MOVEMENT_ROWS_PER_INSERT) {
@@ -615,6 +629,7 @@ export async function applyImport(db: Db, bucket: R2Bucket, input: ApplyInput): 
         cardsCreated: newCards.length + (explicitCard ? 1 : 0),
         rowErrorsIgnored: preview.errors.length,
         categorized,
+        assignedToCut: toCut.size,
       },
     };
   } catch (error) {
