@@ -16,6 +16,7 @@ import { groupedMemberKeys, paymentGroups } from '../../../lib/spending/groups';
 import { isAnt, isFinance, isMonth, isSpend, monthBounds, thresholdFor } from '../../../lib/spending/analysis';
 import { getWorkspaceSettings, listCategories, listCutoffs, listMovements, movementMonths } from '../../../lib/spending/repo';
 import { realCuts, sinceLastCut } from '../../../lib/spending/statement';
+import { CATEGORY_COLORS } from '../../../lib/spending/validation';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -123,9 +124,12 @@ const sortHref = (column: SortColumn) => {
   next.set('dir', toggled);
   return `?${next.toString()}`;
 };
+// Total de lo que se muestra: los cargos (con su grupo completo, como en la tabla), por moneda.
+const shownCharges = sortedRows.filter((row) => row.chargeMinor > 0);
+const shownTotals = [...shownCharges.reduce((map, row) => map.set(row.currency, (map.get(row.currency) ?? 0) + (groups.get(row.id)?.totalMinor ?? row.chargeMinor)), new Map<string, number>())];
 const ariaSort = (column: SortColumn) => (sortBy === column ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
 const canWrite = workspace.role !== 'viewer';
-const messages = messagesFor(locale, ['movements.', 'common.', 'import.plan.', 'validation.']);
+const messages = messagesFor(locale, ['movements.', 'common.', 'import.plan.', 'validation.', 'categories.', 'rules.']);
 const addableCards = accounts.filter((account) => !account.archivedAt).flatMap((account) => account.cards.filter((card) => !card.archivedAt).map((card) => ({ id: card.id, label: `${account.name} ···· ${card.last4 ?? '—'}${card.label ? ` · ${card.label}` : ''}` })));
 // Tarjeta sugerida: la filtrada o, si se llegó desde una cuenta con una sola tarjeta, esa.
 const accountCards = addableCards.filter((card) => scopedAccount?.cards.some((own) => own.id === card.id));
@@ -136,7 +140,7 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
 <AppLayout title={t(locale, 'movements.title')} active="spending">
   <h1>{t(locale, 'spending.title')}<Help topic="spending.movements" term={t(locale, 'spending.title')} /></h1>
   {scopedAccount && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopedAccount.name, href: `/app/cuentas/${scopedAccount.id}` }, { label: t(locale, 'movements.title') }]} />}
-  <SpendingTabs active="movements" month={isMonth(period) ? period : undefined} accountId={scopedAccount?.id} />
+  <SpendingTabs active="movements" month={isMonth(period) ? period : period === 'actual' ? 'corte:actual' : period === 'cut' && selectedCut ? `corte:${selectedCut.month}` : undefined} accountId={scopedAccount?.id} />
   {batch && <FilterChip name={t(locale, 'movements.batch.name', { name: batch.fileName })} clearHref="/app/gastos/movimientos" />}
   {scopeLabel && <FilterChip name={scopeLabel} nameHref={`/app/cuentas/${scopedAccount!.id}`} clearHref="/app/gastos/movimientos" />}
 
@@ -320,7 +324,8 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                         {(row.planId || group || isFinance(row) || (ant && !group) || row.statementMonth) && (
                           <div class="cell-tags">
                             {row.statementMonth && <span class="badge badge-warn">{t(locale, 'movements.cut.manualBadge', { month: formatMonthLong(row.statementMonth, locale) })}</span>}
-                            {row.planId && <a class="badge" href={`/app/planes/${row.planId}`}>{t(locale, 'movements.plan')}</a>}
+                            {row.planId && <a class="badge" href={`/app/planes/${row.planId}`}>{row.planInstallmentNo != null && row.planTotalInstallments != null ? `${t(locale, 'movements.plan')} · ${t(locale, 'movements.plan.installment', { n: String(row.planInstallmentNo), total: String(row.planTotalInstallments) })}` : t(locale, 'movements.plan')}</a>}
+                            {row.planInstallmentNo != null && row.planTotalInstallments != null && row.planInstallmentNo >= row.planTotalInstallments && <span class="badge badge-warn">{t(locale, 'movements.plan.last')}</span>}
                             {group && <span class="badge badge-muted">{t(locale, 'movements.group.badge')}</span>}
                             {isFinance(row) && <span class="badge badge-muted">{t(locale, 'movements.finance')}</span>}
                             {ant && !group && <span class="badge badge-muted">{t(locale, 'movements.ant')}</span>}
@@ -357,6 +362,7 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                             <select class="row-category" data-current={row.categoryId ?? ''} aria-label={t(locale, 'movements.col.category')}>
                               <option value="">—</option>
                               {categories.map((category) => <option value={category.id} selected={category.id === row.categoryId}>{category.name}</option>)}
+                              <option value="__new__">{t(locale, 'movements.category.new')}</option>
                             </select>
                             <span class="suggest"></span>
                           </>
@@ -370,11 +376,57 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
               </tbody>
             </table>
           </div>
+          {shownCharges.length > 0 && (
+            <div class="sticky-total" role="status">
+              <span class="muted">{t(locale, 'movements.total', { n: String(shownCharges.length) })}</span>
+              <strong class="nowrap">{shownTotals.map(([currency, minor]) => formatMinor(minor, currency, locale)).join(' · ')}</strong>
+            </div>
+          )}
           {canWrite && categories.length === 0 && <p class="hint">{t(locale, 'movements.noCategories')} <a href="/app/gastos/categorias">{t(locale, 'spending.tab.categories')}</a></p>}
         </>
       )
     }
   </section>
+
+  {canWrite && (
+    <>
+      <dialog class="modal" id="category-dialog" aria-labelledby="category-dialog-title">
+        <form method="dialog" class="form-grid" novalidate>
+          <h2 id="category-dialog-title">{t(locale, 'movements.category.title')}</h2>
+          <div class="field">
+            <label for="cd-name">{t(locale, 'categories.name')}</label>
+            <input id="cd-name" name="name" maxlength="40" required />
+          </div>
+          <span class="swatches" role="radiogroup" aria-label={t(locale, 'categories.color')}>
+            {CATEGORY_COLORS.map((color, index) => (
+              <label class="swatch"><input type="radio" name="color" value={color} checked={index === 0} /><span style={`background:${color}`} /></label>
+            ))}
+          </span>
+          <div class="alert" role="alert" hidden></div>
+          <div class="form-actions row-actions">
+            <button class="btn btn-auto" type="submit" value="save">{t(locale, 'categories.save')}</button>
+            <button class="btn btn-ghost" type="submit" value="cancel" formnovalidate>{t(locale, 'common.cancel')}</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog class="modal" id="rule-dialog" aria-labelledby="rule-dialog-title">
+        <form method="dialog" class="form-grid" novalidate>
+          <h2 id="rule-dialog-title">{t(locale, 'movements.rule.title')}</h2>
+          <p class="hint">{t(locale, 'rules.hint')}</p>
+          <div class="field">
+            <label for="rd-pattern">{t(locale, 'rules.pattern')}</label>
+            <input id="rd-pattern" name="pattern" maxlength="60" required />
+          </div>
+          <label class="check wide"><input type="checkbox" name="applyNow" checked /><span>{t(locale, 'rules.applyNow')}</span></label>
+          <div class="alert" role="alert" hidden></div>
+          <div class="form-actions row-actions">
+            <button class="btn btn-auto" type="submit" value="save">{t(locale, 'rules.add')}</button>
+            <button class="btn btn-ghost" type="submit" value="cancel" formnovalidate>{t(locale, 'common.cancel')}</button>
+          </div>
+        </form>
+      </dialog>
+    </>
+  )}
 </AppLayout>
 
 <script>

@@ -2,39 +2,56 @@
 import AppLayout from '../../../layouts/AppLayout.astro';
 import Help from '../../../components/Help.astro';
 import SpendingTabs from '../../../components/SpendingTabs.astro';
-import FilterChip from '../../../components/FilterChip.astro';
-import Breadcrumb from '../../../components/Breadcrumb.astro';
-import { getAccount } from '../../../lib/accounts/repo';
+import { listAccounts } from '../../../lib/accounts/repo';
 import { messagesFor, t } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
-import { formatMonth, todayISO } from '../../../lib/date-format';
+import { formatDate, formatMonth, formatMonthLong } from '../../../lib/date-format';
 import { formatMinor, toInputString } from '../../../lib/money-format';
-import { analyzeMonth, annualized, budgetStatus, lastMonths, monthBounds, resolveMonth, shiftMonth, thresholdFor, trend } from '../../../lib/spending/analysis';
-import { getWorkspaceSettings, latestMovementMonth, listCategories, movementsForAnalysis } from '../../../lib/spending/repo';
+import { analyzeRows, annualized, budgetStatus, thresholdFor } from '../../../lib/spending/analysis';
+import { getWorkspaceSettings, listCategories, listCutoffs, movementsForAccount } from '../../../lib/spending/repo';
+import { cutPeriod, realCuts, selectCut } from '../../../lib/spending/statement';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
 
 const db = getDb();
-const latest = await latestMovementMonth(db, workspace.id);
-const month = resolveMonth(Astro.url.searchParams.get('mes'), latest, todayISO());
-const months = lastMonths(month, 6);
-const accountId = Astro.url.searchParams.get('cuenta') ?? '';
-const scopeAccount = accountId ? await getAccount(db, workspace.id, accountId) : null;
-const scope = scopeAccount ? `&cuenta=${scopeAccount.id}` : '';
-const [rows, settings, categories] = await Promise.all([
-  movementsForAnalysis(db, workspace.id, monthBounds(months[0]!).from, monthBounds(month).to, scopeAccount?.id),
+const params = Astro.url.searchParams;
+// El resumen es por corte, como el estado de cuenta: por cuenta (titular y adicionales comparten corte) y en la moneda de su tarjeta de crédito.
+const accounts = (await listAccounts(db, workspace.id))
+  .map((entry) => ({ entry, credit: entry.cards.filter((card) => card.kind === 'credit' && card.cutoffDay !== null && !card.archivedAt) }))
+  .filter((item) => item.credit.length > 0);
+const selected = accounts.find((item) => item.entry.id === params.get('cuenta')) ?? accounts[0];
+const account = selected?.entry;
+const primary = selected?.credit[0];
+const [settings, categories, records] = await Promise.all([
   getWorkspaceSettings(db, workspace.id),
   listCategories(db, workspace.id),
+  account ? listCutoffs(db, workspace.id, account.id) : Promise.resolve([]),
 ]);
+const cuts = primary ? realCuts(records, primary.cutoffDay, primary.paymentDueDay) : [];
+// `mes=corte:YYYY-MM` o `mes=corte:actual`, igual que en Movimientos.
+const requested = params.get('mes')?.startsWith('corte:') ? params.get('mes')!.slice(6) : null;
+const selection = selectCut(cuts, requested);
 const thresholdOf = (currency: string) => thresholdFor(currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
-const analyses = analyzeMonth(rows, month, thresholdOf);
-const trends = trend(rows, months, thresholdOf);
+// Tendencia: hasta 6 cortes terminando en el elegido.
+const trendKeys = selection.items.slice(Math.max(0, selection.items.indexOf(selection.key) - 5), selection.items.indexOf(selection.key) + 1);
+const trendRows = account && primary ? await Promise.all(trendKeys.map((key) => movementsForAccount(db, workspace.id, account.id, primary.currency, cutPeriod(cuts, key)!))) : [];
+const series = trendKeys.map((key, index) => {
+  const found = analyzeRows(trendRows[index]!, key, thresholdOf)[0];
+  return { key, spendMinor: found?.spendMinor ?? 0, antMinor: found?.antMinor ?? 0 };
+});
+const analyses = selection.kind === 'none' ? [] : analyzeRows(trendRows.at(-1) ?? [], selection.key, thresholdOf);
 const byId = new Map(categories.map((category) => [category.id, category]));
 
-const prev = shiftMonth(month, -1);
-const next = shiftMonth(month, 1);
-const hasNext = latest !== null && next <= latest;
+const cutLabel = (key: string) => (key === 'actual' ? t(locale, 'statement.open') : formatMonth(key, locale));
+const periodTitle =
+  selection.kind === 'cut'
+    ? `${t(locale, 'movements.period.cutoffName', { month: formatMonthLong(selection.key, locale) })} · ${t(locale, 'statement.period', { from: formatDate(selection.from!, locale), to: formatDate(selection.to!, locale) })}`
+    : selection.kind === 'open'
+      ? `${t(locale, 'movements.period.sinceLast')} · ${t(locale, 'movements.period.from', { from: formatDate(selection.from!, locale) })}`
+      : '';
+const summaryHref = (key: string) => `/app/gastos?cuenta=${account?.id ?? ''}&mes=corte:${key}`;
+const movementsHref = (extra: string) => `/app/gastos/movimientos?mes=corte:${selection.key}&filtro=a:${account?.id ?? ''}${extra}`;
 const canEditSettings = workspace.role === 'owner' || workspace.role === 'admin';
 const percent = (share: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(share);
 const messages = messagesFor(locale, ['spending.settings.', 'validation.', 'common.']);
@@ -42,35 +59,53 @@ const thresholdMinor = thresholdOf(settings.currency);
 ---
 
 <AppLayout title={t(locale, 'spending.title')} active="spending">
-  {scopeAccount && <Breadcrumb items={[{ label: t(locale, 'accounts.title'), href: '/app/cuentas' }, { label: scopeAccount.name, href: `/app/cuentas/${scopeAccount.id}` }, { label: t(locale, 'spending.title') }]} />}
   <h1>{t(locale, 'spending.title')}<Help topic="spending.summary" term={t(locale, 'spending.title')} /></h1>
-  <SpendingTabs active="summary" month={month} accountId={scopeAccount?.id} />
-  {scopeAccount && <FilterChip name={scopeAccount.name} nameHref={`/app/cuentas/${scopeAccount.id}`} clearHref={`/app/gastos?mes=${month}`} />}
+  <SpendingTabs active="summary" month={selection.kind !== 'none' ? `corte:${selection.key}` : undefined} accountId={account?.id} />
 
   {
-    latest === null ? (
+    !account || !primary ? (
       <section class="card">
-        <p class="empty">{t(locale, 'spending.empty')}</p>
-        {workspace.role !== 'viewer' && (
-          <a class="btn btn-link" href="/app/importar">
-            {t(locale, 'nav.import')}
-          </a>
-        )}
+        <p class="empty">{t(locale, 'statement.noCards')}</p>
+        <a class="btn btn-link" href="/app/cuentas">{t(locale, 'statement.noCardsLink')}</a>
       </section>
     ) : (
       <>
-        <div class="month-nav">
-          <a href={`/app/gastos?mes=${prev}${scope}`} aria-label={t(locale, 'spending.month.prev')}>←</a>
-          <strong>{formatMonth(month, locale)}</strong>
-          {hasNext ? <a href={`/app/gastos?mes=${next}${scope}`} aria-label={t(locale, 'spending.month.next')}>→</a> : <span class="muted">→</span>}
-        </div>
+        {accounts.length > 1 && (
+          <form class="card filters form-grid" method="get" action="/app/gastos">
+            <div class="field">
+              <label for="s-account">{t(locale, 'statement.account')}</label>
+              <select id="s-account" name="cuenta" onchange="this.form.submit()">
+                {accounts.map((item) => <option value={item.entry.id} selected={item.entry.id === account.id}>{item.entry.name}</option>)}
+              </select>
+            </div>
+            <noscript><div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'movements.filter.apply')}</button></div></noscript>
+          </form>
+        )}
 
-        {analyses.length === 0 && <section class="card"><p class="empty">{t(locale, 'movements.empty')}</p></section>}
+        {selection.kind === 'none' ? (
+          <section class="card">
+            <p class="empty">{t(locale, 'statement.noCuts')}</p>
+            <a class="btn btn-link" href={`/app/gastos/corte?cuenta=${account.id}`}>{t(locale, 'spending.tab.statement')}</a>
+          </section>
+        ) : (
+          <div class="month-nav">
+            {selection.prev ? <a href={summaryHref(selection.prev)} aria-label={t(locale, 'statement.prev')}>←</a> : <span class="muted">←</span>}
+            <strong>{periodTitle}</strong>
+            {selection.next ? <a href={summaryHref(selection.next)} aria-label={t(locale, 'statement.next')}>→</a> : <span class="muted">→</span>}
+            {selection.kind === 'open' && <span class="badge">{t(locale, 'statement.open')}</span>}
+          </div>
+        )}
+
+        {selection.kind !== 'none' && analyses.length === 0 && <section class="card"><p class="empty">{t(locale, 'statement.empty')}</p></section>}
 
         {analyses.map((analysis) => {
           const money = (minor: number) => formatMinor(minor, analysis.currency, locale);
           const maxCategory = Math.max(...analysis.byCategory.map((c) => c.amountMinor), 1);
-          const series = trends.find((entry) => entry.currency === analysis.currency)?.points ?? [];
+          // Todas las categorías: las que tuvieron gasto (ya ordenadas de mayor a menor) y al final las que no.
+          const allCategories = [
+            ...analysis.byCategory,
+            ...categories.filter((c) => !analysis.byCategory.some((entry) => entry.categoryId === c.id)).map((c) => ({ categoryId: c.id, amountMinor: 0, count: 0, antMinor: 0 })),
+          ];
           const maxSpend = Math.max(...series.map((p) => p.spendMinor), 1);
           return (
             <section class="card">
@@ -94,7 +129,7 @@ const thresholdMinor = thresholdOf(settings.currency);
                   <div class="stat">
                     <span class="muted">{t(locale, 'spending.tile.uncategorized')}<Help topic="spending.tile.uncategorized" /></span>
                     <strong>{money(analysis.uncategorizedMinor)}</strong>
-                    <a class="hint" href={`/app/gastos/movimientos?mes=${month}&categoria=none${scope ? `&filtro=a:${scopeAccount!.id}` : ''}`}>{t(locale, 'spending.tile.uncategorizedHint', { n: analysis.uncategorizedCount })}</a>
+                    <a class="hint" href={movementsHref('&categoria=none')}>{t(locale, 'spending.tile.uncategorizedHint', { n: analysis.uncategorizedCount })}</a>
                   </div>
                 )}
                 {analysis.financeMinor > 0 && (
@@ -134,13 +169,13 @@ const thresholdMinor = thresholdOf(settings.currency);
               }
               <h2>{t(locale, 'spending.category.title')}<Help topic="spending.category.title" /></h2>
               <ul class="category-bars">
-                {analysis.byCategory.map((entry) => {
+                {allCategories.map((entry) => {
                   const category = entry.categoryId ? byId.get(entry.categoryId) : undefined;
                   return (
                     <li>
                       <span class="cat-name">
                         <span class="dot" style={`background:${category?.color ?? 'var(--muted)'}`} />
-                        <a href={`/app/gastos/movimientos?mes=${month}&categoria=${entry.categoryId ?? 'none'}${scope ? `&filtro=a:${scopeAccount!.id}` : ''}`}>{category?.name ?? t(locale, 'spending.category.none')}</a>
+                        <a href={movementsHref(`&categoria=${entry.categoryId ?? 'none'}`)}>{category?.name ?? t(locale, 'spending.category.none')}</a>
                       </span>
                       <span class="bar" aria-hidden="true"><span style={`width:${(entry.amountMinor / maxCategory) * 100}%;background:${category?.color ?? 'var(--muted)'}`} /></span>
                       <span class="num nowrap">{money(entry.amountMinor)}</span>
@@ -176,7 +211,7 @@ const thresholdMinor = thresholdOf(settings.currency);
                       <tbody>
                         {analysis.topAnt.map((merchant) => (
                           <tr>
-                            <td><a href={`/app/gastos/movimientos?mes=${month}&q=${encodeURIComponent(merchant.key)}${scope ? `&filtro=a:${scopeAccount!.id}` : ''}`}>{merchant.key}</a></td>
+                            <td><a href={movementsHref(`&q=${encodeURIComponent(merchant.key)}`)}>{merchant.key}</a></td>
                             <td class="num">{merchant.count}</td>
                             <td class="num nowrap">{money(merchant.averageMinor)}</td>
                             <td class="num nowrap"><strong>{money(merchant.amountMinor)}</strong></td>
@@ -194,8 +229,8 @@ const thresholdMinor = thresholdOf(settings.currency);
 <caption class="sr-only">{t(locale, 'table.sr.trend')}</caption>
                 <tbody>
                   {series.map((point) => (
-                    <tr class:list={[point.month === month && 'is-current']}>
-                      <td class="nowrap"><a href={`/app/gastos?mes=${point.month}${scope}`}>{formatMonth(point.month, locale)}</a></td>
+                    <tr class:list={[point.key === selection.key && 'is-current']}>
+                      <td class="nowrap"><a href={summaryHref(point.key)}>{cutLabel(point.key)}</a></td>
                       <td class="bar-cell">
                         <span class="bar two-tone" aria-hidden="true" title={`${t(locale, 'spending.trend.spend')} ${money(point.spendMinor)} · ${t(locale, 'spending.trend.ant')} ${money(point.antMinor)}`}>
                           <span class="bar-total" style={`width:${(point.spendMinor / maxSpend) * 100}%`}>

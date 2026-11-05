@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
-import { accounts, cards, categories, categoryRules, movements, statementCutoffs, workspaces } from '../../db/schema';
+import { accounts, cards, categories, categoryRules, movements, plans, statementCutoffs, workspaces } from '../../db/schema';
 import type { Db } from '../auth/hooks';
 import { normalizeDescription } from '../import/text';
 import { matchCategory, type Rule } from './categorize';
@@ -220,6 +220,8 @@ export interface PeriodMovement extends SpendRow {
   reference: string | null;
   cardId: string | null;
   statementMonth: string | null;
+  /** Número de mensualidad del plan al que pertenece (solo en `movementsForAccount`). */
+  planInstallmentNo?: number | null;
 }
 
 /** Movimientos de TODAS las tarjetas de una cuenta en un corte, en una moneda: el estado de cuenta junta titular y adicionales. */
@@ -236,6 +238,7 @@ export async function movementsForAccount(db: Db, workspaceId: string, accountId
       currency: movements.currency,
       categoryId: movements.categoryId,
       planId: movements.planId,
+      planInstallmentNo: movements.planInstallmentNo,
       cardId: movements.cardId,
       statementMonth: movements.statementMonth,
     })
@@ -417,6 +420,9 @@ export interface MovementListItem {
   currency: string;
   categoryId: string | null;
   planId: string | null;
+  /** Número de mensualidad y total de pagos del plan, si el movimiento pertenece a uno. */
+  planInstallmentNo: number | null;
+  planTotalInstallments: number | null;
   accountName: string;
   accountId: string;
   /** Nulo si el archivo no traía los últimos 4 dígitos del cargo. */
@@ -467,6 +473,8 @@ export async function listMovements(db: Db, workspaceId: string, filters: Moveme
       currency: movements.currency,
       categoryId: movements.categoryId,
       planId: movements.planId,
+      planInstallmentNo: movements.planInstallmentNo,
+      planTotalInstallments: plans.totalInstallments,
       accountName: accounts.name,
       accountId: accounts.id,
       cardId: movements.cardId,
@@ -476,6 +484,7 @@ export async function listMovements(db: Db, workspaceId: string, filters: Moveme
     .from(movements)
     .innerJoin(accounts, eq(accounts.id, movements.accountId))
     .leftJoin(cards, eq(cards.id, movements.cardId))
+    .leftJoin(plans, eq(plans.id, movements.planId))
     .where(and(...conditions))
     .orderBy(desc(movements.date), desc(movements.createdAt))
     .limit(MAX_LIST_ROWS);

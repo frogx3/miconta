@@ -3,7 +3,7 @@ import { t } from '../i18n/messages';
 
 interface Props {
   active: 'summary' | 'statement' | 'movements' | 'categories';
-  /** Mes en curso (`YYYY-MM`), para conservarlo al cambiar de pestaña. */
+  /** Periodo en curso (`YYYY-MM` o `corte:YYYY-MM` / `corte:actual`), para conservarlo al cambiar de pestaña. */
   month?: string;
   /** Cuenta que se está mirando: se conserva al cambiar de pestaña. */
   accountId?: string;

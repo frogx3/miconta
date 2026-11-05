@@ -25,10 +25,89 @@ if (root && root.dataset.config) {
     return response.ok;
   }
 
+  /** Abre un modal; `save` devuelve un mensaje de error o `null` si guardó. Resuelve `true` si se guardó. */
+  function openDialog(dialog: HTMLDialogElement, save: (data: FormData) => Promise<string | null>): Promise<boolean> {
+    const form = dialog.querySelector('form')!;
+    const alert = form.querySelector<HTMLElement>('.alert')!;
+    alert.hidden = true;
+    let saved = false;
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      if ((event.submitter as HTMLButtonElement | null)?.value === 'cancel') return dialog.close();
+      const error = await save(new FormData(form));
+      if (error === null) {
+        saved = true;
+        dialog.close();
+      } else {
+        alert.textContent = error;
+        alert.hidden = false;
+      }
+    };
+    dialog.showModal();
+    return new Promise((resolve) => (dialog.onclose = () => resolve(saved)));
+  }
+
+  const errorOf = async (response: Response, duplicateKey: string): Promise<string> => {
+    const body = (await response.json().catch(() => ({}))) as { code?: string; errors?: { code: string }[] };
+    if (body.code?.startsWith('DUPLICATE')) return messages[duplicateKey]!;
+    const first = body.errors?.[0];
+    return (first && messages[`validation.${first.code}`]) || messages['common.error']!;
+  };
+
+  // Crear una categoría desde cualquier fila: se agrega a todos los selects de la página sin recargar.
+  const categoryDialog = document.querySelector<HTMLDialogElement>('#category-dialog');
+  async function createCategory(): Promise<string | null> {
+    if (!categoryDialog) return null;
+    categoryDialog.querySelector('form')!.reset();
+    let created: { id: string; name: string } | null = null;
+    await openDialog(categoryDialog, async (data) => {
+      const name = String(data.get('name') ?? '').trim();
+      const response = await fetch('/api/categories', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, color: data.get('color') }) });
+      if (!response.ok) return errorOf(response, 'categories.duplicate');
+      created = { id: ((await response.json()) as { id: string }).id, name };
+      return null;
+    });
+    if (!created) return null;
+    const { id, name } = created;
+    document.querySelectorAll<HTMLElement & { value: string }>('.row-category, #bulk-category, #f-category, #m-category').forEach((select) => {
+      // Antes de la opción "crear", si la hay; si no, al final.
+      select.insertBefore(new Option(name, id), select.querySelector('option[value="__new__"]'));
+    });
+    return id;
+  }
+
+  // Regla para todo el comercio, en un modal: "si el concepto contiene X, va a esta categoría".
+  const ruleDialog = document.querySelector<HTMLDialogElement>('#rule-dialog');
+  async function createRule(key: string, categoryId: string) {
+    if (!ruleDialog) return;
+    const form = ruleDialog.querySelector('form')!;
+    form.reset();
+    form.querySelector<HTMLInputElement>('[name="pattern"]')!.value = key;
+    let applied = 0;
+    const saved = await openDialog(ruleDialog, async (data) => {
+      const response = await fetch('/api/category-rules', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pattern: data.get('pattern'), categoryId, applyNow: data.get('applyNow') === 'on' }),
+      });
+      if (!response.ok) return errorOf(response, 'rules.duplicate');
+      applied = ((await response.json()) as { applied?: number }).applied ?? 0;
+      return null;
+    });
+    // La regla categorizó otros movimientos de la lista: recarga para verlos.
+    if (saved && applied > 0) location.reload();
+    return saved;
+  }
+
   // Categoría de una fila. Si se asignó una, se ofrece crear una regla para todo el comercio.
-  root.querySelectorAll<HTMLElement & { value: string; dataset: DOMStringMap }>('.row-category').forEach((select) => {
+  root.querySelectorAll<HTMLElement & { value: string }>('.row-category').forEach((select) => {
     select.addEventListener('change', async () => {
       const row = select.closest<HTMLElement>('tr')!;
+      if (select.value === '__new__') {
+        const id = await createCategory();
+        select.value = id ?? select.dataset.current ?? '';
+        if (!id) return;
+      }
       const value = select.value || null;
       const saved = await assign([row.dataset.id!], value);
       const suggestion = row.querySelector<HTMLElement>('.suggest')!;
@@ -40,11 +119,14 @@ if (root && root.dataset.config) {
       suggestion.innerHTML = '';
       if (!value) return;
       const key = merchantKey(row.dataset.desc!);
-      const link = document.createElement('a');
-      link.href = `/app/gastos/categorias?patron=${encodeURIComponent(key)}&categoria=${encodeURIComponent(value)}`;
-      link.textContent = msg('movements.suggest', { key });
-      link.className = 'hint block';
-      suggestion.appendChild(link);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'link-button hint block';
+      button.textContent = msg('movements.suggest', { key });
+      button.addEventListener('click', async () => {
+        if (await createRule(key, select.value)) suggestion.innerHTML = '';
+      });
+      suggestion.appendChild(button);
     });
   });
 
