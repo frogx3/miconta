@@ -27,7 +27,7 @@ export interface DayPoint {
 }
 
 export type StrategyLine =
-  | { kind: 'short'; date: string; shortMinor: number; payable: string; nextReceivable: { description: string; amountMinor: number; date: string } | null }
+  | { kind: 'short'; date: string; shortMinor: number; payable: string | null; nextReceivable: { description: string; amountMinor: number; date: string } | null }
   | { kind: 'overdue_receivable'; description: string; amountMinor: number; date: string }
   | { kind: 'ok'; biggest: { description: string; amountMinor: number; date: string } | null };
 
@@ -74,8 +74,10 @@ export function monthResult(input: { month: string; todayISO: string; availableM
   }
 
   const strategy: StrategyLine[] = [];
-  const negative = days.find((d) => d.balanceMinor < 0);
+  // Antes de startDay el saldo es solo el disponible inicial: no cuenta como "primer día corto".
+  const negative = days.find((d) => d.date >= startDay && d.balanceMinor < 0);
   if (negative) {
+    // Intra-día no hay orden: "el pago más grande del día" hace de el que hunde el saldo; sin pagos ese día = arrastre negativo.
     const payable = negative.entries.filter((e) => e.kind === 'payable' && e.status === 'pending').sort((a, b) => b.amountMinor - a.amountMinor)[0];
     const next = counted
       .filter((e) => e.kind === 'receivable' && effective(e) > negative.date)
@@ -84,7 +86,7 @@ export function monthResult(input: { month: string; todayISO: string; availableM
       kind: 'short',
       date: negative.date,
       shortMinor: -negative.balanceMinor,
-      payable: payable?.description ?? '',
+      payable: payable?.description ?? null,
       nextReceivable: next ? { description: next.description, amountMinor: next.amountMinor, date: effective(next) } : null,
     });
   }
@@ -108,7 +110,10 @@ export function monthResult(input: { month: string; todayISO: string; availableM
  */
 export function monthResults(input: { month: string; todayISO: string; balances: { currency: string; amountMinor: number }[]; entries: Entry[] }): MonthResult[] {
   const current = monthOf(input.todayISO);
-  const currencies = [...new Set([...input.balances.map((b) => b.currency), ...input.entries.map((e) => e.currency)])].sort();
+  const first = `${input.month}-01`;
+  // Solo monedas con saldo o con algo pendiente que cuente en el mes visible (no un USD viejo ya hecho).
+  const counts = (e: Entry) => e.status === 'pending' && (monthOf(e.dueDate) === input.month || (input.month === current && e.dueDate < first));
+  const currencies = [...new Set([...input.balances.map((b) => b.currency), ...input.entries.filter(counts).map((e) => e.currency)])].sort();
   return currencies.map((currency) => {
     let available = input.balances.filter((b) => b.currency === currency).reduce((s, b) => s + b.amountMinor, 0);
     let result = monthResult({ month: input.month > current ? current : input.month, todayISO: input.todayISO, availableMinor: available, currency, entries: input.entries });

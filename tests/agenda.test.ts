@@ -49,6 +49,27 @@ describe('monthResult', () => {
     expect(monthResults({ month: '2026-12', todayISO: base.todayISO, balances: [{ currency: 'MXN', amountMinor: 8_000_00 }], entries: overdue })[0]!.availableMinor).toBe(7_000_00);
   });
 
+  it('pendiente del mes antes de hoy se aplica hoy', () => {
+    const r = monthResult({ ...base, entries: [e('p', 'payable', 1_000_00, '2026-11-04')] });
+    expect(day(r, '2026-11-09').balanceMinor).toBe(8_000_00);
+    expect(day(r, '2026-11-10').balanceMinor).toBe(7_000_00);
+  });
+
+  it('short sin cobro posterior y con nombre del pago', () => {
+    const r = monthResult({ ...base, entries: [e('chico', 'payable', 1_00, '2026-11-15'), e('grande', 'payable', 9_000_00, '2026-11-15')] });
+    expect(r.strategy[0]).toEqual({ kind: 'short', date: '2026-11-15', shortMinor: 1_00 + 9_000_00 - 8_000_00, payable: 'grande', nextReceivable: null });
+  });
+
+  it('arrastre negativo inicial: short en hoy con payable null', () => {
+    const r = monthResult({ ...base, availableMinor: -500_00, entries: [] });
+    expect(r.strategy[0]).toEqual({ kind: 'short', date: '2026-11-10', shortMinor: 500_00, payable: null, nextReceivable: null });
+  });
+
+  it('máximo dos overdue_receivable, el más viejo primero', () => {
+    const r = monthResult({ ...base, entries: [e('c', 'receivable', 1_00, '2026-11-05'), e('a', 'receivable', 1_00, '2026-10-01'), e('b', 'receivable', 1_00, '2026-11-02')] });
+    expect(r.strategy.filter((l) => l.kind === 'overdue_receivable').map((l) => (l as { description: string }).description)).toEqual(['a', 'b']);
+  });
+
   it('cobro vencido genera línea overdue_receivable', () => {
     const r = monthResult({ ...base, entries: [e('deuda', 'receivable', 500_00, '2026-11-03')] });
     expect(r.strategy).toContainEqual({ kind: 'overdue_receivable', description: 'deuda', amountMinor: 500_00, date: '2026-11-03' });
@@ -70,6 +91,26 @@ describe('monthResults', () => {
     });
     expect(r[0]!.availableMinor).toBe(2_000_00);
     expect(r[0]!.resultMinor).toBe(3_000_00);
+  });
+
+  it('encadena 2+ meses futuros y con dos monedas a la vez', () => {
+    const r = monthResults({
+      month: '2027-01', todayISO: '2026-11-10',
+      balances: [{ currency: 'MXN', amountMinor: 8_000_00 }, { currency: 'USD', amountMinor: 100_00 }],
+      entries: [e('renta', 'payable', 6_000_00, '2026-11-18'), e('luz', 'payable', 1_000_00, '2026-12-05'), e('u', 'payable', 40_00, '2026-12-06', { currency: 'USD' })],
+    });
+    expect(r.map((x) => [x.currency, x.availableMinor])).toEqual([['MXN', 1_000_00], ['USD', 60_00]]);
+  });
+
+  it('mes futuro desde cierre negativo: short el día 1 sin pago', () => {
+    const r = monthResults({ month: '2026-12', todayISO: '2026-11-10', balances: [{ currency: 'MXN', amountMinor: 1_000_00 }], entries: [e('renta', 'payable', 3_000_00, '2026-11-18')] })[0]!;
+    expect(r.availableMinor).toBe(-2_000_00);
+    expect(r.strategy[0]).toEqual({ kind: 'short', date: '2026-12-01', shortMinor: 2_000_00, payable: null, nextReceivable: null });
+  });
+
+  it('no devuelve monedas sin saldo ni pendientes en el mes', () => {
+    const r = monthResults({ month: '2026-11', todayISO: '2026-11-10', balances: [{ currency: 'MXN', amountMinor: 1_00 }], entries: [e('viejo', 'payable', 5_00, '2026-09-01', { currency: 'USD', status: 'done' })] });
+    expect(r.map((x) => x.currency)).toEqual(['MXN']);
   });
 
   it('no mezcla monedas', () => {
