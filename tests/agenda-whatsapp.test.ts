@@ -6,6 +6,7 @@ vi.mock('cloudflare:workers', () => ({ env }));
 
 import { newLinkCode, parseLinkMessage, signItemToken, verifyItemToken, whatsappConfig, whatsappEnabled, type WhatsappConfig } from '../src/lib/agenda/whatsapp';
 import { sendReminder, sendText } from '../src/lib/agenda/kapso';
+import { existingAction, mexicoCityToday, reminderOffset } from '../src/lib/agenda/reminders';
 
 const cfg: WhatsappConfig = { apiKey: 'key-123', phoneNumberId: '987', webhookSecret: 's', template: 'recordatorio_pago', businessPhone: '5215500000000' };
 
@@ -70,5 +71,23 @@ describe('envío por Kapso', () => {
     expect(await sendText(cfg, '52155', 'Listo', fetchFn as unknown as typeof fetch)).toBe(true);
     const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({ messaging_product: 'whatsapp', to: '52155', type: 'text', text: { body: 'Listo' } });
+  });
+});
+
+describe('recordatorios', () => {
+  it('hoy en Ciudad de México', () => {
+    expect(mexicoCityToday(new Date('2026-11-06T03:00:00Z'))).toBe('2026-11-05');
+    expect(mexicoCityToday(new Date('2026-11-06T06:00:00Z'))).toBe('2026-11-06');
+  });
+  it('aviso a 7 y a 2 días', () => {
+    expect(reminderOffset('2026-11-05', '2026-11-12')).toBe('7d');
+    expect(reminderOffset('2026-11-05', '2026-11-07')).toBe('2d');
+    expect(reminderOffset('2026-11-05', '2026-11-08')).toBeNull();
+    expect(reminderOffset('2026-11-28', '2026-12-05')).toBe('7d');
+  });
+  it('fila existente: enviado se salta, con error se reintenta', () => {
+    expect(existingAction({ sentAt: new Date(), error: null })).toBe('skip');
+    expect(existingAction({ sentAt: null, error: 'HTTP 500' })).toBe('retry');
+    expect(existingAction({ sentAt: null, error: null })).toBe('skip');
   });
 });
