@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { monthResult, monthResults, nextDueDate, type Entry } from '../src/lib/agenda/compute';
+import { cardDuesInMonth } from '../src/lib/agenda/card-payments';
+import { realCuts, recordsByMonth, statementPeriod } from '../src/lib/spending/statement';
 
 const e = (key: string, kind: Entry['kind'], amountMinor: number, dueDate: string, extra: Partial<Entry> = {}): Entry => ({
   key, kind, description: key, amountMinor, currency: 'MXN', dueDate, status: 'pending', suggested: false, ...extra,
@@ -118,5 +120,32 @@ describe('monthResults', () => {
     expect(r.map((x) => x.currency)).toEqual(['MXN', 'USD']);
     expect(r[0]!.resultMinor).toBe(8_000_00);
     expect(r[1]!.resultMinor).toBe(50_00);
+  });
+});
+
+describe('cardDuesInMonth', () => {
+  const card = { cardId: 'c1', accountName: 'Banorte', currency: 'MXN', paymentDueDay: 17, todayISO: '2026-11-05' };
+  const cuts = realCuts([
+    { cutoffDate: '2026-09-28', startDate: null, officialPayMinor: 1_000_00 },
+    { cutoffDate: '2026-10-28', startDate: null, officialPayMinor: 2_500_00 },
+  ], 28, 17);
+
+  it('usa el corte real cuyo pago cae en el mes', () => {
+    expect(cardDuesInMonth({ ...card, cutoffDay: 28, cuts, month: '2026-11' })).toEqual([{
+      cardId: 'c1', accountName: 'Banorte', currency: 'MXN', cutMonth: '2026-10', from: '2026-09-29', to: '2026-10-28',
+      dueDate: '2026-11-17', recordedPayMinor: 2_500_00, previousOwedMinor: 1_000_00,
+    }]);
+  });
+
+  it('sin corte real estima con el día de corte', () => {
+    const period = statementPeriod(28, 17, '2026-11', card.todayISO, recordsByMonth(cuts.map((c) => c.recorded)));
+    const [due, ...rest] = cardDuesInMonth({ ...card, cutoffDay: 28, cuts, month: '2026-12' });
+    expect(rest).toEqual([]);
+    expect(due).toMatchObject({ cutMonth: '2026-11', from: period.from, to: period.to, dueDate: '2026-12-17', recordedPayMinor: null, previousOwedMinor: 2_500_00 });
+    expect(due!.from).toBe('2026-10-29');
+  });
+
+  it('sin día de corte ni cortes no hay nada', () => {
+    expect(cardDuesInMonth({ ...card, cutoffDay: null, cuts: [], month: '2026-11' })).toEqual([]);
   });
 });
