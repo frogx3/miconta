@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { getDb } from '../../../../../lib/auth';
 import { cancelItem, getItem, updateItem } from '../../../../../lib/agenda/repo';
 import { validateItem } from '../../../../../lib/agenda/validation';
-import { json, requireWorkspace, requireWorkspaceWithBody, validationError } from '../../../../../lib/http';
+import { json, requireWorkspaceWithBody, validationError } from '../../../../../lib/http';
 
 /** Edita un pago o cobro; el monto se lee en la moneda del registro. */
 export const PATCH: APIRoute = async ({ request, locals, params }) => {
@@ -21,7 +21,7 @@ export const PATCH: APIRoute = async ({ request, locals, params }) => {
 
 /** Cancela esta ocurrencia (solo pendientes). */
 export const DELETE: APIRoute = async ({ request, locals, params }) => {
-  const access = requireWorkspace(locals, request, { write: true });
+  const access = await requireWorkspaceWithBody(locals, request);
   if ('response' in access) return access.response;
   return (await cancelItem(getDb(), access.workspace.id, params.id!)) ? json(200, { ok: true }) : json(404, { code: 'NOT_FOUND' });
 };
