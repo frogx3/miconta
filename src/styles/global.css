@@ -24,6 +24,7 @@
   --auth-ink: #ffffff;
   --scrim: #0c1626;
   --warn: #8a5f00;
+  --good: #2e7d4f;
   --radius: 10px;
   --font: 'Montserrat Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
@@ -67,6 +68,7 @@
     --auth-canvas: #0c1626;
     --auth-ink: #e8edf4;
     --warn: #f0c040;
+    --good: #7ccf9a;
   }
 }
 
@@ -95,6 +97,7 @@
   --auth-canvas: #0c1626;
   --auth-ink: #e8edf4;
   --warn: #f0c040;
+  --good: #7ccf9a;
 }
 
 * {
@@ -3086,4 +3089,205 @@ form + .row-actions {
   letter-spacing: normal;
   text-align: left;
   text-transform: none;
+}
+
+/* Agenda de pagos */
+.agenda-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.agenda-nav {
+  width: auto;
+  padding: 0.2rem 0.8rem;
+  font-size: 1.4rem;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.agenda-head h1 {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+}
+
+.agenda-result {
+  border-left: 4px solid var(--line);
+}
+
+.agenda-result.tone-good { border-left-color: var(--good); }
+.agenda-result.tone-bad { border-left-color: var(--danger); }
+
+.agenda-answer {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: 0 0 0.25rem;
+}
+
+.tone-good .agenda-answer { color: var(--good); }
+.tone-bad .agenda-answer { color: var(--danger); }
+
+.agenda-strategy {
+  margin: 0.35rem 0;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--line);
+}
+
+.agenda-strategy.tone-bad { border-left-color: var(--danger); }
+.agenda-strategy.tone-good { border-left-color: var(--good); }
+
+.agenda-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  font-size: 0.8125rem;
+  margin: 0 0 0.75rem;
+}
+
+.agenda-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.dot-pay { background: var(--danger); }
+.dot-receive { background: var(--good); }
+.dot-done { background: var(--line); border: 1px solid var(--muted); }
+
+.agenda-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.agenda-weekday {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+}
+
+.agenda-day {
+  display: grid;
+  align-content: start;
+  gap: 0.15rem;
+  min-height: 4rem;
+  min-width: 0;
+  padding: 0.3rem;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.agenda-day.is-today { border-color: var(--step); border-width: 2px; }
+.agenda-day[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: var(--accent); }
+
+.agenda-day-n {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.agenda-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-height: 0.5rem;
+}
+
+.agenda-day-balance {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda-day-balance.is-negative { color: var(--danger); font-weight: 700; }
+
+.agenda-list,
+.agenda-balances {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.agenda-row,
+.agenda-balance {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.agenda-row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.agenda-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+}
+
+.agenda-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.agenda-amount.is-receivable { color: var(--good); }
+.agenda-row.is-done,
+.agenda-row.is-cancelled { color: var(--muted); }
+.agenda-row.is-done .agenda-amount,
+.agenda-row.is-cancelled .agenda-amount { color: var(--muted); }
+.agenda-row.is-cancelled strong { text-decoration: line-through; }
+
+.agenda-edit > summary {
+  font-size: 0.875rem;
+  color: var(--accent);
+}
+
+.agenda-edit form,
+.agenda-add form {
+  margin-top: 0.75rem;
+}
+
+.agenda-balance-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
+}
+
+.agenda-add > summary {
+  list-style: none;
+  display: inline-flex;
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .agenda-cal { gap: 2px; }
+  .agenda-day { min-height: 3.25rem; padding: 0.2rem; }
+  .agenda-day-balance { font-size: 0.5625rem; }
 }
