@@ -1098,6 +1098,13 @@ details.sample {
   display: block;
 }
 
+/* El botón de regla ocupa el ancho de la celda y parte el texto, como lo hacía el enlace. */
+.suggest .link-button {
+  width: 100%;
+  margin-top: 0.25rem;
+  text-align: left;
+}
+
 @media (max-width: 40rem) {
   .category-bars li {
     grid-template-columns: 1fr auto;
@@ -1389,6 +1396,23 @@ textarea {
 
 .icon {
   flex: none;
+}
+
+.modal {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.modal h2 {
+  margin-top: 0;
+}
+
+.modal::backdrop {
+  background: color-mix(in srgb, var(--scrim) 55%, transparent);
 }
 
 .menu-drawer {

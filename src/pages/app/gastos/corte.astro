@@ -48,7 +48,9 @@ type StatementView = {
   suggestedCutoff: string;
   summary: ReturnType<typeof summarizeStatement> | null;
   thresholdMinor: number;
-  planNames: Map<string, string>;
+  planInfo: Map<string, { name: string; total: number }>;
+  /** Mensualidad más alta de cada plan cobrada en este corte. */
+  installmentOf: Map<string, number>;
   prev: string | null;
   next: string | null;
   /** Movimientos que cuentan aquí aunque su fecha caiga fuera, y los que por fecha serían de este corte pero se asignaron a otro. */
@@ -111,7 +113,8 @@ if (account && primary) {
     suggestedCutoff: cut?.cutoff ?? (lastCut ? cutoffInMonth(primary.cutoffDay!, shiftMonth(lastCut.month, 1)) : lastCutoffDate(primary.cutoffDay!, today)),
     summary,
     thresholdMinor,
-    planNames: new Map(plans.map((plan) => [plan.id, plan.name])),
+    planInfo: new Map(plans.map((plan) => [plan.id, { name: plan.name, total: plan.totalInstallments }])),
+    installmentOf: rows.reduce((map, row) => (row.planId && row.planInstallmentNo != null ? map.set(row.planId, Math.max(map.get(row.planId) ?? 0, row.planInstallmentNo)) : map), new Map<string, number>()),
     prev: index > 0 ? items[index - 1]! : null,
     next: index >= 0 && index < items.length - 1 ? items[index + 1]! : null,
     adjustments,
@@ -230,6 +233,7 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
               </div>
               {view.dueDate && <span class="hint"><strong>{t(locale, 'statement.due', { date: formatDate(view.dueDate, locale) })}</strong></span>}
               <h2>{t(locale, 'statement.byPlan')}<Help topic="statement.byPlan" /></h2>
+              <p class="hint">{t(locale, 'statement.byPlanHint')}</p>
               {
                 view.summary.byPlan.length === 0 ? (
                   <p class="empty">{t(locale, 'statement.noPlans')}</p>
@@ -238,13 +242,21 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                     <table class="import-table">
                       <caption class="sr-only">{t(locale, 'statement.byPlan')}</caption>
                       <tbody>
-                        {view.summary.byPlan.map((entry) => (
-                          <tr>
-                            <td><a href={`/app/planes/${entry.planId}`}>{view.planNames.get(entry.planId) ?? '—'}</a></td>
-                            <td class="num muted nowrap">{t(locale, 'statement.byPlanCount', { n: String(entry.count) })}</td>
-                            <td class="num nowrap"><strong>{money(entry.amountMinor)}</strong></td>
-                          </tr>
-                        ))}
+                        {view.summary.byPlan.map((entry) => {
+                          const plan = view.planInfo.get(entry.planId);
+                          const no = view.installmentOf.get(entry.planId);
+                          return (
+                            <tr>
+                              <td>
+                                <a href={`/app/planes/${entry.planId}`}>{plan?.name ?? '—'}</a>
+                                {plan && no !== undefined && no >= plan.total && <> <span class="badge badge-warn">{t(locale, 'movements.plan.last')}</span></>}
+                              </td>
+                              <td class="num nowrap">{plan && no !== undefined ? t(locale, 'statement.byPlanInstallment', { n: String(no), total: String(plan.total) }) : '—'}</td>
+                              <td class="num muted nowrap">{t(locale, 'statement.byPlanCount', { n: String(entry.count) })}</td>
+                              <td class="num nowrap"><strong>{money(entry.amountMinor)}</strong></td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

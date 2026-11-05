@@ -70,6 +70,11 @@ const thresholdMinor = thresholdOf(settings.currency);
         {analyses.map((analysis) => {
           const money = (minor: number) => formatMinor(minor, analysis.currency, locale);
           const maxCategory = Math.max(...analysis.byCategory.map((c) => c.amountMinor), 1);
+          // Todas las categorías: las que tuvieron gasto (ya ordenadas de mayor a menor) y al final las que no.
+          const allCategories = [
+            ...analysis.byCategory,
+            ...categories.filter((c) => !analysis.byCategory.some((entry) => entry.categoryId === c.id)).map((c) => ({ categoryId: c.id, amountMinor: 0, count: 0, antMinor: 0 })),
+          ];
           const series = trends.find((entry) => entry.currency === analysis.currency)?.points ?? [];
           const maxSpend = Math.max(...series.map((p) => p.spendMinor), 1);
           return (
@@ -134,7 +139,7 @@ const thresholdMinor = thresholdOf(settings.currency);
               }
               <h2>{t(locale, 'spending.category.title')}<Help topic="spending.category.title" /></h2>
               <ul class="category-bars">
-                {analysis.byCategory.map((entry) => {
+                {allCategories.map((entry) => {
                   const category = entry.categoryId ? byId.get(entry.categoryId) : undefined;
                   return (
                     <li>
