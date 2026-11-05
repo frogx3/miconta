@@ -19,17 +19,17 @@ export interface ManualMovementInput {
 
 export type ManualMovementResult = { ok: true; id: string } | { ok: false; reason: 'category_not_found' };
 
-/** Lote que agrupa los movimientos capturados a mano de una cuenta; se crea la primera vez que se necesita. */
-async function manualBatchId(db: Db, workspaceId: string, accountId: string, userId: string): Promise<string> {
+/** Lote que agrupa los movimientos capturados a mano (o recibidos por correo) de una cuenta; se crea la primera vez que se necesita. */
+export async function ownBatchId(db: Db, workspaceId: string, accountId: string, userId: string, source: 'manual' | 'email' = 'manual'): Promise<string> {
   const [existing] = await db
     .select({ id: importBatches.id })
     .from(importBatches)
-    .where(and(eq(importBatches.workspaceId, workspaceId), eq(importBatches.accountId, accountId), eq(importBatches.source, 'manual')))
+    .where(and(eq(importBatches.workspaceId, workspaceId), eq(importBatches.accountId, accountId), eq(importBatches.source, source)))
     .limit(1);
   if (existing) return existing.id;
   const [row] = await db
     .insert(importBatches)
-    .values({ workspaceId, accountId, fileName: 'Manual', source: 'manual', status: 'applied', createdBy: userId })
+    .values({ workspaceId, accountId, fileName: source === 'manual' ? 'Manual' : 'Correo', source, status: 'applied', createdBy: userId })
     .returning({ id: importBatches.id });
   return row!.id;
 }
@@ -51,7 +51,7 @@ export async function createManualMovement(db: Db, workspaceId: string, userId: 
     }
   }
 
-  const batchId = await manualBatchId(db, workspaceId, input.accountId, userId);
+  const batchId = await ownBatchId(db, workspaceId, input.accountId, userId);
   const [row] = await db
     .insert(movements)
     .values({

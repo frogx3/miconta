@@ -230,8 +230,11 @@ export const importBatches = sqliteTable(
     cutoffDate: text('cutoff_date'),
     summary: text('summary', { mode: 'json' }),
     status: text('status', { enum: ['applied', 'reverted'] }).notNull().default('applied'),
-    /** `manual` = lote que agrupa los movimientos capturados a mano de una cuenta; no es una carga y no aparece en el historial. */
-    source: text('source', { enum: ['csv', 'manual'] }).notNull().default('csv'),
+    /**
+     * `manual` / `email` = lote que agrupa los movimientos capturados a mano o recibidos por correo de una cuenta;
+     * no es una carga y no aparece en el historial.
+     */
+    source: text('source', { enum: ['csv', 'manual', 'email'] }).notNull().default('csv'),
     createdBy: text('created_by').notNull().references(() => user.id, { onDelete: 'restrict' }),
     createdAt: createdAt(),
     revertedAt: integer('reverted_at', { mode: 'timestamp_ms' }),
@@ -455,4 +458,54 @@ export const planEvents = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index('plan_events_plan_idx').on(t.planId, t.createdAt)],
+);
+
+// ── Captura por correo ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Dirección de reenvío de una cuenta: el usuario reenvía ahí las notificaciones de su banco. El token es
+ * el secreto de la dirección (`<token>@<dominio de entrada>`); regenerarlo invalida la anterior.
+ * Don Bigo nunca accede a la bandeja del usuario: solo recibe lo que su filtro reenvía.
+ */
+export const emailInboxes = sqliteTable(
+  'email_inboxes',
+  {
+    id: id(),
+    workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
+    accountId: text('account_id').notNull().references(() => accounts.id, { onDelete: 'restrict' }),
+    token: text('token').notNull(),
+    /** Dominios con firma DKIM válida cuyos avisos se aplican solos; el resto espera revisión. */
+    trustedDomains: text('trusted_domains', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
+    createdBy: text('created_by').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    disabledAt: integer('disabled_at', { mode: 'timestamp_ms' }),
+    lastReceivedAt: integer('last_received_at', { mode: 'timestamp_ms' }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('email_inboxes_account_uq').on(t.accountId), uniqueIndex('email_inboxes_token_uq').on(t.token)],
+);
+
+/**
+ * Bitácora de cada correo recibido y qué se hizo con él. Del correo solo se guardan remitente, asunto y
+ * los datos leídos; el original se guarda en R2 únicamente si no se pudo leer (`rawKey`).
+ */
+export const emailMessages = sqliteTable(
+  'email_messages',
+  {
+    id: id(),
+    workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
+    inboxId: text('inbox_id').notNull().references(() => emailInboxes.id, { onDelete: 'restrict' }),
+    /** Message-ID del correo (o huella del contenido): evita procesar dos veces el mismo aviso. */
+    messageKey: text('message_key').notNull(),
+    fromAddress: text('from_address').notNull(),
+    subject: text('subject').notNull(),
+    /** Dominios con firma DKIM válida según el servidor que recibió el correo. */
+    dkimDomains: text('dkim_domains', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
+    status: text('status', { enum: ['applied', 'duplicate', 'review', 'unknown_card', 'unparsed', 'confirmation', 'dismissed'] }).notNull(),
+    /** Datos leídos del aviso (`EmailNotice`), o el código de confirmación de reenvío. */
+    data: text('data', { mode: 'json' }),
+    movementId: text('movement_id').references(() => movements.id, { onDelete: 'restrict' }),
+    rawKey: text('raw_key'),
+    receivedAt: createdAt(),
+  },
+  (t) => [uniqueIndex('email_messages_inbox_key_uq').on(t.inboxId, t.messageKey), index('email_messages_inbox_idx').on(t.inboxId, t.receivedAt)],
 );

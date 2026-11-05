@@ -5,3 +5,6 @@ BETTER_AUTH_URL=http://localhost:4321
 
 # Opcional en local: si lo defines, el primer registro exigirá este código (en producción siempre se exige).
 # SETUP_CODE=
+
+# Captura por correo (apagada en producción); enciéndela para `pnpm smoke:email`.
+EMAIL_CAPTURE=true

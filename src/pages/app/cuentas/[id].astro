@@ -5,6 +5,10 @@ import AccountForm from '../../../components/AccountForm.astro';
 import CardEditor from '../../../components/CardEditor.astro';
 import Icon from '../../../components/Icon.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
+import EmailInbox from '../../../components/EmailInbox.astro';
+import { env } from 'cloudflare:workers';
+import { getInbox, listMessages } from '../../../lib/email/inbound';
+import { emailCaptureEnabled } from '../../../lib/email/config';
 import { messagesFor, t, tn } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { formatDate, todayISO } from '../../../lib/date-format';
@@ -24,6 +28,10 @@ const inUse = await cardsInUse(db, workspace.id, account.id);
 const activity = await accountActivity(db, workspace.id, account.id, account.cards.map((card) => card.id));
 // Lo que cuesta esta cuenta: el mismo cálculo del Panel, solo con los planes de esta cuenta.
 const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO());
+
+const emailCapture = emailCaptureEnabled();
+const inbox = emailCapture ? await getInbox(db, workspace.id, account.id) : null;
+const inboxMessages = inbox ? await listMessages(db, inbox.id) : [];
 
 const readOnly = workspace.role === 'viewer';
 const messages = messagesFor(locale, ['card.', 'cards.', 'validation.', 'common.', 'auth.error.label']);
@@ -149,12 +157,12 @@ const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&a
                       </>
                     )}
                   </dl>
-                  {(counts?.openPlans || counts?.movements) && (
+                  {(counts?.openPlans || counts?.movements) ? (
                     <p class="card-quick">
                       {counts!.openPlans > 0 && <a href={`/app/planes?tarjeta=${card.id}`}>{tn(locale, 'card.links.plans', counts!.openPlans)}</a>}
                       {counts!.movements > 0 && <a href={`/app/gastos/movimientos?mes=todo&filtro=c:${card.id}`}>{tn(locale, 'card.links.movements', counts!.movements)}</a>}
                     </p>
-                  )}
+                  ) : null}
                 </div>
                 {!readOnly && (
                   <button class="card-toggle" type="button" aria-expanded="false" aria-controls={`edit-${card.id}`} data-card-toggle data-open-label={t(locale, 'card.edit')} data-close-label={t(locale, 'card.edit.close')}>
@@ -188,6 +196,15 @@ const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&a
       )
     }
   </section>
+
+  {emailCapture && <EmailInbox
+    accountId={account.id}
+    inbox={inbox}
+    messages={inboxMessages}
+    domain={env.INBOUND_EMAIL_DOMAIN}
+    currency={account.cards[0]?.currency ?? workspace.defaultCurrency}
+    readOnly={readOnly || !!account.archivedAt}
+  />}
 
   <details class="card account-details">
     <summary>{t(locale, 'account.details')}</summary>

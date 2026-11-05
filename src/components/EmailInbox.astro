@@ -1,0 +1,157 @@
+---
+import Icon from './Icon.astro';
+import { messagesFor, t } from '../i18n/messages';
+import { formatDate } from '../lib/date-format';
+import { formatMinor } from '../lib/money-format';
+import { parseMoney } from '../lib/import/money';
+import { inboxAddress, type Inbox, type listMessages } from '../lib/email/inbound';
+import { trustableDomain, type EmailNotice } from '../lib/email/notice';
+
+interface Props {
+  accountId: string;
+  inbox: Inbox | null;
+  messages: Awaited<ReturnType<typeof listMessages>>;
+  domain: string;
+  currency: string;
+  readOnly: boolean;
+}
+
+const { accountId, inbox, messages, domain, currency, readOnly } = Astro.props;
+const { locale } = Astro.locals;
+const active = inbox && !inbox.disabledAt;
+const address = inbox ? inboxAddress(inbox.token, domain) : '';
+const confirmation = messages.find((m) => m.status === 'confirmation');
+const confirmationCode = (confirmation?.data as { code: string | null } | null)?.code;
+const badge: Record<string, string> = { applied: 'badge-good', duplicate: 'badge-muted', dismissed: 'badge-muted', confirmation: 'badge-muted', review: 'badge-warn', unknown_card: 'badge-warn', unparsed: 'badge-bad' };
+const clientMessages = messagesFor(locale, ['email.', 'common.']);
+---
+
+<section class="card email-inbox" id="email-inbox" data-account-id={accountId} data-messages={JSON.stringify(clientMessages)}>
+  <h2>{t(locale, 'email.title')}</h2>
+  <p class="hint">{t(locale, 'email.hint')}</p>
+
+  {
+    active ? (
+      <>
+        <div class="email-address">
+          <code id="email-address">{address}</code>
+          <button class="btn btn-ghost" type="button" data-copy>{t(locale, 'email.copy')}</button>
+        </div>
+        <p class="muted">
+          {inbox!.lastReceivedAt ? <>{t(locale, 'email.lastReceived')} <time data-ts datetime={inbox!.lastReceivedAt.toISOString()}>{inbox!.lastReceivedAt.toISOString()}</time></> : t(locale, 'email.nothingYet')}
+          {' · '}
+          <a href="/app/cuentas/reenvio">{t(locale, 'email.howTo')}</a>
+        </p>
+        {confirmationCode && <p class="email-code" role="status">{t(locale, 'email.gmailCode')} <strong>{confirmationCode}</strong></p>}
+        {inbox!.trustedDomains.length > 0 && <p class="muted">{t(locale, 'email.trusted', { domains: inbox!.trustedDomains.join(', ') })}</p>}
+        {!readOnly && (
+          <p class="email-actions">
+            <button class="btn btn-ghost" type="button" data-inbox-action="regenerate">{t(locale, 'email.regenerate')}</button>
+            <button class="btn btn-ghost" type="button" data-inbox-action="disable">{t(locale, 'email.disable')}</button>
+          </p>
+        )}
+      </>
+    ) : (
+      <>
+        <p>{t(locale, 'email.privacy')}</p>
+        {!readOnly && <button class="btn btn-auto" type="button" data-inbox-action="enable"><Icon name="plus" size={18} /> {t(locale, 'email.enable')}</button>}
+        <p><a href="/app/cuentas/reenvio">{t(locale, 'email.howTo')}</a></p>
+      </>
+    )
+  }
+
+  <p class="save-status" role="status" id="email-error" hidden></p>
+
+  {
+    messages.length > 0 && (
+      <>
+        <h3>{t(locale, 'email.log')}</h3>
+        <ul class="email-log">
+          {messages.map((m) => {
+            const notice = m.status === 'confirmation' ? null : (m.data as EmailNotice | null);
+            const minor = notice ? parseMoney(notice.amount, { decimalSeparator: '.', thousandsSeparator: '', minorDigits: 2 }) : null;
+            const pending = m.status === 'review' || m.status === 'unknown_card' || m.status === 'unparsed';
+            const domain = m.status === 'review' ? trustableDomain(m.fromAddress, m.dkimDomains) : null;
+            return (
+              <li class="email-row" data-message={m.id}>
+                <div>
+                  <span class:list={['badge', badge[m.status]]}>{t(locale, `email.status.${m.status}` as never)}</span>{' '}
+                  {notice ? (
+                    <strong>
+                      {notice.merchant} · {minor !== null ? formatMinor(notice.kind === 'credit' ? -minor : minor, currency, locale) : notice.amount} · *{notice.last4} · {formatDate(notice.date, locale)}
+                    </strong>
+                  ) : (
+                    <span>{m.subject}</span>
+                  )}
+                  <p class="muted">
+                    {m.fromAddress} · <time data-ts datetime={m.receivedAt.toISOString()}>{m.receivedAt.toISOString()}</time>
+                  </p>
+                </div>
+                {!readOnly && pending && (
+                  <div class="email-row-actions">
+                    {m.status !== 'unparsed' && (
+                      <>
+                        {domain && (
+                          <label class="email-trust">
+                            <input type="checkbox" data-trust checked /> {t(locale, 'email.trustDomain', { domain })}
+                          </label>
+                        )}
+                        <button class="btn" type="button" data-review="apply">{t(locale, 'email.apply')}</button>
+                      </>
+                    )}
+                    <button class="btn btn-ghost" type="button" data-review="dismiss">{t(locale, 'email.dismiss')}</button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </>
+    )
+  }
+</section>
+
+<style>
+  .email-address {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .email-address code {
+    overflow-wrap: anywhere;
+    font-size: 0.95rem;
+  }
+  .email-actions,
+  .email-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .email-log {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .email-row {
+    display: grid;
+    gap: 0.5rem;
+    padding-block: 0.5rem;
+    border-top: 1px solid var(--line);
+  }
+  .email-row p {
+    margin: 0.25rem 0 0;
+  }
+  .email-trust {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+  }
+</style>
+
+<script>
+  import '../scripts/email-inbox';
+</script>
