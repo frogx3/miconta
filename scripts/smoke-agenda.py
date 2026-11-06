@@ -132,7 +132,8 @@ d1(f"INSERT INTO accounts (id, workspace_id, name, bank) VALUES ('acc-deb-{RUN}'
 d1(f"INSERT INTO cards (id, workspace_id, account_id, kind, last4, currency) VALUES ('card-deb-{RUN}', '{ws_a}', 'acc-deb-{RUN}', 'debit', '1111', 'MXN')")
 status, body = a.call("PUT", "/api/agenda/balances", {"cardId": f"card-deb-{RUN}", "amount": "10,000.00"})
 check("saldo de la tarjeta de débito", 200, status)
-check("quitar la débito con saldo: 409 CARD_IN_USE (no 500)", 409, a.call("DELETE", f"/api/accounts/acc-deb-{RUN}/cards/card-deb-{RUN}", {})[0])
+# Sin cuerpo: esta ruta (fuera de la agenda) no lo lee al rechazar y en desarrollo eso rompería la siguiente petición.
+check("quitar la débito con saldo: 409 CARD_IN_USE (no 500)", 409, a.call("DELETE", f"/api/accounts/acc-deb-{RUN}/cards/card-deb-{RUN}")[0])
 status, body = a.call("PUT", "/api/agenda/balances", {"label": "Efectivo", "amount": "2000"})
 check("renglón libre de saldo", 200, status)
 free_balance = body.get("id")
