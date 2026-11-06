@@ -1,0 +1,245 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import Help from '../../components/Help.astro';
+import Icon from '../../components/Icon.astro';
+import { messagesFor, t, tn } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+import { formatDate } from '../../lib/date-format';
+import { BACKUP_DAYS, listBackups } from '../../lib/me/backup';
+import { DELETION_GRACE_DAYS } from '../../lib/me/lifecycle';
+import { listInvitations, listMembers } from '../../lib/members/repo';
+import { INVITE_DAYS, canManageMember, invitableRoles, isPermanent } from '../../lib/members/roles';
+import { vapidConfig } from '../../lib/push/webpush';
+
+const { workspace, user, locale } = Astro.locals;
+if (!workspace || !user) return Astro.redirect('/login');
+
+const db = getDb();
+const [members, pending, backups] = await Promise.all([listMembers(db, workspace.id), listInvitations(db, workspace.id), listBackups(db, workspace.id)]);
+const roles = invitableRoles(workspace.role);
+const canInvite = roles.length > 0;
+const isOwner = workspace.role === 'owner';
+// El dueño de un espacio con más personas no puede borrar su cuenta: antes las quita.
+const ownerWithMembers = isOwner && members.length > 1;
+const pushKey = vapidConfig()?.publicKey ?? null;
+const messages = messagesFor(locale, ['members.', 'validation.', 'common.', 'me.', 'agenda.push.']);
+const iso = (date: Date) => date.toISOString().slice(0, 10);
+const busy = backups.some((b) => b.status === 'queued' || b.status === 'running');
+const expiresOn = (date: Date) => iso(new Date(date.getTime() + BACKUP_DAYS * 86_400_000));
+---
+
+<AppLayout title={t(locale, 'me.title')} active="account">
+  <h1>{t(locale, 'me.title')}</h1>
+  <p class="hint">{t(locale, 'me.hint')}</p>
+
+  <div id="me" data-messages={JSON.stringify(messages)} data-email={user.email} data-busy={busy ? 'true' : undefined}>
+    <div id="me-error" class="alert" role="alert" hidden></div>
+
+    <section class="card" id="estatus">
+      <h2>{t(locale, 'me.status.title')}</h2>
+      <dl class="facts">
+        <dt>{t(locale, 'me.status.plan')}</dt>
+        <dd><span class="badge">{t(locale, 'me.status.free')}</span></dd>
+        <dt>{t(locale, 'me.status.state')}</dt>
+        <dd>{t(locale, 'me.status.active')}</dd>
+        <dt>{t(locale, 'me.status.since')}</dt>
+        <dd>{formatDate(iso(user.createdAt), locale)}</dd>
+        <dt>{t(locale, 'me.status.email')}</dt>
+        <dd>{user.email}</dd>
+        <dt>{t(locale, 'app.dashboard.workspace')}</dt>
+        <dd>{workspace.name}</dd>
+        <dt>{t(locale, 'app.dashboard.role')}</dt>
+        <dd>{t(locale, `role.${workspace.role}` as 'role.owner')}</dd>
+        <dt>{t(locale, 'app.dashboard.currency')}</dt>
+        <dd>{workspace.defaultCurrency}</dd>
+      </dl>
+    </section>
+  </div>
+
+  <h2 id="miembros" class="section-title">{t(locale, 'members.title')}<Help topic="members.title" /></h2>
+  <p class="hint">{t(locale, 'members.hint')}</p>
+
+  <section class="card" id="members" data-messages={JSON.stringify(messages)}>
+    <div id="members-error" class="alert" role="alert" hidden></div>
+    <div class="table-scroll">
+      <table class="import-table">
+        <caption class="sr-only">{t(locale, 'members.title')}</caption>
+        <tbody>
+          {
+            members.map((member) => {
+              const manageable = member.userId !== user.id && canManageMember(workspace.role, member.role);
+              return (
+                <tr data-user={member.userId} data-name={member.name}>
+                  <td>
+                    <strong>{member.name}</strong>
+                    {member.userId === user.id && <span class="badge badge-muted">{t(locale, 'members.you')}</span>}
+                    <br />
+                    <span class="muted">{member.email} · {t(locale, 'members.joined', { date: formatDate(iso(member.joinedAt), locale) })}</span>
+                  </td>
+                  <td class="nowrap">
+                    {manageable ? (
+                      <select class="member-role" aria-label={t(locale, 'members.role.change', { name: member.name })}>
+                        {(workspace.role === 'owner' ? (['admin', 'member', 'viewer'] as const) : (['member', 'viewer'] as const)).map((role) => (
+                          <option value={role} selected={role === member.role}>{t(locale, `role.${role}`)}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span class="chip">{t(locale, `role.${member.role}`)}</span>
+                    )}
+                  </td>
+                  <td class="num nowrap">{manageable && <button class="btn btn-ghost btn-small member-remove" type="button">{t(locale, 'members.remove')}</button>}</td>
+                </tr>
+              );
+            })
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {
+    canInvite && (
+      <section class="card" id="invite" data-messages={JSON.stringify(messages)}>
+        <h2>{t(locale, 'members.invite.title')}</h2>
+        <p class="hint">{t(locale, 'members.invite.hint')}</p>
+        <div id="invite-error" class="alert" role="alert" hidden></div>
+        <form id="invite-form" class="form-grid" novalidate>
+          <div class="field narrow">
+            <label for="i-role">{t(locale, 'members.invite.role')}</label>
+            <select id="i-role" name="role">
+              {roles.map((role) => <option value={role} selected={role === 'member'}>{t(locale, `role.${role}`)}</option>)}
+            </select>
+          </div>
+          <div class="field narrow">
+            <label for="i-days">{t(locale, 'members.invite.days')}</label>
+            <select id="i-days" name="days">
+              {INVITE_DAYS.map((days) => <option value={days} selected={days === 7}>{days === 0 ? t(locale, 'members.invite.permanent') : tn(locale, 'members.invite.days', days)}</option>)}
+            </select>
+          </div>
+          <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'members.invite.create')}</button></div>
+        </form>
+        <ul class="hint role-help">
+          {roles.map((role) => <li>{t(locale, `members.roleHelp.${role}` as 'members.roleHelp.admin')}</li>)}
+        </ul>
+        <div id="invite-result" hidden>
+          <p class="alert ok" role="status">{t(locale, 'members.invite.created')}</p>
+          <div class="field">
+            <input id="invite-url" type="text" readonly aria-label={t(locale, 'members.invite.created')} />
+          </div>
+          <button class="btn btn-auto" type="button" id="invite-copy">{t(locale, 'members.invite.copy')}</button>
+        </div>
+
+        <h3>{t(locale, 'members.invite.pending')}</h3>
+        {
+          pending.length === 0 ? (
+            <p class="empty">{t(locale, 'members.invite.none')}</p>
+          ) : (
+            <ul class="pending-invites">
+              {pending.map((invite) => (
+                <li data-invite={invite.id}>
+                  <span>
+                    <span class="chip">{t(locale, `role.${invite.role}`)}</span>{' '}
+                    <span class="muted">
+                      {isPermanent(invite.expiresAt)
+                        ? t(locale, 'members.invite.permanentBy', { name: invite.createdByName })
+                        : t(locale, 'members.invite.expires', { date: formatDate(iso(invite.expiresAt), locale), name: invite.createdByName })}
+                    </span>
+                  </span>
+                  <button class="btn btn-ghost btn-small invite-revoke" type="button">{t(locale, 'members.invite.revoke')}</button>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </section>
+    )
+  }
+
+  <h2 id="configuracion" class="section-title">{t(locale, 'me.settings.title')}</h2>
+  <section class="card" id="me-settings">
+    <label class="check">
+      <input type="checkbox" id="me-in-app" checked={user.inAppNotifications !== false} />
+      <span>
+        <strong>{t(locale, 'me.settings.inApp')}</strong><br />
+        <span class="muted">{t(locale, 'me.settings.inAppHint')}</span>
+      </span>
+    </label>
+    <p id="me-settings-saved" class="hint" role="status" hidden>{t(locale, 'me.settings.saved')}</p>
+  </section>
+  {
+    pushKey && (
+      <section class="card" id="push-settings" data-key={pushKey} data-messages={JSON.stringify(messages)} hidden>
+        <h3>{t(locale, 'agenda.push.title')}</h3>
+        <p class="hint">{t(locale, 'agenda.push.hint')}</p>
+        <p data-push-note hidden></p>
+        <button type="button" class="btn btn-auto" data-push-toggle hidden></button>
+      </section>
+    )
+  }
+
+  <h2 id="respaldo" class="section-title">{t(locale, 'me.backup.title')}</h2>
+  <section class="card">
+    <p class="hint">{t(locale, 'me.backup.hint', { days: String(BACKUP_DAYS) })}</p>
+    <button type="button" class="btn btn-auto" id="me-backup" disabled={busy}>
+      <Icon name="download" size={18} />
+      {t(locale, busy ? 'me.backup.working' : 'me.backup.request')}
+    </button>
+    {
+      backups.length > 0 && (
+        <ul class="me-backups">
+          {backups.map((b) => (
+            <li>
+              <span>
+                {formatDate(iso(b.createdAt), locale)}{' '}
+                <span class:list={['badge', b.status === 'failed' ? 'badge-warn' : b.status === 'ready' ? '' : 'badge-muted']}>{t(locale, `me.backup.status.${b.status}`)}</span>
+              </span>
+              {b.status === 'ready' && (
+                <span class="row-actions">
+                  <a class="btn btn-ghost btn-small" href={`/api/me/backups/${b.id}/gastos`} download>{t(locale, 'me.backup.movements')}</a>
+                  <a class="btn btn-ghost btn-small" href={`/api/me/backups/${b.id}/pagos`} download>{t(locale, 'me.backup.payments')}</a>
+                  <span class="muted">{t(locale, 'me.backup.expires', { date: formatDate(expiresOn(b.createdAt), locale) })}</span>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+
+  <h2 id="peligro" class="section-title">{t(locale, 'me.danger.title')}</h2>
+  <section class="card me-danger">
+    {
+      isOwner && (
+        <details class="me-danger-item">
+          <summary class="link-danger">{t(locale, 'me.reboot.title')}</summary>
+          <p class="hint">{t(locale, 'me.reboot.hint')}</p>
+          <form class="form-grid" data-me-confirm="/api/me/reboot" novalidate>
+            <div class="field"><label>{t(locale, 'me.confirm.label', { email: user.email })}<input name="confirm" type="email" autocomplete="off" /></label></div>
+            <div class="form-actions"><button class="btn btn-danger btn-auto" type="submit">{t(locale, 'me.reboot.submit')}</button></div>
+          </form>
+        </details>
+      )
+    }
+    <details class="me-danger-item">
+      <summary class="link-danger">{t(locale, 'me.delete.title')}</summary>
+      <p class="hint">{t(locale, 'me.delete.hint', { days: String(DELETION_GRACE_DAYS) })}</p>
+      {
+        ownerWithMembers ? (
+          <p class="alert">{t(locale, 'me.delete.hasMembers')}</p>
+        ) : (
+          <form class="form-grid" data-me-confirm="/api/me/delete" novalidate>
+            <div class="field"><label>{t(locale, 'me.confirm.label', { email: user.email })}<input name="confirm" type="email" autocomplete="off" /></label></div>
+            <div class="form-actions"><button class="btn btn-danger btn-auto" type="submit">{t(locale, 'me.delete.submit')}</button></div>
+          </form>
+        )
+      }
+    </details>
+  </section>
+</AppLayout>
+
+<script>
+  import '../../scripts/members';
+  import '../../scripts/push-toggle';
+  import '../../scripts/me';
+</script>

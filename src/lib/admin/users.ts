@@ -15,7 +15,7 @@ async function countRows(db: Db, table: SQLiteTable, where: SQL): Promise<number
   return row?.count ?? 0;
 }
 
-async function workspaceIdsOf(db: Db, userId: string): Promise<string[]> {
+export async function workspaceIdsOf(db: Db, userId: string): Promise<string[]> {
   const rows = await db
     .select({ workspaceId: schema.workspaceMembers.workspaceId })
     .from(schema.workspaceMembers)
@@ -93,10 +93,22 @@ export async function checkWipe(db: Db, userId: string): Promise<WipeCheck> {
  * llaves foráneas (`restrict`) y el lote es atómico.
  */
 export async function wipeUserData(db: Db, userId: string): Promise<void> {
-  const workspaceIds = await workspaceIdsOf(db, userId);
+  await wipeWorkspaceData(db, await workspaceIdsOf(db, userId));
+}
+
+/**
+ * Borra la información financiera de estos espacios (también la agenda, saldos y respaldos) y conserva el espacio, sus
+ * miembros, invitaciones y configuración. Es lo que hace "Reboot" en Tu cuenta. Los archivos de respaldo en R2 los borra
+ * quien llama. El orden respeta las llaves foráneas (`restrict`) y el lote es atómico.
+ */
+export async function wipeWorkspaceData(db: Db, workspaceIds: string[]): Promise<void> {
   if (workspaceIds.length === 0) return;
   const s = schema;
   const statements: BatchItem<'sqlite'>[] = [
+    db.delete(s.agendaNotifications).where(inArray(s.agendaNotifications.workspaceId, workspaceIds)),
+    db.delete(s.agendaItems).where(inArray(s.agendaItems.workspaceId, workspaceIds)),
+    db.delete(s.cashBalances).where(inArray(s.cashBalances.workspaceId, workspaceIds)),
+    db.delete(s.backupExports).where(inArray(s.backupExports.workspaceId, workspaceIds)),
     db.delete(s.planEvents).where(inArray(s.planEvents.workspaceId, workspaceIds)),
     db.delete(s.emailMessages).where(inArray(s.emailMessages.workspaceId, workspaceIds)),
     db.delete(s.emailInboxes).where(inArray(s.emailInboxes.workspaceId, workspaceIds)),

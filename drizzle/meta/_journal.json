@@ -92,6 +92,13 @@
       "when": 1793988077732,
       "tag": "0012_soft_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793992548076,
+      "tag": "0013_careless_zarda",
+      "breakpoints": true
     }
   ]
 }

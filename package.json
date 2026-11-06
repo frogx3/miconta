@@ -35,7 +35,8 @@
     "smoke:cuts": "python3 -I scripts/smoke-cuts.py",
     "smoke:cutmove": "python3 -I scripts/smoke-cutmove.py",
     "smoke:email": "python3 -I scripts/smoke-email.py",
-    "smoke:agenda": "python3 -I scripts/smoke-agenda.py"
+    "smoke:agenda": "python3 -I scripts/smoke-agenda.py",
+    "smoke:me": "python3 -I scripts/smoke-me.py"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.4",

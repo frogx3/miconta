@@ -6,14 +6,12 @@ import { messagesFor, t, tn } from '../../i18n/messages';
 import { getDb } from '../../lib/auth';
 import { formatDate, isoDate, todayISO } from '../../lib/date-format';
 import { currencyDigits, formatMinor, toInputString } from '../../lib/money-format';
-import { listAccounts } from '../../lib/accounts/repo';
 import { monthOf, shiftMonth } from '../../lib/spending/analysis';
-import { monthResults, projectRecurring, type Entry, type MonthResult } from '../../lib/agenda/compute';
-import { suggestedCardPayments, type SuggestedCardPayment } from '../../lib/agenda/card-payments';
-import { anchorDays, idsWithChild, listAgenda, listBalances } from '../../lib/agenda/repo';
+import type { Entry, MonthResult } from '../../lib/agenda/compute';
+import type { SuggestedCardPayment } from '../../lib/agenda/card-payments';
+import { loadAgendaMonth } from '../../lib/agenda/month';
 import { RECURRENCES } from '../../lib/agenda/validation';
 import { whatsappConfig } from '../../lib/agenda/whatsapp';
-import { vapidConfig } from '../../lib/push/webpush';
 import { user } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -30,44 +28,12 @@ const isPast = month < current;
 const canWrite = workspace.role !== 'viewer';
 const currency = workspace.defaultCurrency;
 
-// Mes pasado: solo ese mes. Actual o futuro: desde el mes actual, para encadenar la proyección (incluye vencidos).
-const firstMonth = isPast ? month : current;
-const months: string[] = [];
-for (let m = firstMonth; m <= month; m = shiftMonth(m, 1)) months.push(m);
-const [items, balances, accounts, suggestionsByMonth] = await Promise.all([
-  listAgenda(db, workspace.id, { from: `${firstMonth}-01`, to: `${month}-31` }),
-  listBalances(db, workspace.id),
-  listAccounts(db, workspace.id),
-  Promise.all(months.map((m) => suggestedCardPayments(db, workspace.id, m, today))),
-]);
-
-// Un sugerido ya guardado (cualquier estado) lo reemplaza su registro.
-const materialized = new Set(items.filter((item) => item.cardId).map((item) => `${item.cardId}:${item.dueDate}`));
-const suggestions = suggestionsByMonth.flat().filter((s) => !materialized.has(`${s.cardId}:${s.dueDate}`));
+const { items, balances, suggestions, entries, debitCards, results } = await loadAgendaMonth(db, workspace.id, month, today);
 const suggestionByKey = new Map<string, SuggestedCardPayment>(suggestions.map((s) => [s.key, s]));
 const itemById = new Map(items.map((item) => [item.id, item]));
-
-// Mes actual o futuro: las series pendientes se proyectan hasta el fin del mes visible (solo la última ocurrencia de cada una).
-const recurring = isPast ? [] : items.filter((item) => item.status === 'pending' && item.recurrence !== 'none');
-const [anchors, withChild] = await Promise.all([anchorDays(db, workspace.id, recurring), idsWithChild(db, workspace.id, recurring.map((item) => item.id))]);
-const projected = projectRecurring(
-  recurring.filter((item) => !withChild.has(item.id)).map((item) => ({ ...item, key: item.id, anchorDay: anchors.get(item.id)! })),
-  `${month}-31`,
-);
-
-const entries: Entry[] = [
-  ...projected,
-  ...items.map((item) => ({ key: item.id, kind: item.kind, description: item.description, amountMinor: item.amountMinor, currency: item.currency, dueDate: item.dueDate, status: item.status, suggested: false })),
-  ...suggestions.map((s) => ({ key: s.key, kind: 'payable' as const, description: s.description, amountMinor: s.amountMinor, currency: s.currency, dueDate: s.dueDate, status: 'pending' as const, suggested: true })),
-];
-
-const debitCards = accounts.flatMap((account) => account.cards.filter((card) => card.kind === 'debit' && !card.archivedAt).map((card) => ({ card, accountName: account.name })));
-const activeDebit = new Set(debitCards.map(({ card }) => card.id));
-const usedBalances = balances.filter((b) => b.cardId === null || activeDebit.has(b.cardId));
 const freeBalances = balances.filter((b) => b.cardId === null);
 const balanceByCard = new Map(balances.filter((b) => b.cardId).map((b) => [b.cardId!, b]));
 
-const results = monthResults({ month, todayISO: today, balances: usedBalances, entries });
 // shortcut: el calendario muestra el saldo de una sola moneda (la del espacio); con varias, cada bloque de resultado da la suya.
 const primary: MonthResult | undefined = results.find((r) => r.currency === currency) ?? results[0];
 const balanceOn = new Map(primary?.days.map((d) => [d.date, d.balanceMinor]) ?? []);
@@ -127,8 +93,6 @@ const defaultDate = month === current ? today : `${month}-01`;
 const whatsapp = whatsappConfig()
   ? ((await db.select({ phone: user.whatsappPhone, optIn: user.whatsappOptIn }).from(user).where(eq(user.id, currentUser.id)).limit(1))[0] ?? null)
   : null;
-// Notificaciones push: por navegador; el script decide qué mostrar (activar, desactivar o cómo instalar en iPhone).
-const pushKey = vapidConfig()?.publicKey ?? null;
 const messages = messagesFor(locale, ['agenda.', 'validation.', 'common.']);
 const title = t(locale, 'agenda.title', { month: monthName(month) });
 ---
@@ -340,16 +304,6 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
         )
       }
     </section>
-    {
-      pushKey && (
-        <section class="card" id="agenda-push" data-key={pushKey} hidden>
-          <h2>{t(locale, 'agenda.push.title')}</h2>
-          <p class="hint">{t(locale, 'agenda.push.hint')}</p>
-          <p data-push-note hidden></p>
-          <button type="button" class="btn btn-auto" data-push-toggle hidden></button>
-        </section>
-      )
-    }
     {
       whatsapp && (
         <section class="card">

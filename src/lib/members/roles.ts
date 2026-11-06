@@ -3,8 +3,15 @@
 export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
 export type InviteRole = 'admin' | 'member' | 'viewer';
 
-/** Días de vigencia que ofrece la pantalla al crear una invitación. */
-export const INVITE_DAYS = [1, 7, 30] as const;
+/** Días de vigencia que ofrece la pantalla al crear una invitación; 0 = sin vencimiento (permanente). */
+export const INVITE_DAYS = [1, 7, 30, 0] as const;
+
+/**
+ * Vencimiento de una invitación permanente. shortcut: una fecha lejana en lugar de `expires_at` nulo (cambiar la columna
+ * exige reconstruir la tabla en SQLite); si algún día hay que distinguirlas en consultas, migrar a NULL.
+ */
+export const NO_EXPIRY = new Date(Date.UTC(9999, 11, 31));
+export const isPermanent = (expiresAt: Date) => expiresAt.getTime() >= NO_EXPIRY.getTime();
 
 /** Roles que `actor` puede dar al invitar: el dueño todos; un administrador solo miembro y lectura. */
 export function invitableRoles(actor: WorkspaceRole): InviteRole[] {

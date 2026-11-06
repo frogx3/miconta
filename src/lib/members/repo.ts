@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gt, isNull } from 'drizzle-orm';
 import { user, workspaceInvitations, workspaceMembers, workspaces } from '../../db/schema';
 import type { Db } from '../auth/hooks';
 import { defaultCurrencyForLocale } from '../locale';
-import { canManageMember, type InviteRole, type WorkspaceRole } from './roles';
+import { canManageMember, NO_EXPIRY, type InviteRole, type WorkspaceRole } from './roles';
 
 /**
  * Todas las funciones reciben el `workspaceId` y lo aplican en cada consulta. El token de una invitación solo
@@ -20,7 +20,7 @@ export async function hashToken(token: string): Promise<string> {
 
 export async function createInvitation(db: Db, workspaceId: string, createdBy: string, role: InviteRole, days: number): Promise<{ token: string; expiresAt: Date }> {
   const token = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)));
-  const expiresAt = new Date(Date.now() + days * 86_400_000);
+  const expiresAt = days === 0 ? NO_EXPIRY : new Date(Date.now() + days * 86_400_000);
   await db.insert(workspaceInvitations).values({ workspaceId, tokenHash: await hashToken(token), role, createdBy, expiresAt });
   return { token, expiresAt };
 }

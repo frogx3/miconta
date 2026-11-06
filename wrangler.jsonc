@@ -38,6 +38,11 @@
       "migrations_dir": "drizzle"
     }
   ],
+  // Cola de respaldos CSV (Tu cuenta → Descargar respaldo). Crear una vez: `wrangler queues create miconta-backups`.
+  "queues": {
+    "producers": [{ "binding": "BACKUPS", "queue": "miconta-backups" }],
+    "consumers": [{ "queue": "miconta-backups", "max_batch_size": 1, "max_retries": 0 }]
+  },
   "r2_buckets": [
     {
       "binding": "FILES",

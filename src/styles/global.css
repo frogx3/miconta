@@ -3332,3 +3332,82 @@ form + .row-actions {
   .agenda-day { min-height: 3.25rem; padding: 0.2rem; }
   .agenda-day-balance { font-size: 0.5625rem; }
 }
+
+/* Portada: agenda del mes */
+.home-agenda .agenda-result + .agenda-result { margin-top: 0.75rem; }
+.home-agenda h3 { margin: 1rem 0 0.5rem; font-size: 1rem; }
+.home-agenda-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+.home-agenda-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.home-agenda-list li:last-child { border-bottom: 0; }
+.home-agenda-list .activity-sub { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+
+/* Avisos dentro de la app (móvil y escritorio) */
+.notices { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 0.85rem 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+}
+.notice[hidden] { display: none; }
+.notice-due { border-left-color: var(--warn); }
+.notice-icon { color: var(--accent); flex-shrink: 0; padding-top: 0.1rem; }
+.notice-due .notice-icon { color: var(--warn); }
+.notice-body { flex: 1; min-width: 0; }
+.notice-body p { margin: 0 0 0.25rem; overflow-wrap: anywhere; }
+.notice-body a { font-weight: 600; }
+.notice-close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.5rem -0.5rem -0.5rem 0;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.notice-close:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }
+
+/* Tu cuenta */
+.section-title { margin: 1.75rem 0 0.5rem; font-size: 1.15rem; }
+.me-backups {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.me-backups li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+}
+.me-backups .row-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.me-danger-item + .me-danger-item { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--line); }
+.me-danger-item summary { display: inline-flex; align-items: center; list-style: none; }
+.me-danger-item summary::-webkit-details-marker { display: none; }
+#me-settings .check { align-items: flex-start; gap: 0.75rem; }
