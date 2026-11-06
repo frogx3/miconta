@@ -23,5 +23,18 @@ export function formatRate(bp: number, locale: string): string {
 /** Día ISO de un instante, con la misma convención (UTC) que `todayISO`. */
 export const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
 
-/** Hoy en ISO (UTC), para los cálculos de calendario del servidor. */
-export const todayISO = (): string => isoDate(new Date());
+export const DEFAULT_TIME_ZONE = 'America/Mexico_City';
+
+/** Zona IANA que este runtime reconoce; cualquier otra cosa no se guarda. */
+export function isTimeZone(value: unknown): value is string {
+  if (typeof value !== 'string' || !value || value.length > 64) return false;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Hoy (`YYYY-MM-DD`) en la zona horaria de la persona: en UTC, las tardes de México ya serían "mañana". */
+export const todayISO = (timeZone = DEFAULT_TIME_ZONE): string => new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());

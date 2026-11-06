@@ -27,7 +27,7 @@ if (!account) return Astro.redirect('/app/cuentas');
 const inUse = await cardsInUse(db, workspace.id, account.id);
 const activity = await accountActivity(db, workspace.id, account.id, account.cards.map((card) => card.id));
 // Lo que cuesta esta cuenta: el mismo cálculo del Panel, solo con los planes de esta cuenta.
-const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO());
+const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO(Astro.locals.timeZone));
 
 const emailCapture = emailCaptureEnabled();
 const inbox = emailCapture ? await getInbox(db, workspace.id, account.id) : null;

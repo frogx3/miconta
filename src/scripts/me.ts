@@ -36,6 +36,26 @@ if (root) {
     if (saved) saved.hidden = false;
   });
 
+  const tz = document.querySelector<HTMLSelectElement>('#me-tz');
+  if (tz && !tz.dataset.saved) {
+    // Sin zona guardada, el servidor usa la de la IP; el navegador suele saberlo mejor.
+    const browser = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (browser && ![...tz.options].some((o) => o.value === browser)) tz.add(new Option(browser.replaceAll('_', ' '), browser), 0);
+    // Se guarda en silencio para que el servidor use esa zona; si difiere de la de la IP, se recarga con el "hoy" correcto.
+    if (browser) {
+      const fromIp = tz.value;
+      tz.value = browser;
+      void call('PATCH', '/api/me/settings', { timeZone: browser }).then(({ ok }) => ok && browser !== fromIp && location.reload());
+    }
+  }
+  tz?.addEventListener('change', async () => {
+    tz.disabled = true;
+    const { ok, code } = await call('PATCH', '/api/me/settings', { timeZone: tz.value });
+    tz.disabled = false;
+    if (!ok) return fail(code);
+    location.reload();
+  });
+
   const backup = document.querySelector<HTMLButtonElement>('#me-backup');
   backup?.addEventListener('click', async () => {
     backup.disabled = true;

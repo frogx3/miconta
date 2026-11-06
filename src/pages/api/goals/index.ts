@@ -12,7 +12,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!access.body) return json(400, { code: 'INVALID_JSON' });
 
   const currency = access.workspace.defaultCurrency;
-  const parsed = validateGoal(access.body, { locale: locals.locale, currency, todayISO: todayISO() });
+  const parsed = validateGoal(access.body, { locale: locals.locale, currency, todayISO: todayISO(locals.timeZone) });
   if (!parsed.ok) return validationError(parsed.errors);
 
   const result = await createGoal(getDb(), access.workspace.id, access.userId, currency, parsed.value);

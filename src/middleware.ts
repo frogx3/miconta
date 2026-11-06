@@ -3,6 +3,7 @@ import type { APIContext, MiddlewareNext } from 'astro';
 import { defineMiddleware } from 'astro:middleware';
 import { workspaceMembers, workspaces } from './db/schema';
 import { getAuth, getDb } from './lib/auth';
+import { DEFAULT_TIME_ZONE, isTimeZone } from './lib/date-format';
 import { isSupportedLocale, resolveLocale } from './lib/locale';
 
 const isArea = (pathname: string, area: string) => pathname === area || pathname.startsWith(`${area}/`);
@@ -61,6 +62,8 @@ async function handle(context: APIContext, next: MiddlewareNext): Promise<Respon
   context.locals.session = null;
   context.locals.workspace = null;
   context.locals.locale = resolveLocale(context.request.headers.get('accept-language'));
+  const ipZone = (context.request as Request & { cf?: { timezone?: unknown } }).cf?.timezone;
+  context.locals.timeZone = isTimeZone(ipZone) ? ipZone : DEFAULT_TIME_ZONE;
 
   // Better Auth resuelve su propia sesión en sus endpoints.
   if (isArea(pathname, '/api/auth')) return next();
@@ -72,6 +75,7 @@ async function handle(context: APIContext, next: MiddlewareNext): Promise<Respon
     context.locals.user = data.user;
     context.locals.session = data.session;
     if (isSupportedLocale(data.user.locale)) context.locals.locale = data.user.locale;
+    if (isTimeZone(data.user.timeZone)) context.locals.timeZone = data.user.timeZone;
   }
 
   const inApp = isArea(pathname, '/app');

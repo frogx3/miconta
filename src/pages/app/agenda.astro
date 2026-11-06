@@ -19,7 +19,7 @@ const { workspace, locale, user: currentUser } = Astro.locals;
 if (!workspace || !currentUser) return Astro.redirect('/login');
 
 const db = getDb();
-const today = todayISO();
+const today = todayISO(Astro.locals.timeZone);
 const current = monthOf(today);
 const param = Astro.url.searchParams.get('mes') ?? '';
 // Fuera de ±24 meses (o inválido) se muestra el mes actual.

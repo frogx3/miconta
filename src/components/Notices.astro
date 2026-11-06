@@ -14,7 +14,7 @@ import { unseenBackups } from '../lib/me/backup';
 
 const { user, workspace, locale } = Astro.locals;
 const enabled = Boolean(user && workspace && user.inAppNotifications !== false);
-const today = todayISO();
+const today = todayISO(Astro.locals.timeZone);
 const db = getDb();
 const [month, backups] = enabled
   ? await Promise.all([currentAgenda(Astro.locals, db, today), unseenBackups(db, workspace!.id, user!.id)])

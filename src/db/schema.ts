@@ -38,6 +38,8 @@ export const user = sqliteTable('user', {
   banReason: text('ban_reason'),
   banExpires: integer('ban_expires', { mode: 'timestamp_ms' }),
   locale: text('locale').notNull().default('es-MX'),
+  /** Zona horaria IANA elegida en Tu cuenta; sin ella se usa la que Cloudflare deduce de la IP. */
+  timeZone: text('time_zone'),
   /** Teléfono de WhatsApp vinculado (formato E.164); único entre usuarios. */
   whatsappPhone: text('whatsapp_phone'),
   whatsappVerifiedAt: integer('whatsapp_verified_at', { mode: 'timestamp_ms' }),

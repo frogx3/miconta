@@ -19,7 +19,7 @@ export const PATCH: APIRoute = async ({ request, locals, params }) => {
     await setGoalArchived(db, access.workspace.id, goal.id, access.body.archived);
     return json(200, { ok: true });
   }
-  const parsed = validateGoalEdit(access.body, goal.type, { locale: locals.locale, currency: goal.currency, todayISO: todayISO() });
+  const parsed = validateGoalEdit(access.body, goal.type, { locale: locals.locale, currency: goal.currency, todayISO: todayISO(locals.timeZone) });
   if (!parsed.ok) return validationError(parsed.errors);
   await updateGoal(db, access.workspace.id, goal.id, parsed.value);
   return json(200, { ok: true });

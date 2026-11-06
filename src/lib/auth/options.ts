@@ -37,6 +37,7 @@ export function createAuthInstance({ db, secret, baseURL, allowSignup, setupCode
     user: {
       additionalFields: {
         locale: { type: 'string', required: false, defaultValue: DEFAULT_LOCALE, input: true },
+        timeZone: { type: 'string', required: false, input: false },
         inAppNotifications: { type: 'boolean', required: false, defaultValue: true, input: false },
         deletedAt: { type: 'date', required: false, input: false },
       },
