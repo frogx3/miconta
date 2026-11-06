@@ -1,9 +1,9 @@
 :root {
-  --bg: #f6f4ee;
+  --bg: #f1eee6;
   --surface: #ffffff;
   --text: #14202f;
   --muted: #665f55;
-  --line: #e3ded2;
+  --line: #dcd5c6;
   --field-line: #857f6f;
   --accent: #1d3557;
   --accent-text: #ffffff;
@@ -26,7 +26,7 @@
   --auth-canvas: #1d3557;
   --auth-ink: #ffffff;
   --scrim: #0c1626;
-  --warn: #8a5f00;
+  --warn: #9c5200;
   --good: #2e7d4f;
   --radius: 10px;
   --font: 'Montserrat Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

@@ -6,10 +6,10 @@ colors:
   navy-deep: "#0E1A2C"
   gold: "#C5A047"
   white: "#FFFFFF"
-  paper: "#F6F4EE"
+  paper: "#F1EEE6"
   ink: "#14202F"
   muted: "#665F55"
-  line: "#E3DED2"
+  line: "#DCD5C6"
   field-line: "#857F6F"
   danger: "#B3261E"
   danger-bg: "#FDECEA"
@@ -156,10 +156,11 @@ Paleta de marca de tres colores (navy, dorado, blanco) sobre un papel cálido qu
 
 ### Neutral
 - **Blanco** (#FFFFFF): superficie de tarjetas y texto sobre navy.
-- **Papel Cálido** (#F6F4EE, derivado): fondo de página y de campos.
+- **Papel Cálido** (#F1EEE6, derivado): fondo de página y de campos; lo bastante hondo para que las tarjetas blancas se despeguen sin sombras.
 - **Tinta** (#14202F, derivado): texto principal.
-- **Gris Cálido** (#665F55, derivado): texto secundario y encabezados de tabla; cálido para combinar con el papel (5.7:1 sobre Papel).
-- **Línea Fina** (#E3DED2, derivado): bordes y divisores de 1px.
+- **Gris Cálido** (#665F55, derivado): texto secundario y encabezados de tabla; cálido para combinar con el papel (5.4:1 sobre Papel).
+- **Ámbar Aviso** (#9C5200; #F0C040 en oscuro): «no te alcanza», vencidos y avisos; ámbar quemado, no mostaza.
+- **Línea Fina** (#DCD5C6, derivado): bordes y divisores de 1px.
 - **Azul Noche** (#0E1A2C, derivado): texto sobre dorado y base del modo oscuro.
 - **Peligro** (#B3261E) sobre **Fondo Peligro** (#FDECEA): errores y acciones destructivas (existentes en el código).
 
