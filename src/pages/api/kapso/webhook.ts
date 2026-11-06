@@ -5,7 +5,7 @@ import { getDb } from '../../../lib/auth';
 import type { Db } from '../../../lib/auth/hooks';
 import { sendText } from '../../../lib/agenda/kapso';
 import { getItem, markDone, materializeCardPayment, storedOccurrence } from '../../../lib/agenda/repo';
-import { parseInbound, parseLinkMessage, redeemLinkCode, verifyItemToken, verifyWebhookSignature, whatsappConfig, whatsappEnabled, type InboundEvent, type WhatsappConfig } from '../../../lib/agenda/whatsapp';
+import { parseInbound, parseLinkMessage, redeemLinkCode, verifyItemToken, verifyWebhookSignature, whatsappConfig, type InboundEvent, type WhatsappConfig } from '../../../lib/agenda/whatsapp';
 import { json, WRITE_ROLES } from '../../../lib/http';
 
 const MAX_BODY_BYTES = 1_000_000;
@@ -26,7 +26,7 @@ const LINK_REPLIES = {
  * procesar aunque fallen las respuestas por WhatsApp, para que Kapso no reintente.
  */
 export const POST: APIRoute = async ({ request }) => {
-  const config = whatsappEnabled() ? whatsappConfig() : null;
+  const config = whatsappConfig();
   if (!config) {
     await request.text(); // Se consume antes de rechazar (ver `requireWorkspaceWithBody`).
     return json(404, { code: 'NOT_FOUND' });
@@ -47,10 +47,17 @@ export const POST: APIRoute = async ({ request }) => {
 
   const db = getDb();
   // El número del negocio nunca recibe respuesta: evita contestarnos a nosotros mismos en bucle.
-  const events = parseInbound(body).filter((event) => event.from !== config.businessPhone).slice(0, MAX_MESSAGES);
+  const businessPhone = config.businessPhone.replace(/\D/g, '');
+  const events = parseInbound(body).filter((event) => event.from !== businessPhone).slice(0, MAX_MESSAGES);
   for (const event of events) {
-    const reply = event.kind === 'text' ? await handleText(db, event.from, event.text) : await handleButton(db, config, event);
-    await sendText(config, event.from, reply); // No lanza: un envío fallido no cambia la respuesta.
+    try {
+      const reply = event.kind === 'text' ? await handleText(db, event.from, event.text) : await handleButton(db, config, event);
+      await sendText(config, event.from, reply); // No lanza: un envío fallido no cambia la respuesta.
+    } catch (error) {
+      // Un error de base en un mensaje no tumba el lote (Kapso reintentaría todo). Los errores de Drizzle traen los
+      // parámetros de la consulta: se ocultan las secuencias largas de dígitos (teléfonos).
+      console.error('webhook: mensaje falló', event.kind, (error instanceof Error ? error.message : String(error)).replace(/\d{7,}/g, '…'));
+    }
   }
   return json(200, {});
 };
