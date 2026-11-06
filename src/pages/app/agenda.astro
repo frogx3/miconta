@@ -11,7 +11,7 @@ import { monthResults, projectRecurring, type Entry, type MonthResult } from '..
 import { suggestedCardPayments, type SuggestedCardPayment } from '../../lib/agenda/card-payments';
 import { anchorDays, idsWithChild, listAgenda, listBalances } from '../../lib/agenda/repo';
 import { RECURRENCES } from '../../lib/agenda/validation';
-import { whatsappEnabled } from '../../lib/agenda/whatsapp';
+import { whatsappConfig } from '../../lib/agenda/whatsapp';
 import { user } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -120,8 +120,9 @@ const weekdays = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(loc
 
 const staleBefore = Date.now() - 7 * 86_400_000;
 const defaultDate = month === current ? today : `${month}-01`;
-// Avisos por WhatsApp: son del usuario (no del espacio), así que también los ve un `viewer`.
-const whatsapp = whatsappEnabled()
+// Avisos por WhatsApp: son del usuario (no del espacio), así que también los ve un `viewer`. Solo con la configuración
+// completa: si falta algo, vincular respondería 503.
+const whatsapp = whatsappConfig()
   ? ((await db.select({ phone: user.whatsappPhone, optIn: user.whatsappOptIn }).from(user).where(eq(user.id, currentUser.id)).limit(1))[0] ?? null)
   : null;
 const messages = messagesFor(locale, ['agenda.', 'validation.', 'common.']);

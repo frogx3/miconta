@@ -13,5 +13,5 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!config) return json(503, { code: 'NOT_CONFIGURED' });
 
   const code = await createLinkCode(getDb(), locals.user.id, new Date());
-  return json(200, { code, url: `https://wa.me/${config.businessPhone}?text=${encodeURIComponent(`Vincular ${code}`)}` });
+  return json(200, { code, url: `https://wa.me/${config.businessPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Vincular ${code}`)}` });
 };
