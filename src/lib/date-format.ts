@@ -20,5 +20,8 @@ export function formatRate(bp: number, locale: string): string {
   return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(bp / 100)}%`;
 }
 
+/** Día ISO de un instante, con la misma convención (UTC) que `todayISO`. */
+export const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
+
 /** Hoy en ISO (UTC), para los cálculos de calendario del servidor. */
-export const todayISO = (): string => new Date().toISOString().slice(0, 10);
+export const todayISO = (): string => isoDate(new Date());

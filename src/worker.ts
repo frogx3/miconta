@@ -1,5 +1,7 @@
 import { handle } from '@astrojs/cloudflare/handler';
 import PostalMime from 'postal-mime';
+import { runReminders } from './lib/agenda/reminders';
+import { whatsappConfig } from './lib/agenda/whatsapp';
 import { getDb } from './lib/auth';
 import { emailCaptureEnabled } from './lib/email/config';
 import { receiveEmail } from './lib/email/inbound';
@@ -11,7 +13,7 @@ const MAX_EMAIL_BYTES = 1_000_000;
 
 /**
  * Punto de entrada del Worker: las páginas las sirve Astro y el correo que llega a `<token>@<INBOUND_EMAIL_DOMAIN>`
- * (Email Routing, regla comodín hacia este Worker) se procesa aquí.
+ * (Email Routing, regla comodín hacia este Worker) se procesa aquí. El cron diario manda los recordatorios por WhatsApp.
  */
 export default {
   fetch: handle,
@@ -38,5 +40,15 @@ export default {
       raw,
     });
     if (result === 'rejected') message.setReject('Unknown address');
+  },
+
+  async scheduled(_controller, _env, ctx) {
+    const cfg = whatsappConfig();
+    if (!cfg) return;
+    ctx.waitUntil(
+      runReminders(getDb(), cfg, new Date())
+        .then((counts) => console.log(`recordatorios: ${counts.sent} enviados, ${counts.failed} fallidos, ${counts.skipped} saltados, ${counts.errors} errores`))
+        .catch((e) => console.error('recordatorios: corrida falló', e instanceof Error ? e.message : e)),
+    );
   },
 } satisfies ExportedHandler<Env>;

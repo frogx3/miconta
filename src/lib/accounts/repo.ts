@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { accounts, cards, importBatches, movements, plans } from '../../db/schema';
+import { accounts, agendaItems, cards, cashBalances, importBatches, movements, plans } from '../../db/schema';
 import type { Db } from '../auth/hooks';
 import type { AccountInput, CardInput } from './validation';
 
@@ -135,25 +135,30 @@ export async function setCardArchived(db: Db, workspaceId: string, accountId: st
   return rows.length > 0;
 }
 
-/** Una tarjeta con movimientos o planes forma parte del historial: no se quita, solo se archiva. */
+/** Una tarjeta con movimientos, planes, saldo o pagos en agenda forma parte del historial: no se quita, solo se archiva (las FK son restrict). */
 export async function removeCard(db: Db, workspaceId: string, accountId: string, cardId: string): Promise<CardResult> {
   const account = await getAccount(db, workspaceId, accountId);
   if (!account?.cards.some((card) => card.id === cardId)) return { ok: false, reason: 'not_found' };
   const [usedByMovements] = await db.select({ n: count() }).from(movements).where(eq(movements.cardId, cardId));
   const [usedByPlans] = await db.select({ n: count() }).from(plans).where(eq(plans.cardId, cardId));
-  if ((usedByMovements?.n ?? 0) + (usedByPlans?.n ?? 0) > 0) return { ok: false, reason: 'in_use' };
+  const [usedByBalances] = await db.select({ n: count() }).from(cashBalances).where(eq(cashBalances.cardId, cardId));
+  const [usedByAgenda] = await db.select({ n: count() }).from(agendaItems).where(eq(agendaItems.cardId, cardId));
+  const used = [usedByMovements, usedByPlans, usedByBalances, usedByAgenda].reduce((sum, row) => sum + (row?.n ?? 0), 0);
+  if (used > 0) return { ok: false, reason: 'in_use' };
   await db.delete(cards).where(eq(cards.id, cardId));
   return { ok: true, id: cardId };
 }
 
-/** Ids de las tarjetas de la cuenta que ya tienen movimientos o planes (no se pueden quitar, solo archivar). */
+/** Ids de las tarjetas de la cuenta que ya tienen movimientos, planes, saldo o pagos en agenda (no se pueden quitar, solo archivar). */
 export async function cardsInUse(db: Db, workspaceId: string, accountId: string): Promise<Set<string>> {
   const account = await getAccount(db, workspaceId, accountId);
   const ids = account?.cards.map((card) => card.id) ?? [];
   if (ids.length === 0) return new Set();
   const byMovements = await db.selectDistinct({ id: movements.cardId }).from(movements).where(inArray(movements.cardId, ids));
   const byPlans = await db.selectDistinct({ id: plans.cardId }).from(plans).where(inArray(plans.cardId, ids));
-  return new Set([...byMovements, ...byPlans].map((row) => row.id).filter((id): id is string => !!id));
+  const byBalances = await db.selectDistinct({ id: cashBalances.cardId }).from(cashBalances).where(inArray(cashBalances.cardId, ids));
+  const byAgenda = await db.selectDistinct({ id: agendaItems.cardId }).from(agendaItems).where(inArray(agendaItems.cardId, ids));
+  return new Set([...byMovements, ...byPlans, ...byBalances, ...byAgenda].map((row) => row.id).filter((id): id is string => !!id));
 }
 
 export interface AccountActivity {

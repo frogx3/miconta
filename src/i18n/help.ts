@@ -112,6 +112,10 @@ const es = {
   // Panel
   'app.dashboard.accountsList': 'Un atajo a tus cuentas y a lo que pagas este mes en cada una.',
   'goals.dashboard.title': 'Tus objetivos y qué tan avanzado vas en cada uno.',
+  'agenda.available': 'El dinero que tienes hoy: el saldo de tus tarjetas de débito, tu efectivo y otras cuentas que agregues. Tú lo capturas; mientras más reciente, mejor la respuesta.',
+  'agenda.receivable': 'Lo que te van a pagar en el mes: tu sueldo, un préstamo que te deben, una venta. Suma a lo que tienes.',
+  'agenda.payable': 'Lo que tienes que pagar en el mes: renta, servicios, el pago de tus tarjetas. Resta a lo que tienes.',
+  'agenda.estimate': 'Aún no capturas el estado de cuenta de este corte, así que calculamos el pago con tus movimientos registrados. Cuando llegue el estado de cuenta, ajusta el monto.',
 } as const;
 
 export type HelpTopic = keyof typeof es;
@@ -214,6 +218,10 @@ const en: Record<HelpTopic, string> = {
 
   'app.dashboard.accountsList': 'A shortcut to your accounts and what you pay this month in each.',
   'goals.dashboard.title': 'Your goals and how far along you are with each.',
+  'agenda.available': 'The money you have today: your debit card balances, cash and any other accounts you add. You enter it; the more recent, the better the answer.',
+  'agenda.receivable': 'What you will be paid this month: your salary, money someone owes you, a sale. It adds to what you have.',
+  'agenda.payable': 'What you have to pay this month: rent, bills, your card payments. It subtracts from what you have.',
+  'agenda.estimate': 'You have not entered this statement yet, so we calculate the payment from your recorded transactions. When the statement arrives, adjust the amount.',
 };
 
 export function helpText(locale: Locale, topic: HelpTopic): string {

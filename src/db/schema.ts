@@ -38,9 +38,13 @@ export const user = sqliteTable('user', {
   banReason: text('ban_reason'),
   banExpires: integer('ban_expires', { mode: 'timestamp_ms' }),
   locale: text('locale').notNull().default('es-MX'),
+  /** Teléfono de WhatsApp vinculado (formato E.164); único entre usuarios. */
+  whatsappPhone: text('whatsapp_phone'),
+  whatsappVerifiedAt: integer('whatsapp_verified_at', { mode: 'timestamp_ms' }),
+  whatsappOptIn: integer('whatsapp_opt_in', { mode: 'boolean' }).notNull().default(true),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-});
+}, (t) => [uniqueIndex('user_whatsapp_phone_uq').on(t.whatsappPhone)]);
 
 export const session = sqliteTable(
   'session',
@@ -509,3 +513,74 @@ export const emailMessages = sqliteTable(
   },
   (t) => [uniqueIndex('email_messages_inbox_key_uq').on(t.inboxId, t.messageKey), index('email_messages_inbox_idx').on(t.inboxId, t.receivedAt)],
 );
+
+/** Saldo disponible por tarjeta/cuenta (o libre con `label`) para la agenda de pagos. */
+export const cashBalances = sqliteTable(
+  'cash_balances',
+  {
+    id: id(),
+    workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
+    cardId: text('card_id').references(() => cards.id, { onDelete: 'restrict' }),
+    label: text('label'),
+    currency: text('currency').notNull(),
+    amountMinor: integer('amount_minor').notNull(),
+    updatedAt: updatedAt(),
+    archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),
+  },
+  (t) => [uniqueIndex('cash_balances_card_uq').on(t.cardId), index('cash_balances_ws_idx').on(t.workspaceId)],
+);
+
+/** Pagos por hacer y cobros por recibir. */
+export const agendaItems = sqliteTable(
+  'agenda_items',
+  {
+    id: id(),
+    workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
+    kind: text('kind', { enum: ['payable', 'receivable'] }).notNull(),
+    description: text('description').notNull(),
+    amountMinor: integer('amount_minor').notNull(),
+    currency: text('currency').notNull(),
+    /** Fecha de vencimiento YYYY-MM-DD. */
+    dueDate: text('due_date').notNull(),
+    recurrence: text('recurrence', { enum: ['none', 'monthly', 'biweekly'] }).notNull().default('none'),
+    status: text('status', { enum: ['pending', 'done', 'cancelled'] }).notNull().default('pending'),
+    doneAt: integer('done_at', { mode: 'timestamp_ms' }),
+    doneByUserId: text('done_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+    doneVia: text('done_via', { enum: ['web', 'whatsapp'] }),
+    cardId: text('card_id').references(() => cards.id, { onDelete: 'restrict' }),
+    /** Registro que generó este por repetición. */
+    previousId: text('previous_id'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  // Varios NULL en cardId están permitidos (SQLite): solo evita duplicar el mismo pago de tarjeta por corte.
+  (t) => [uniqueIndex('agenda_items_card_due_uq').on(t.cardId, t.dueDate), index('agenda_items_ws_due_idx').on(t.workspaceId, t.dueDate)],
+);
+
+/** Códigos de un solo uso para vincular WhatsApp. */
+export const whatsappLinkCodes = sqliteTable('whatsapp_link_codes', {
+  code: text('code').primaryKey(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  usedAt: integer('used_at', { mode: 'timestamp_ms' }),
+});
+
+/** Avisos de WhatsApp enviados (evita duplicados por elemento, usuario y anticipación). */
+export const agendaNotifications = sqliteTable(
+  'agenda_notifications',
+  {
+    id: id(),
+    workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
+    itemKey: text('item_key').notNull(),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    offset: text('offset', { enum: ['7d', '2d'] }).notNull(),
+    sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
+    kapsoMessageId: text('kapso_message_id'),
+    error: text('error'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('agenda_notifications_uq').on(t.itemKey, t.userId, t.offset)],
+);
+
+export type AgendaItem = typeof agendaItems.$inferSelect;
+export type CashBalance = typeof cashBalances.$inferSelect;

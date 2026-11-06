@@ -1,0 +1,365 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import Help from '../../components/Help.astro';
+import { messagesFor, t, tn } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+import { formatDate, isoDate, todayISO } from '../../lib/date-format';
+import { currencyDigits, formatMinor, toInputString } from '../../lib/money-format';
+import { listAccounts } from '../../lib/accounts/repo';
+import { monthOf, shiftMonth } from '../../lib/spending/analysis';
+import { monthResults, projectRecurring, type Entry, type MonthResult } from '../../lib/agenda/compute';
+import { suggestedCardPayments, type SuggestedCardPayment } from '../../lib/agenda/card-payments';
+import { anchorDays, idsWithChild, listAgenda, listBalances } from '../../lib/agenda/repo';
+import { RECURRENCES } from '../../lib/agenda/validation';
+import { whatsappConfig } from '../../lib/agenda/whatsapp';
+import { user } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const { workspace, locale, user: currentUser } = Astro.locals;
+if (!workspace || !currentUser) return Astro.redirect('/login');
+
+const db = getDb();
+const today = todayISO();
+const current = monthOf(today);
+const param = Astro.url.searchParams.get('mes') ?? '';
+// Fuera de ±24 meses (o inválido) se muestra el mes actual.
+const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(param) && param >= shiftMonth(current, -24) && param <= shiftMonth(current, 24) ? param : current;
+const isPast = month < current;
+const canWrite = workspace.role !== 'viewer';
+const currency = workspace.defaultCurrency;
+
+// Mes pasado: solo ese mes. Actual o futuro: desde el mes actual, para encadenar la proyección (incluye vencidos).
+const firstMonth = isPast ? month : current;
+const months: string[] = [];
+for (let m = firstMonth; m <= month; m = shiftMonth(m, 1)) months.push(m);
+const [items, balances, accounts, suggestionsByMonth] = await Promise.all([
+  listAgenda(db, workspace.id, { from: `${firstMonth}-01`, to: `${month}-31` }),
+  listBalances(db, workspace.id),
+  listAccounts(db, workspace.id),
+  Promise.all(months.map((m) => suggestedCardPayments(db, workspace.id, m, today))),
+]);
+
+// Un sugerido ya guardado (cualquier estado) lo reemplaza su registro.
+const materialized = new Set(items.filter((item) => item.cardId).map((item) => `${item.cardId}:${item.dueDate}`));
+const suggestions = suggestionsByMonth.flat().filter((s) => !materialized.has(`${s.cardId}:${s.dueDate}`));
+const suggestionByKey = new Map<string, SuggestedCardPayment>(suggestions.map((s) => [s.key, s]));
+const itemById = new Map(items.map((item) => [item.id, item]));
+
+// Mes actual o futuro: las series pendientes se proyectan hasta el fin del mes visible (solo la última ocurrencia de cada una).
+const recurring = isPast ? [] : items.filter((item) => item.status === 'pending' && item.recurrence !== 'none');
+const [anchors, withChild] = await Promise.all([anchorDays(db, workspace.id, recurring), idsWithChild(db, workspace.id, recurring.map((item) => item.id))]);
+const projected = projectRecurring(
+  recurring.filter((item) => !withChild.has(item.id)).map((item) => ({ ...item, key: item.id, anchorDay: anchors.get(item.id)! })),
+  `${month}-31`,
+);
+
+const entries: Entry[] = [
+  ...projected,
+  ...items.map((item) => ({ key: item.id, kind: item.kind, description: item.description, amountMinor: item.amountMinor, currency: item.currency, dueDate: item.dueDate, status: item.status, suggested: false })),
+  ...suggestions.map((s) => ({ key: s.key, kind: 'payable' as const, description: s.description, amountMinor: s.amountMinor, currency: s.currency, dueDate: s.dueDate, status: 'pending' as const, suggested: true })),
+];
+
+const debitCards = accounts.flatMap((account) => account.cards.filter((card) => card.kind === 'debit' && !card.archivedAt).map((card) => ({ card, accountName: account.name })));
+const activeDebit = new Set(debitCards.map(({ card }) => card.id));
+const usedBalances = balances.filter((b) => b.cardId === null || activeDebit.has(b.cardId));
+const freeBalances = balances.filter((b) => b.cardId === null);
+const balanceByCard = new Map(balances.filter((b) => b.cardId).map((b) => [b.cardId!, b]));
+
+const results = monthResults({ month, todayISO: today, balances: usedBalances, entries });
+// shortcut: el calendario muestra el saldo de una sola moneda (la del espacio); con varias, cada bloque de resultado da la suya.
+const primary: MonthResult | undefined = results.find((r) => r.currency === currency) ?? results[0];
+const balanceOn = new Map(primary?.days.map((d) => [d.date, d.balanceMinor]) ?? []);
+
+const money = (minor: number, cur: string) => formatMinor(minor, cur, locale);
+const monthName = (m: string) => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${m}-01T00:00:00Z`));
+const compact = (minor: number, cur: string) => new Intl.NumberFormat(locale, { style: 'currency', currency: cur, notation: 'compact', maximumFractionDigits: 1 }).format(minor / 10 ** (currencyDigits(cur) ?? 2));
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
+
+// Lista: lo del mes y, en el mes actual, los pendientes vencidos (que se muestran en el día de hoy).
+const effective = (e: Entry) => (month === current && e.status === 'pending' && e.dueDate < today ? today : e.dueDate);
+const listed = entries
+  .filter((e) => monthOf(e.dueDate) === month || (month === current && e.status === 'pending' && e.dueDate < today))
+  .sort((a, b) => effective(a).localeCompare(effective(b)) || a.description.localeCompare(b.description));
+const byDate = new Map<string, Entry[]>();
+for (const e of listed) byDate.set(effective(e), [...(byDate.get(effective(e)) ?? []), e]);
+
+function labelFor(e: Entry): { text: string; tone: string } {
+  if (e.status === 'cancelled') return { text: t(locale, 'agenda.label.cancelled'), tone: 'muted' };
+  if (e.status === 'done') {
+    const doneAt = itemById.get(e.key)?.doneAt;
+    const date = formatDate(doneAt ? isoDate(doneAt) : e.dueDate, locale);
+    return { text: t(locale, e.kind === 'payable' ? 'agenda.label.paid' : 'agenda.label.received', { date }), tone: 'muted' };
+  }
+  if (e.dueDate < today) return { text: t(locale, 'agenda.label.overdue'), tone: 'bad' };
+  if (e.dueDate === today) return { text: t(locale, 'agenda.label.today'), tone: 'warn' };
+  return { text: tn(locale, 'agenda.label.in', daysBetween(today, e.dueDate)), tone: 'muted' };
+}
+
+function strategyLines(result: MonthResult): string[] {
+  const cur = result.currency;
+  return result.strategy.flatMap((line) => {
+    if (line.kind === 'short') {
+      if (line.payable === null) return [t(locale, 'agenda.strategy.startShort', { month: monthName(month), amount: money(line.shortMinor, cur) })];
+      const out = [t(locale, 'agenda.strategy.short', { date: formatDate(line.date, locale), amount: money(line.shortMinor, cur), payable: line.payable })];
+      const next = line.nextReceivable;
+      if (next) out.push(t(locale, 'agenda.strategy.shortReceivable', { receivable: next.description, amount: money(next.amountMinor, cur), date: formatDate(next.date, locale), payable: line.payable }));
+      return out;
+    }
+    if (line.kind === 'overdue_receivable') return [t(locale, 'agenda.strategy.overdue', { receivable: line.description, amount: money(line.amountMinor, cur), date: formatDate(line.date, locale) })];
+    return [line.biggest ? t(locale, 'agenda.strategy.ok', { payable: line.biggest.description, amount: money(line.biggest.amountMinor, cur), date: formatDate(line.biggest.date, locale) }) : t(locale, 'agenda.strategy.okNone')];
+  });
+}
+const strategy = isPast ? [] : results.map((r) => ({ tone: r.strategy.some((l) => l.kind !== 'ok') ? 'bad' : 'good', lines: strategyLines(r) }));
+
+// Calendario de lunes a domingo.
+const [year, monthNumber] = month.split('-').map(Number) as [number, number];
+const totalDays = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+const leading = (new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay() + 6) % 7;
+const dates = Array.from({ length: totalDays }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
+const weekdays = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, 1 + i))));
+
+const staleBefore = Date.now() - 7 * 86_400_000;
+const defaultDate = month === current ? today : `${month}-01`;
+// Avisos por WhatsApp: son del usuario (no del espacio), así que también los ve un `viewer`. Solo con la configuración
+// completa: si falta algo, vincular respondería 503.
+const whatsapp = whatsappConfig()
+  ? ((await db.select({ phone: user.whatsappPhone, optIn: user.whatsappOptIn }).from(user).where(eq(user.id, currentUser.id)).limit(1))[0] ?? null)
+  : null;
+const messages = messagesFor(locale, ['agenda.', 'validation.', 'common.']);
+const title = t(locale, 'agenda.title', { month: monthName(month) });
+---
+
+<AppLayout title={title} active="agenda">
+  <div id="agenda" data-messages={JSON.stringify(messages)}>
+    <header class="agenda-head">
+      <a class="btn btn-ghost agenda-nav" href={`/app/agenda?mes=${shiftMonth(month, -1)}`} aria-label={t(locale, 'agenda.prev')}>‹</a>
+      <h1>{title}</h1>
+      <a class="btn btn-ghost agenda-nav" href={`/app/agenda?mes=${shiftMonth(month, 1)}`} aria-label={t(locale, 'agenda.next')}>›</a>
+    </header>
+    <p class="hint">{t(locale, 'agenda.hint')}</p>
+    <div id="agenda-error" class="alert" role="alert" hidden></div>
+
+    {
+      !isPast && results.map((r) => (
+        <section class:list={['card agenda-result', r.resultMinor > 0 ? 'tone-good' : r.resultMinor < 0 ? 'tone-bad' : 'tone-zero']}>
+          <p class="agenda-answer">
+            {r.resultMinor > 0 ? t(locale, 'agenda.result.surplus', { amount: money(r.resultMinor, r.currency) }) : r.resultMinor < 0 ? t(locale, 'agenda.result.short', { amount: money(-r.resultMinor, r.currency) }) : t(locale, 'agenda.result.zero')}
+          </p>
+          <p class="muted">{t(locale, 'agenda.math', { available: money(r.availableMinor, r.currency), receivable: money(r.receivableMinor, r.currency), payable: money(r.payableMinor, r.currency) })}</p>
+        </section>
+      ))
+    }
+
+    {
+      strategy.length > 0 && (
+        <section class="card">
+          <h2>{t(locale, 'agenda.strategy.title')}</h2>
+          {strategy.map((block) => block.lines.map((line) => <p class:list={['agenda-strategy', `tone-${block.tone}`]}>{line}</p>))}
+        </section>
+      )
+    }
+
+    <section class="card">
+      <h2>{t(locale, 'agenda.calendar.title')}</h2>
+      <div class="agenda-legend">
+        <span><span class="dot dot-pay" aria-hidden="true"></span>{t(locale, 'agenda.payable')}<Help topic="agenda.payable" /></span>
+        <span><span class="dot dot-receive" aria-hidden="true"></span>{t(locale, 'agenda.receivable')}<Help topic="agenda.receivable" /></span>
+        <span><span class="dot dot-done" aria-hidden="true"></span>{t(locale, 'agenda.legend.done')}</span>
+      </div>
+      <div class="agenda-cal">
+        {weekdays.map((day) => <span class="agenda-weekday" aria-hidden="true">{day}</span>)}
+        {Array.from({ length: leading }, () => <span aria-hidden="true"></span>)}
+        {
+          dates.map((date) => {
+            const dayEntries = byDate.get(date) ?? [];
+            const pending = dayEntries.filter((e) => e.status === 'pending');
+            const balance = balanceOn.get(date);
+            const label = t(locale, 'agenda.day.label', {
+              date: formatDate(date, locale),
+              balance: balance === undefined ? '—' : money(balance, primary!.currency),
+              payables: String(pending.filter((e) => e.kind === 'payable').length),
+              receivables: String(pending.filter((e) => e.kind === 'receivable').length),
+            });
+            return (
+              <button type="button" class:list={['agenda-day', date === today && 'is-today']} data-date={date} aria-pressed="false" aria-label={label} aria-current={date === today ? 'date' : undefined}>
+                <span class="agenda-day-n">{Number(date.slice(8))}</span>
+                <span class="agenda-dots" aria-hidden="true">
+                  {dayEntries.filter((e) => e.status !== 'cancelled').map((e) => <span class:list={['dot', e.status === 'done' ? 'dot-done' : e.kind === 'payable' ? 'dot-pay' : 'dot-receive']}></span>)}
+                </span>
+                {balance !== undefined && <span class:list={['agenda-day-balance', balance < 0 && 'is-negative']} aria-hidden="true">{compact(balance, primary!.currency)}</span>}
+              </button>
+            );
+          })
+        }
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="page-head">
+        <h2>{t(locale, 'agenda.list.title')}</h2>
+        <button type="button" class="btn btn-ghost btn-small" id="agenda-show-all" hidden>{t(locale, 'agenda.list.all')}</button>
+      </div>
+      {listed.length === 0 && <p class="empty">{t(locale, 'agenda.list.empty')}</p>}
+      <ul class="agenda-list">
+        {
+          listed.map((e) => {
+            const label = labelFor(e);
+            const item = itemById.get(e.key);
+            const suggestion = suggestionByKey.get(e.key);
+            const cardBody = suggestion ? { cardId: suggestion.cardId, dueDate: suggestion.dueDate } : null;
+            return (
+              <li class:list={['agenda-row', `is-${e.status}`]} data-date={effective(e)}>
+                <div class="agenda-row-main">
+                  <strong>{e.description}</strong>
+                  <span class:list={['agenda-amount', e.kind === 'receivable' ? 'is-receivable' : 'is-payable']}>
+                    {e.kind === 'receivable' ? '+' : '−'}
+                    {money(e.amountMinor, e.currency)}
+                  </span>
+                </div>
+                <div class="agenda-row-meta">
+                  <span>{formatDate(e.dueDate, locale)}</span>
+                  <span class="chip">{t(locale, e.kind === 'payable' ? 'agenda.payable' : 'agenda.receivable')}</span>
+                  <span class:list={['badge', `badge-${label.tone}`]}>{label.text}</span>
+                  {e.projected && <span class="badge badge-muted">{t(locale, 'agenda.label.projected')}</span>}
+                  {suggestion?.basis === 'estimate' && (
+                    <span class="badge badge-muted">
+                      {t(locale, 'agenda.estimate')}
+                      <Help topic="agenda.estimate" />
+                    </span>
+                  )}
+                </div>
+                {canWrite && e.status === 'pending' && !e.projected && (
+                  <div class="row-actions">
+                    <button type="button" class="btn btn-small" data-action data-method="POST" data-url={cardBody ? '/api/agenda/card-payments' : `/api/agenda/items/${e.key}/done`} data-body={JSON.stringify(cardBody ? { ...cardBody, action: 'done' } : {})}>
+                      {t(locale, e.kind === 'payable' ? 'agenda.action.paid' : 'agenda.action.received')}
+                    </button>
+                    <button type="button" class="link-button" data-action data-method={cardBody ? 'POST' : 'DELETE'} data-url={cardBody ? '/api/agenda/card-payments' : `/api/agenda/items/${e.key}`} data-body={JSON.stringify(cardBody ? { ...cardBody, action: 'cancel' } : {})}>
+                      {t(locale, 'agenda.action.cancel')}
+                    </button>
+                    <details class="agenda-edit">
+                      <summary>{t(locale, 'agenda.action.edit')}</summary>
+                      {cardBody ? (
+                        <form class="form-grid" novalidate data-method="POST" data-url="/api/agenda/card-payments" data-extra={JSON.stringify({ ...cardBody, action: 'adjust' })}>
+                          <div class="field narrow"><label>{t(locale, 'agenda.field.amount', { currency: e.currency })}<input name="amount" type="text" inputmode="decimal" value={toInputString(e.amountMinor, locale, e.currency)} /></label><span class="field-error" data-error-for="amount"></span></div>
+                          <div class="form-actions"><button class="btn btn-auto btn-small" type="submit">{t(locale, 'agenda.action.save')}</button></div>
+                        </form>
+                      ) : (
+                        <form class="form-grid" novalidate data-method="PATCH" data-url={`/api/agenda/items/${e.key}`} data-extra={JSON.stringify(item?.cardId ? { kind: item.kind, dueDate: item.dueDate, recurrence: item.recurrence } : {})}>
+                          <div class="field"><label>{t(locale, 'agenda.field.description')}<input name="description" type="text" maxlength="120" value={e.description} /></label><span class="field-error" data-error-for="description"></span></div>
+                          <div class="field narrow"><label>{t(locale, 'agenda.field.amount', { currency: e.currency })}<input name="amount" type="text" inputmode="decimal" value={toInputString(e.amountMinor, locale, e.currency)} /></label><span class="field-error" data-error-for="amount"></span></div>
+                          {!item?.cardId && (
+                            <>
+                              <div class="field narrow"><label>{t(locale, 'agenda.field.kind')}<select name="kind">{(['payable', 'receivable'] as const).map((kind) => <option value={kind} selected={kind === e.kind}>{t(locale, `agenda.kind.${kind}`)}</option>)}</select></label><span class="field-error" data-error-for="kind"></span></div>
+                              <div class="field narrow"><label>{t(locale, 'agenda.field.dueDate')}<input name="dueDate" type="date" value={e.dueDate} /></label><span class="field-error" data-error-for="dueDate"></span></div>
+                              <div class="field narrow"><label>{t(locale, 'agenda.field.recurrence')}<select name="recurrence">{RECURRENCES.map((r) => <option value={r} selected={r === item?.recurrence}>{t(locale, `agenda.recurrence.${r}`)}</option>)}</select></label><span class="field-error" data-error-for="recurrence"></span></div>
+                            </>
+                          )}
+                          <div class="form-actions"><button class="btn btn-auto btn-small" type="submit">{t(locale, 'agenda.action.save')}</button></div>
+                        </form>
+                      )}
+                    </details>
+                  </div>
+                )}
+                {canWrite && (e.status === 'done' || e.status === 'cancelled') && !e.projected && (
+                  <div class="row-actions">
+                    <button type="button" class="link-button" data-action data-method="POST" data-url={`/api/agenda/items/${e.key}/undo`} data-body="{}">{t(locale, 'agenda.action.undo')}</button>
+                  </div>
+                )}
+              </li>
+            );
+          })
+        }
+      </ul>
+
+      {
+        canWrite && (
+          <details class="agenda-add">
+            <summary class="btn btn-ghost btn-small">{t(locale, 'agenda.add')}</summary>
+            <form class="form-grid" novalidate data-method="POST" data-url="/api/agenda/items" data-extra="{}">
+              <fieldset class="field">
+                <legend>{t(locale, 'agenda.field.kind')}</legend>
+                <label class="check"><input type="radio" name="kind" value="payable" checked />{t(locale, 'agenda.kind.payable')}</label>
+                <label class="check"><input type="radio" name="kind" value="receivable" />{t(locale, 'agenda.kind.receivable')}</label>
+                <span class="field-error" data-error-for="kind"></span>
+              </fieldset>
+              <div class="field"><label>{t(locale, 'agenda.field.description')}<input name="description" type="text" maxlength="120" /></label><span class="field-error" data-error-for="description"></span></div>
+              <div class="field narrow"><label>{t(locale, 'agenda.field.amount', { currency })}<input name="amount" type="text" inputmode="decimal" /></label><span class="field-error" data-error-for="amount"></span></div>
+              <div class="field narrow"><label>{t(locale, 'agenda.field.dueDate')}<input name="dueDate" type="date" value={defaultDate} /></label><span class="field-error" data-error-for="dueDate"></span></div>
+              <div class="field narrow"><label>{t(locale, 'agenda.field.recurrence')}<select name="recurrence">{RECURRENCES.map((r) => <option value={r}>{t(locale, `agenda.recurrence.${r}`)}</option>)}</select></label><span class="field-error" data-error-for="recurrence"></span></div>
+              <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'agenda.create')}</button></div>
+            </form>
+          </details>
+        )
+      }
+    </section>
+
+    <section class="card">
+      <h2>{t(locale, 'agenda.balances.title')}<Help topic="agenda.available" /></h2>
+      <p class="hint">{t(locale, 'agenda.balances.hint')}</p>
+      {debitCards.length === 0 && freeBalances.length === 0 && <p class="empty">{t(locale, 'agenda.balances.empty')}</p>}
+      <ul class="agenda-balances">
+        {
+          [
+            ...debitCards.map(({ card, accountName }) => ({ name: [accountName, card.label, card.last4 && `•••• ${card.last4}`].filter(Boolean).join(' · '), balance: balanceByCard.get(card.id), cur: card.currency, extra: { cardId: card.id } })),
+            ...freeBalances.map((b) => ({ name: b.label ?? '', balance: b, cur: b.currency, extra: { id: b.id } })),
+          ].map(({ name, balance, cur, extra }) => (
+            <li class="agenda-balance">
+              <div class="agenda-row-main">
+                <strong>{name}</strong>
+                <span class="agenda-amount">{balance ? money(balance.amountMinor, cur) : '—'}</span>
+              </div>
+              <div class="agenda-row-meta">
+                <span class="muted">{balance ? t(locale, 'agenda.balances.asOf', { date: formatDate(isoDate(balance.updatedAt), locale) }) : t(locale, 'agenda.balances.none')}</span>
+                {balance && balance.updatedAt.getTime() < staleBefore && <span class="badge badge-warn">{t(locale, 'agenda.stale')}</span>}
+              </div>
+              {canWrite && (
+                <form class="agenda-balance-form" novalidate data-method="PUT" data-url="/api/agenda/balances" data-extra={JSON.stringify('id' in extra ? { ...extra, label: name } : extra)}>
+                  <div class="field narrow"><label>{t(locale, 'agenda.balances.amount', { name, currency: cur })}<input name="amount" type="text" inputmode="decimal" value={balance ? toInputString(balance.amountMinor, locale, cur) : ''} /></label><span class="field-error" data-error-for="amount"></span></div>
+                  <button class="btn btn-auto btn-small" type="submit">{t(locale, 'agenda.action.save')}</button>
+                  {'id' in extra && <button type="button" class="link-button" data-action data-method="DELETE" data-url={`/api/agenda/balances/${extra.id}`} data-body="{}">{t(locale, 'agenda.balances.remove')}</button>}
+                </form>
+              )}
+            </li>
+          ))
+        }
+      </ul>
+      {
+        canWrite && (
+          <details class="agenda-add">
+            <summary class="btn btn-ghost btn-small">{t(locale, 'agenda.balances.add')}</summary>
+            <form class="form-grid" novalidate data-method="PUT" data-url="/api/agenda/balances" data-extra="{}">
+              <div class="field"><label>{t(locale, 'agenda.balances.label')}<input name="label" type="text" maxlength="60" /></label><span class="field-error" data-error-for="label"></span></div>
+              <div class="field narrow"><label>{t(locale, 'agenda.field.amount', { currency })}<input name="amount" type="text" inputmode="decimal" /></label><span class="field-error" data-error-for="amount"></span></div>
+              <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'agenda.action.save')}</button></div>
+            </form>
+          </details>
+        )
+      }
+    </section>
+    {
+      whatsapp && (
+        <section class="card">
+          <h2>{t(locale, 'agenda.whatsapp.title')}</h2>
+          <p class="hint">{t(locale, 'agenda.whatsapp.hint')}</p>
+          {whatsapp.phone ? (
+            <>
+              <p>{t(locale, 'agenda.whatsapp.linked', { phone: `+${whatsapp.phone}` })}</p>
+              <div class="row-actions">
+                <button type="button" class="btn btn-small" data-action data-method="PATCH" data-url="/api/agenda/whatsapp" data-body={JSON.stringify({ optIn: !whatsapp.optIn })}>
+                  {t(locale, whatsapp.optIn ? 'agenda.whatsapp.pause' : 'agenda.whatsapp.resume')}
+                </button>
+                <button type="button" class="link-button" data-action data-method="DELETE" data-url="/api/agenda/whatsapp" data-body="{}">{t(locale, 'agenda.whatsapp.unlink')}</button>
+              </div>
+            </>
+          ) : (
+            <button type="button" class="btn btn-auto" id="agenda-whatsapp-link">{t(locale, 'agenda.whatsapp.link')}</button>
+          )}
+        </section>
+      )
+    }
+  </div>
+</AppLayout>
+
+<script>
+  import '../../scripts/agenda';
+</script>

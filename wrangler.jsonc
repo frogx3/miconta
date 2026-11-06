@@ -7,13 +7,22 @@
   "observability": { "enabled": true },
   // Dominio propio (la zona donbigo.com está en esta misma cuenta de Cloudflare).
   "routes": [{ "pattern": "donbigo.com", "custom_domain": true }],
+  // Recordatorios de pago por WhatsApp: todos los días a las 9:00 de Ciudad de México (15:00 UTC, sin horario de verano).
+  "triggers": { "crons": ["0 15 * * *"] },
   "vars": {
     // Registro público cerrado: el primer usuario se crea libremente (admin) y el resto los da de alta un admin.
     "ALLOW_SIGNUP": "false",
     // Dominio de las direcciones de reenvío (`<token>@in.donbigo.com`): Email Routing con regla comodín hacia este Worker.
     "INBOUND_EMAIL_DOMAIN": "in.donbigo.com",
     // Captura por correo apagada (sin bancos que manden avisos para probarla); en local se enciende en .dev.vars.
-    "EMAIL_CAPTURE": "false"
+    "EMAIL_CAPTURE": "false",
+    // Avisos por WhatsApp (Kapso) apagados. Para encender: nombre de la plantilla aprobada, número del negocio
+    // (dígitos E.164 sin "+", para wa.me) e interruptor en "true"; luego desplegar.
+    "WHATSAPP_NOTIFICATIONS": "false",
+    "KAPSO_REMINDER_TEMPLATE": "",
+    "KAPSO_BUSINESS_PHONE": ""
+    // Secretos de Kapso: `wrangler secret put KAPSO_API_KEY`, `wrangler secret put KAPSO_PHONE_NUMBER_ID`,
+    // `wrangler secret put KAPSO_WEBHOOK_SECRET`.
     // BETTER_AUTH_URL se define en producción (`wrangler secret put` o aquí); en local vive en .dev.vars.
     // BETTER_AUTH_SECRET es un secreto: `wrangler secret put BETTER_AUTH_SECRET`.
   },

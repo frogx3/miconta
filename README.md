@@ -122,6 +122,20 @@ Cada cuenta puede activar una dirección `<token>@in.donbigo.com` a la que el us
 
 Probar en local: `pnpm smoke:email` (simula correos contra `/cdn-cgi/handler/email` del servidor de desarrollo).
 
+### Avisos por WhatsApp (Kapso)
+
+Avisos 7 y 2 días antes de cada pago de la agenda, con botón "Ya lo pagué". Apagados por defecto: sin el interruptor
+no se muestra la sección en la agenda, el cron no hace nada y el webhook responde 404. Para encender:
+
+1. En Kapso: conectar el número del negocio y aprobar una plantilla (es_MX) con tres parámetros en el cuerpo
+   (descripción, monto, fecha) y un botón de respuesta rápida "Ya lo pagué".
+2. Secretos: `KAPSO_API_KEY`, `KAPSO_PHONE_NUMBER_ID` y `KAPSO_WEBHOOK_SECRET` (`pnpm exec wrangler secret put …`).
+3. `wrangler.jsonc`: `KAPSO_REMINDER_TEMPLATE` (nombre de la plantilla), `KAPSO_BUSINESS_PHONE` (dígitos E.164 sin
+   "+", p. ej. `5215512345678`) y `WHATSAPP_NOTIFICATIONS: "true"`; desplegar.
+4. Confirmar en el panel de Kapso el formato de envío (`src/lib/agenda/kapso.ts` usa la API compatible con Meta).
+
+Cada usuario vincula su número desde la agenda ("Vincular mi WhatsApp" → manda "Vincular CÓDIGO" al negocio).
+
 ### Seguridad ya aplicada
 
 - Cabeceras: CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`.

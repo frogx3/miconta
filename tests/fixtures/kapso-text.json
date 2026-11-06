@@ -1,0 +1,21 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": { "display_phone_number": "5215500000000", "phone_number_id": "987" },
+            "contacts": [{ "profile": { "name": "Jorge" }, "wa_id": "5215512345678" }],
+            "messages": [
+              { "from": "5215512345678", "id": "wamid.TEXT", "timestamp": "1762300000", "type": "text", "text": { "body": "Vincular 7KQ2X9" } }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
