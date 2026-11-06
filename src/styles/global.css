@@ -1,9 +1,9 @@
 :root {
-  --bg: #f6f4ee;
+  --bg: #f1eee6;
   --surface: #ffffff;
   --text: #14202f;
-  --muted: #5b6575;
-  --line: #e3ded2;
+  --muted: #665f55;
+  --line: #dcd5c6;
   --field-line: #857f6f;
   --accent: #1d3557;
   --accent-text: #ffffff;
@@ -14,6 +14,9 @@
   --on-danger: #ffffff;
   --brand-ink: #1d3557;
   --step-soft: #f3e8c8;
+  --freed-bg: #f3e8c8;
+  --freed-ink: #0e1a2c;
+  --ladder-fill: #1d3557;
   --header-bg: #1d3557;
   --header-ink: #ffffff;
   --header-hover: rgb(255 255 255 / 0.12);
@@ -23,7 +26,7 @@
   --auth-canvas: #1d3557;
   --auth-ink: #ffffff;
   --scrim: #0c1626;
-  --warn: #8a5f00;
+  --warn: #9c5200;
   --good: #2e7d4f;
   --radius: 10px;
   --font: 'Montserrat Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -44,12 +47,12 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0c1626;
-    --surface: #132238;
-    --text: #e8edf4;
-    --muted: #9aa8ba;
-    --line: #24354d;
-    --field-line: #5f7694;
+    --bg: #0e1114;
+    --surface: #161a1e;
+    --text: #e8ebef;
+    --muted: #a6abb2;
+    --line: #30353b;
+    --field-line: #6c727a;
     --accent: #c5a047;
     --accent-text: #0e1a2c;
     --step: #c5a047;
@@ -57,28 +60,31 @@
     --danger: #f2a19b;
     --danger-bg: #3a1d1a;
     --on-danger: #2a0d0b;
-    --brand-ink: #e8edf4;
-    --step-soft: #33393b;
-    --header-bg: #132238;
-    --header-ink: #e8edf4;
+    --brand-ink: #e8ebef;
+    --step-soft: #352d19;
+    --freed-bg: #352d19;
+    --freed-ink: #e6cf8a;
+    --ladder-fill: #8893a2;
+    --header-bg: #161a1e;
+    --header-ink: #e8ebef;
     --header-hover: rgb(255 255 255 / 0.08);
-    --footer-bg: #132238;
-    --footer-ink: #e8edf4;
-    --footer-muted: #9aa8ba;
-    --auth-canvas: #0c1626;
-    --auth-ink: #e8edf4;
+    --footer-bg: #161a1e;
+    --footer-ink: #e8ebef;
+    --footer-muted: #a6abb2;
+    --auth-canvas: #0e1114;
+    --auth-ink: #e8ebef;
     --warn: #f0c040;
     --good: #7ccf9a;
   }
 }
 
 :root[data-theme='dark'] {
-  --bg: #0c1626;
-  --surface: #132238;
-  --text: #e8edf4;
-  --muted: #9aa8ba;
-  --line: #24354d;
-  --field-line: #5f7694;
+  --bg: #0e1114;
+  --surface: #161a1e;
+  --text: #e8ebef;
+  --muted: #a6abb2;
+  --line: #30353b;
+  --field-line: #6c727a;
   --accent: #c5a047;
   --accent-text: #0e1a2c;
   --step: #c5a047;
@@ -86,16 +92,19 @@
   --danger: #f2a19b;
   --danger-bg: #3a1d1a;
   --on-danger: #2a0d0b;
-  --brand-ink: #e8edf4;
-  --step-soft: #33393b;
-  --header-bg: #132238;
-  --header-ink: #e8edf4;
+  --brand-ink: #e8ebef;
+  --step-soft: #352d19;
+  --freed-bg: #352d19;
+  --freed-ink: #e6cf8a;
+  --ladder-fill: #8893a2;
+  --header-bg: #161a1e;
+  --header-ink: #e8ebef;
   --header-hover: rgb(255 255 255 / 0.08);
-  --footer-bg: #132238;
-  --footer-ink: #e8edf4;
-  --footer-muted: #9aa8ba;
-  --auth-canvas: #0c1626;
-  --auth-ink: #e8edf4;
+  --footer-bg: #161a1e;
+  --footer-ink: #e8ebef;
+  --footer-muted: #a6abb2;
+  --auth-canvas: #0e1114;
+  --auth-ink: #e8ebef;
   --warn: #f0c040;
   --good: #7ccf9a;
 }
@@ -753,9 +762,26 @@ details.sample {
   vertical-align: middle;
 }
 
-.ladder .freed,
+/* Escalera: el peldaño que se suelta ese mes se ve en dorado, junto a lo que sigue pendiente. */
+.ladder .bar {
+  display: flex;
+  gap: 2px;
+}
+
+.ladder .bar > span {
+  background: var(--ladder-fill);
+}
+
+.ladder .bar > .bar-shed {
+  background: var(--step);
+}
+
 .freed {
-  color: var(--accent);
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--freed-bg);
+  color: var(--freed-ink);
   font-weight: 600;
 }
 

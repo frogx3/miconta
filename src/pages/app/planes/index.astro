@@ -79,6 +79,7 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
                 <td class="bar-cell">
                   <span class="bar" aria-hidden="true">
                     <span style={`width:${(month.amountMinor / max) * 100}%`} />
+                    {delta < 0 && <span class="bar-shed" style={`width:${(-delta / max) * 100}%`} />}
                   </span>
                 </td>
                 <td class="num nowrap">
@@ -86,7 +87,7 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
                   {month.overdue > 0 && <span class="hint block">{t(locale, 'plans.projection.overdue', { n: month.overdue })}</span>}
                 </td>
                 <td class="num">{month.plans}</td>
-                <td class:list={['num nowrap', delta < 0 && 'freed']}>{delta === 0 ? '' : `${delta > 0 ? '+' : '−'}${money(Math.abs(delta))}`}</td>
+                <td class="num nowrap">{delta < 0 ? <span class="freed">−{money(-delta)}</span> : delta > 0 ? `+${money(delta)}` : ''}</td>
               </tr>
             );
           };

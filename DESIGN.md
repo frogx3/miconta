@@ -6,18 +6,18 @@ colors:
   navy-deep: "#0E1A2C"
   gold: "#C5A047"
   white: "#FFFFFF"
-  paper: "#F6F4EE"
+  paper: "#F1EEE6"
   ink: "#14202F"
-  muted: "#5B6575"
-  line: "#E3DED2"
+  muted: "#665F55"
+  line: "#DCD5C6"
   field-line: "#857F6F"
   danger: "#B3261E"
   danger-bg: "#FDECEA"
   danger-ink: "#2A0D0B"
-  night: "#0C1626"
-  night-surface: "#132238"
-  night-line: "#24354D"
-  night-text: "#E8EDF4"
+  night: "#0E1114"
+  night-surface: "#161A1E"
+  night-line: "#30353B"
+  night-text: "#E8EBEF"
 typography:
   display:
     fontFamily: "Montserrat, system-ui, sans-serif"
@@ -156,14 +156,15 @@ Paleta de marca de tres colores (navy, dorado, blanco) sobre un papel cálido qu
 
 ### Neutral
 - **Blanco** (#FFFFFF): superficie de tarjetas y texto sobre navy.
-- **Papel Cálido** (#F6F4EE, derivado): fondo de página y de campos.
+- **Papel Cálido** (#F1EEE6, derivado): fondo de página y de campos; lo bastante hondo para que las tarjetas blancas se despeguen sin sombras.
 - **Tinta** (#14202F, derivado): texto principal.
-- **Gris Pizarra** (#5B6575, derivado): texto secundario y encabezados de tabla.
-- **Línea Fina** (#E3DED2, derivado): bordes y divisores de 1px.
+- **Gris Cálido** (#665F55, derivado): texto secundario y encabezados de tabla; cálido para combinar con el papel (5.4:1 sobre Papel).
+- **Ámbar Aviso** (#9C5200; #F0C040 en oscuro): «no te alcanza», vencidos y avisos; ámbar quemado, no mostaza.
+- **Línea Fina** (#DCD5C6, derivado): bordes y divisores de 1px.
 - **Azul Noche** (#0E1A2C, derivado): texto sobre dorado y base del modo oscuro.
 - **Peligro** (#B3261E) sobre **Fondo Peligro** (#FDECEA): errores y acciones destructivas (existentes en el código).
 
-Tema elegible por la persona: Claro, Oscuro o Auto (sigue al sistema; es la opción por defecto). Se cambia con el ícono de sol/luna del encabezado (o de la esquina de las pantallas de acceso) y con el selector de tres opciones del menú; se recuerda en el navegador. Los tokens oscuros viven bajo `:root[data-theme='dark']` y, en Auto, bajo la preferencia del sistema; el icono blanco de la marca se alterna por CSS. Modo oscuro: fondo #0C1626, superficie #132238, línea #24354D, texto #E8EDF4; el dorado asume el papel de acento activo y el navy deja de usarse como relleno.
+Tema elegible por la persona: Claro, Oscuro o Auto (sigue al sistema; es la opción por defecto). Se cambia con el ícono de sol/luna del encabezado (o de la esquina de las pantallas de acceso) y con el selector de tres opciones del menú; se recuerda en el navegador. Los tokens oscuros viven bajo `:root[data-theme='dark']` y, en Auto, bajo la preferencia del sistema; el icono blanco de la marca se alterna por CSS. Modo oscuro: grafito con apenas un rastro de navy (croma OKLCH ≈0.01, no navy saturado): fondo #0E1114, superficie #161A1E, línea #30353B, texto #E8EBEF, secundario #A6ABB2, borde de campo #6C727A; el dorado asume el papel de acento activo y el navy deja de usarse como relleno.
 
 ### Named Rules
 **The Frame-Not-Fill Rule.** El navy vive en las bandas que enmarcan la pantalla (encabezado y pie) y en la acción principal; el contenido va sobre papel y blanco. Cada tema se compone aparte: en oscuro las bandas son superficie, no navy.
@@ -222,7 +223,7 @@ Esquinas suaves y consistentes: 10px en tarjetas, 8px en botones, campos y panel
 - **Internal Padding:** 1.25rem.
 
 ### Inputs / Fields
-- **Style:** fondo Papel Cálido, borde 1px Línea de Campo (#857F6F en claro, #5F7694 en oscuro; 3:1 contra la superficie), 8px de radio, 0.6rem × 0.75rem. Contraseñas con botón Mostrar/Ocultar de 44px dentro del campo.
+- **Style:** fondo Papel Cálido, borde 1px Línea de Campo (#857F6F en claro, #6C727A en oscuro; 3:1 contra la superficie), 8px de radio, 0.6rem × 0.75rem. Contraseñas con botón Mostrar/Ocultar de 44px dentro del campo.
 - **Focus:** contorno de 2px navy.
 - **Error:** borde Peligro y mensaje de 0.8125rem debajo, ligado con `aria-describedby`/`aria-invalid`; el aviso general antepone "Error:" en negrita y recibe el foco. El campo inválido nunca depende solo del color.
 
@@ -230,7 +231,7 @@ Esquinas suaves y consistentes: 10px en tarjetas, 8px en botones, campos y panel
 Encabezado fijo con marca a la izquierda y, a la derecha, acciones de solo ícono (Importar, Cerrar sesión) más el botón de menú. El menú es siempre hamburguesa y abre un panel lateral (`<dialog>`) con los destinos y un ícono por cada uno; la página actual lleva el ícono relleno en Dorado Peldaño. Íconos de trazo propios (24px, trazo 1.75, una sola familia en `src/lib/icons.ts`). El pie de página repite la navegación y lleva el aviso legal (Don Bigo no es un banco ni sustituye los estados de cuenta). En móvil, la acción principal de una lista (Nueva cuenta) se ofrece como botón flotante al alcance del pulgar. Cada pantalla de detalle abre con una miga de pan (`Cuentas › Mi Banorte`), y el primer elemento enfocable de la página es "Saltar al contenido". Las entidades se enlazan entre sí: una cuenta ofrece enlaces a sus planes, movimientos, gastos e importación (solo si hay datos), y las vistas filtradas por cuenta o tarjeta muestran una pastilla "Mostrando: …" con una X de 44px para quitar el filtro.
 
 ### Escalera de compromisos (signature)
-Lista mes a mes de lo que se debe pagar, con la fecha de libertad de pagos al final. Cada mes es un peldaño: cuando un plan se libera, su peldaño se marca en dorado. Las barras de avance son píldoras de Línea Fina con relleno dorado; en tarjetas de plan, base navy con relleno dorado de lo pagado.
+Lista mes a mes de lo que se debe pagar, con la fecha de libertad de pagos al final. Cada mes es un peldaño: cuando un plan se libera, su peldaño se marca en dorado. Las barras de avance son píldoras de Línea Fina con relleno dorado; en tarjetas de plan, base navy con relleno dorado de lo pagado. En «Compromisos por mes», la barra de cada mes es lo pendiente (navy en claro, pizarra #8893A2 en oscuro, para que el dorado no se confunda con el acento) y, si ese mes termina un plan, un segmento dorado a continuación muestra el peldaño que se soltó; la cifra de «Se libera» va en píldora dorada suave (`--freed-bg`/`--freed-ink`), nunca solo por color.
 
 ## Do's and Don'ts
 
