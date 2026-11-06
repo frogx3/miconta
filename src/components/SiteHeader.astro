@@ -5,6 +5,11 @@ import ThemeToggle from './ThemeToggle.astro';
 import ThemeChoice from './ThemeChoice.astro';
 import { t } from '../i18n/messages';
 import { navFor, type NavKey } from '../lib/nav';
+import UpcomingList from './UpcomingList.astro';
+import { getDb } from '../lib/auth';
+import { todayISO } from '../lib/date-format';
+import { currentAgenda, hasPaymentSoon, upcomingEntries } from '../lib/agenda/month';
+import { addDays } from '../lib/spending/statement';
 
 interface Props {
   area: 'app' | 'admin';
@@ -17,6 +22,12 @@ const { locale } = Astro.locals;
 const items = navFor(area, { readOnly });
 const home = area === 'admin' ? '/admin' : '/app';
 const importItem = items.find((item) => item.key === 'import');
+// En la app, el botón de próximos pagos ocupa el lugar de cerrar sesión (que sigue en el menú).
+const today = todayISO();
+const tomorrow = addDays(today, 1);
+const agenda = area === 'app' ? await currentAgenda(Astro.locals, getDb(), today) : null;
+const upcoming = agenda ? upcomingEntries(agenda.entries) : [];
+const soon = agenda ? hasPaymentSoon(agenda.entries, tomorrow) : false;
 ---
 
 <header class="site-header">
@@ -37,14 +48,33 @@ const importItem = items.find((item) => item.key === 'import');
         )
       }
       <ThemeToggle />
-      <button class="icon-btn" id="logout" type="button" title={t(locale, 'auth.logout')} aria-label={t(locale, 'auth.logout')}>
-        <Icon name="logout" />
-      </button>
+      {
+        agenda ? (
+          <button class="icon-btn upcoming-btn" type="button" popovertarget="upcoming-pop" title={t(locale, 'header.upcoming')} aria-label={t(locale, soon ? 'header.upcoming.soon' : 'header.upcoming')}>
+            <Icon name="bell" />
+            {soon && <span class="upcoming-dot" aria-hidden="true" />}
+          </button>
+        ) : (
+          <button class="icon-btn" id="logout" type="button" title={t(locale, 'auth.logout')} aria-label={t(locale, 'auth.logout')}>
+            <Icon name="logout" />
+          </button>
+        )
+      }
       <button class="icon-btn icon-btn-solid" id="menu-open" type="button" aria-haspopup="dialog" aria-controls="site-menu" aria-expanded="false" title={t(locale, 'nav.menu.open')} aria-label={t(locale, 'nav.menu.open')}>
         <Icon name="menu" />
       </button>
     </div>
   </div>
+
+  {
+    agenda && (
+      <div class="upcoming-pop" id="upcoming-pop" popover aria-label={t(locale, 'header.upcoming')}>
+        <h2>{t(locale, 'header.upcoming')}</h2>
+        {upcoming.length > 0 ? <UpcomingList entries={upcoming} today={today} tomorrow={tomorrow} /> : <p class="empty">{t(locale, 'header.upcoming.empty')}</p>}
+        <a class="touch-link" href="/app/agenda">{t(locale, 'app.dashboard.agendaLink')} →</a>
+      </div>
+    )
+  }
 
   <dialog class="menu-drawer" id="site-menu" aria-label={t(locale, 'nav.main')}>
     <div class="menu-head">
@@ -112,6 +142,6 @@ const importItem = items.find((item) => item.key === 'import');
     await authClient.signOut();
     location.assign('/login');
   };
-  document.querySelector('#logout')!.addEventListener('click', logout);
+  document.querySelector('#logout')?.addEventListener('click', logout);
   document.querySelector('#menu-logout')!.addEventListener('click', logout);
 </script>

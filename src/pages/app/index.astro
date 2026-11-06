@@ -11,8 +11,9 @@ import { listPlans } from '../../lib/plans/repo';
 import { summarize } from '../../lib/plans/schedule';
 import GoalCard from '../../components/GoalCard.astro';
 import { buildGoalViews } from '../../lib/goals/view';
-import { loadAgendaMonth } from '../../lib/agenda/month';
-import { monthOf } from '../../lib/spending/analysis';
+import { currentAgenda, upcomingEntries } from '../../lib/agenda/month';
+import { addDays } from '../../lib/spending/statement';
+import UpcomingList from '../../components/UpcomingList.astro';
 
 const { user, workspace, locale } = Astro.locals;
 if (!user) return Astro.redirect('/login');
@@ -23,12 +24,9 @@ const goalViews = workspace ? (await buildGoalViews(getDb(), workspace.id, today
 
 // Agenda del mes: solo si hay algo cargado (pagos, cobros o saldos).
 const today = todayISO();
-const agenda = workspace ? await loadAgendaMonth(getDb(), workspace.id, monthOf(today), today) : null;
+const agenda = await currentAgenda(Astro.locals, getDb(), today);
 const hasAgenda = Boolean(agenda && (agenda.entries.length > 0 || agenda.balances.length > 0));
-const upcoming = (agenda?.entries ?? [])
-  .filter((e) => e.status === 'pending')
-  .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.description.localeCompare(b.description))
-  .slice(0, 5);
+const upcoming = upcomingEntries(agenda?.entries ?? []);
 const money = (minor: number, currency: string) => formatMinor(minor, currency, locale);
 ---
 
@@ -50,24 +48,7 @@ const money = (minor: number, currency: string) => formatMinor(minor, currency, 
         {upcoming.length > 0 && (
           <>
             <h3>{t(locale, 'app.dashboard.agendaNext')}</h3>
-            <ul class="home-agenda-list">
-              {upcoming.map((e) => (
-                <li>
-                  <span>
-                    <strong>{e.description}</strong>
-                    <span class="muted activity-sub">
-                      {formatDate(e.dueDate, locale)}
-                      {e.dueDate < today && <span class="badge badge-warn">{t(locale, 'agenda.label.overdue')}</span>}
-                      {e.dueDate === today && <span class="badge badge-warn">{t(locale, 'agenda.label.today')}</span>}
-                    </span>
-                  </span>
-                  <span class:list={['agenda-amount', e.kind === 'receivable' ? 'is-receivable' : 'is-payable']}>
-                    {e.kind === 'receivable' ? '+' : '−'}
-                    {money(e.amountMinor, e.currency)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <UpcomingList entries={upcoming} today={today} tomorrow={addDays(today, 1)} />
           </>
         )}
         <a class="touch-link" href="/app/agenda">{t(locale, 'app.dashboard.agendaLink')} →</a>

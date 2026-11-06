@@ -57,3 +57,25 @@ export function duePayables(entries: Entry[], today: string): { today: Entry[]; 
     overdue: pending.filter((e) => e.dueDate < today).sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
   };
 }
+
+type AgendaMonth = Awaited<ReturnType<typeof loadAgendaMonth>>;
+const perRequest = new WeakMap<object, Promise<AgendaMonth>>();
+
+/** El mes actual de la agenda, calculado una sola vez por petición (lo usan la portada, el encabezado y los avisos). */
+export function currentAgenda(locals: App.Locals, db: Db, today: string): Promise<AgendaMonth> | null {
+  if (!locals.workspace) return null;
+  let month = perRequest.get(locals);
+  if (!month) perRequest.set(locals, (month = loadAgendaMonth(db, locals.workspace.id, today.slice(0, 7), today)));
+  return month;
+}
+
+/** Lo que sigue: pendientes (pagos y cobros), lo vencido primero. */
+export const upcomingEntries = (entries: Entry[], limit = 5): Entry[] =>
+  entries
+    .filter((e) => e.status === 'pending')
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.description.localeCompare(b.description))
+    .slice(0, limit);
+
+/** ¿Hay un pago pendiente vencido, de hoy o de mañana? (el punto del botón del encabezado) */
+export const hasPaymentSoon = (entries: Entry[], tomorrow: string): boolean =>
+  entries.some((e) => e.kind === 'payable' && e.status === 'pending' && !e.projected && e.dueDate <= tomorrow);

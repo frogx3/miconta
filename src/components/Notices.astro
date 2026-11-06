@@ -9,16 +9,15 @@ import { t, tn } from '../i18n/messages';
 import { getDb } from '../lib/auth';
 import { todayISO } from '../lib/date-format';
 import { formatMinor } from '../lib/money-format';
-import { duePayables, loadAgendaMonth } from '../lib/agenda/month';
+import { currentAgenda, duePayables } from '../lib/agenda/month';
 import { unseenBackups } from '../lib/me/backup';
-import { monthOf } from '../lib/spending/analysis';
 
 const { user, workspace, locale } = Astro.locals;
 const enabled = Boolean(user && workspace && user.inAppNotifications !== false);
 const today = todayISO();
 const db = getDb();
 const [month, backups] = enabled
-  ? await Promise.all([loadAgendaMonth(db, workspace!.id, monthOf(today), today), unseenBackups(db, workspace!.id, user!.id)])
+  ? await Promise.all([currentAgenda(Astro.locals, db, today), unseenBackups(db, workspace!.id, user!.id)])
   : [null, []];
 const due = month ? duePayables(month.entries, today) : { today: [], overdue: [] };
 const money = (minor: number, currency: string) => formatMinor(minor, currency, locale);
