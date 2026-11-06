@@ -279,6 +279,13 @@ check("botón de A con un registro de otro espacio no cambia nada", (200, "pendi
 check("botón de un número desconocido no cambia nada", (200, "pending"), (webhook(button("5210000000001", sign_item(luz))), scalar(f"SELECT status FROM agenda_items WHERE id='{luz}'")))
 check("botón de A con token válido marca el pago", (200, "done", "whatsapp", id_a), (webhook(button(PHONE_A, sign_item(luz))), *d1(f"SELECT status, done_via, done_by_user_id FROM agenda_items WHERE id='{luz}'")[0].values()))
 check("pulsarlo otra vez no cambia nada", (200, "done"), (webhook(button(PHONE_A, sign_item(luz))), scalar(f"SELECT status FROM agenda_items WHERE id='{luz}'")))
+# Avisos proyectados (proj:<id>:<fecha>): solo marcan si esa fecha ya está guardada en la serie.
+nxt = datetime.date(next_after_anchor.year + next_after_anchor.month // 12, next_after_anchor.month % 12 + 1, 1)
+proj_date = nxt.replace(day=calendar.monthrange(nxt.year, nxt.month)[1]).isoformat()
+check("botón proyectado aún no guardado no cambia nada", (200, "pending", 0), (webhook(button(PHONE_A, sign_item(f"proj:{child}:{proj_date}"))), scalar(f"SELECT status FROM agenda_items WHERE id='{child}'"), scalar(f"SELECT count(*) FROM agenda_items WHERE previous_id='{child}'")))
+check("botón proyectado de V no cambia nada", (200, "pending"), (webhook(button(PHONE_V, sign_item(f"proj:{rent}:{next_after_anchor.isoformat()}"))), scalar(f"SELECT status FROM agenda_items WHERE id='{child}'")))
+check("botón proyectado cuya fecha ya se guardó marca ese registro", (200, "done", "whatsapp"), (webhook(button(PHONE_A, sign_item(f"proj:{rent}:{next_after_anchor.isoformat()}"))), *d1(f"SELECT status, done_via FROM agenda_items WHERE id='{child}'")[0].values()))
+check("botón proyectado de otro espacio no cambia nada", (200, "pending"), (webhook(button(PHONE_A, sign_item(f"proj:{agua_b}:{month_end.isoformat()}"))), scalar(f"SELECT status FROM agenda_items WHERE id='{agua_b}'")))
 
 if CRON_URL:
     print("6) Cron de recordatorios (wrangler dev, /cdn-cgi/handler/scheduled)")
@@ -286,6 +293,8 @@ if CRON_URL:
     due7 = (mx_today + datetime.timedelta(days=7)).isoformat()
     status, body = a.call("POST", "/api/agenda/items", {"kind": "payable", "description": "Internet", "amount": "500", "dueDate": due7})
     internet = body.get("id")
+    status, body = a.call("POST", "/api/agenda/items", {"kind": "payable", "description": "Gimnasio", "amount": "400", "dueDate": (mx_today - datetime.timedelta(days=8)).isoformat(), "recurrence": "biweekly"})
+    gym_key = f"proj:{body.get('id')}:{due7}"  # su siguiente quincena (+15) cae en hoy+7
 
     def trigger():
         with urllib.request.urlopen(f"{CRON_URL}/cdn-cgi/handler/scheduled?cron=0+15+*+*+*") as response:
@@ -293,12 +302,13 @@ if CRON_URL:
 
     check("primer disparo del cron", 200, trigger())
     for _ in range(10):  # el handler termina en waitUntil: se espera a que el aviso quede con su error
-        rows = d1(f"SELECT 1 FROM agenda_notifications WHERE item_key='{internet}' AND error IS NOT NULL")
-        if len(rows) >= 1:
+        rows = d1(f"SELECT 1 FROM agenda_notifications WHERE item_key IN ('{internet}', '{gym_key}') AND error IS NOT NULL")
+        if len(rows) >= 2:
             break
         time.sleep(1)
     rows = d1(f"SELECT user_id, offset, sent_at, error IS NOT NULL AS has_error FROM agenda_notifications WHERE item_key='{internet}'")
     check("un aviso de 7 días solo para quien puede registrar (A, no V), con error por la llave falsa", [(id_a, "7d", None, 1)], [tuple(r.values()) for r in rows])
+    check("la serie quincenal recibe el aviso de su ocurrencia proyectada (solo A)", [(id_a, "7d")], [tuple(r.values()) for r in d1(f"SELECT user_id, offset FROM agenda_notifications WHERE item_key='{gym_key}'")])
     check("segundo disparo del cron", 200, trigger())
     time.sleep(3)
     check("no se crean filas nuevas", 1, scalar(f"SELECT count(*) FROM agenda_notifications WHERE item_key='{internet}'"))

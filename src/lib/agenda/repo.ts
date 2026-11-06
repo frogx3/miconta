@@ -87,6 +87,18 @@ export async function anchorDays(db: Db, workspaceId: string, items: Pick<Agenda
   return days;
 }
 
+/** Id del registro guardado de la serie de `id` (él mismo o sus siguientes) que vence en `dueDate`, si existe. */
+export async function storedOccurrence(db: Db, workspaceId: string, id: string, dueDate: string): Promise<string | null> {
+  const row = await db.get<{ id: string }>(sql`
+    WITH RECURSIVE chain(id, due_date) AS (
+      SELECT id, due_date FROM agenda_items WHERE id = ${id} AND workspace_id = ${workspaceId}
+      UNION ALL
+      SELECT a.id, a.due_date FROM agenda_items a JOIN chain c ON a.previous_id = c.id WHERE a.workspace_id = ${workspaceId}
+    )
+    SELECT id FROM chain WHERE due_date = ${dueDate} LIMIT 1`);
+  return row?.id ?? null;
+}
+
 /** Ids (de los dados) que ya generaron su siguiente ocurrencia: no son la última de su serie. */
 export async function idsWithChild(db: Db, workspaceId: string, ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set();

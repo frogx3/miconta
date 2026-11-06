@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lt, ne } from 'drizzle-orm';
 import { agendaItems, agendaNotifications, user, workspaceMembers } from '../../db/schema';
 import type { Db } from '../auth/hooks';
 import { formatDate } from '../date-format';
@@ -6,7 +6,9 @@ import { formatMinor } from '../money-format';
 import { WRITE_ROLES } from '../http';
 import { addDays } from '../spending/statement';
 import { suggestedCardPayments } from './card-payments';
+import { projectRecurring } from './compute';
 import { sendReminder } from './kapso';
+import { anchorDays, idsWithChild } from './repo';
 import { signItemToken, type WhatsappConfig } from './whatsapp';
 
 type Offset = '7d' | '2d';
@@ -32,19 +34,29 @@ interface Target {
   offset: Offset;
 }
 
-/** Pagos pendientes de un espacio que vencen en hoy+7 u hoy+2: los guardados y los de tarjeta aún no materializados. */
+/**
+ * Pagos pendientes de un espacio que vencen en hoy+7 u hoy+2: los guardados, los de tarjeta aún no materializados y
+ * las ocurrencias proyectadas de series pendientes (clave `proj:<id>:<fecha>`, igual que en la página).
+ */
 async function targetsFor(db: Db, workspaceId: string, today: string): Promise<Target[]> {
   const dates = [addDays(today, 7), addDays(today, 2)];
   const months = [...new Set(dates.map((date) => date.slice(0, 7)))];
-  const [items, suggestions] = await Promise.all([
+  const [items, suggestions, series] = await Promise.all([
     db.select().from(agendaItems).where(and(eq(agendaItems.workspaceId, workspaceId), eq(agendaItems.kind, 'payable'), inArray(agendaItems.dueDate, dates))),
     Promise.all(months.map((month) => suggestedCardPayments(db, workspaceId, month, today))),
+    // Solo una serie que vence antes de hoy+7 puede tener una ocurrencia proyectada en las fechas del aviso.
+    db.select().from(agendaItems).where(and(eq(agendaItems.workspaceId, workspaceId), eq(agendaItems.kind, 'payable'), eq(agendaItems.status, 'pending'), ne(agendaItems.recurrence, 'none'), lt(agendaItems.dueDate, dates[0]!))),
   ]);
+  const [anchors, withChild] = await Promise.all([anchorDays(db, workspaceId, series), idsWithChild(db, workspaceId, series.map((item) => item.id))]);
+  const projected = projectRecurring(
+    series.filter((item) => !withChild.has(item.id)).map((item) => ({ ...item, key: item.id, anchorDay: anchors.get(item.id)! })),
+    dates[0]!,
+  ).map((entry) => ({ ...entry, itemKey: entry.key }));
   // Un sugerido ya guardado (cualquier estado) lo reemplaza su registro, como en la página.
   const materialized = new Set(items.filter((item) => item.cardId).map((item) => `${item.cardId}:${item.dueDate}`));
   const stored = items.filter((item) => item.status === 'pending').map((item) => ({ ...item, itemKey: item.id }));
   const suggested = suggestions.flat().filter((s) => !materialized.has(`${s.cardId}:${s.dueDate}`)).map((s) => ({ ...s, itemKey: s.key }));
-  return [...stored, ...suggested].flatMap((t) => {
+  return [...stored, ...suggested, ...projected].flatMap((t) => {
     const offset = reminderOffset(today, t.dueDate);
     return offset ? [{ itemKey: t.itemKey, description: t.description, amountMinor: t.amountMinor, currency: t.currency, dueDate: t.dueDate, offset }] : [];
   });

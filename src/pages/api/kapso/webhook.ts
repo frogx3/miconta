@@ -4,7 +4,7 @@ import { agendaItems, cards, user, workspaceMembers } from '../../../db/schema';
 import { getDb } from '../../../lib/auth';
 import type { Db } from '../../../lib/auth/hooks';
 import { sendText } from '../../../lib/agenda/kapso';
-import { getItem, markDone, materializeCardPayment } from '../../../lib/agenda/repo';
+import { getItem, markDone, materializeCardPayment, storedOccurrence } from '../../../lib/agenda/repo';
 import { parseInbound, parseLinkMessage, redeemLinkCode, verifyItemToken, verifyWebhookSignature, whatsappConfig, whatsappEnabled, type InboundEvent, type WhatsappConfig } from '../../../lib/agenda/whatsapp';
 import { json, WRITE_ROLES } from '../../../lib/http';
 
@@ -14,6 +14,7 @@ const MAX_MESSAGES = 20;
 const HELP = 'Hola, soy Don Bigo. Aquí te aviso de tus pagos; administra tu agenda en donbigo.com/app/agenda';
 const NOT_REGISTERED = 'No pude registrar ese pago. Revísalo en donbigo.com/app/agenda';
 const NO_PERMISSION = 'No tienes permiso para registrar pagos en este espacio.';
+const OPEN_APP = 'Abre Don Bigo para registrar este pago: donbigo.com/app/agenda';
 const LINK_REPLIES = {
   linked: 'Listo, te avisaré aquí',
   invalid: 'Ese código ya no es válido, genera otro en Don Bigo',
@@ -73,9 +74,10 @@ async function handleButton(db: Db, config: WhatsappConfig, event: Extract<Inbou
 
   // El token lo firmamos nosotros: su itemKey es de fiar, pero el espacio se toma de la base, no del mensaje.
   const card = /^card:([^:]+):(\d{4}-\d{2}-\d{2})$/.exec(itemKey);
+  const projected = /^proj:([^:]+):(\d{4}-\d{2}-\d{2})$/.exec(itemKey);
   const [owner] = card
     ? await db.select({ workspaceId: cards.workspaceId }).from(cards).where(eq(cards.id, card[1]!)).limit(1)
-    : await db.select({ workspaceId: agendaItems.workspaceId }).from(agendaItems).where(eq(agendaItems.id, itemKey)).limit(1);
+    : await db.select({ workspaceId: agendaItems.workspaceId }).from(agendaItems).where(eq(agendaItems.id, projected ? projected[1]! : itemKey)).limit(1);
   if (!owner) return NOT_REGISTERED;
   const workspaceId = owner.workspaceId;
 
@@ -94,6 +96,14 @@ async function handleButton(db: Db, config: WhatsappConfig, event: Extract<Inbou
     if (!saved) return NOT_REGISTERED;
     id = saved.id;
     result = saved.result === 'done' ? 'done' : 'already';
+  } else if (projected) {
+    // Un aviso proyectado es informativo: no se materializa la serie desde WhatsApp (habría que decidir qué pasa con
+    // las ocurrencias anteriores sin pagar). El botón solo marca si esa fecha ya quedó guardada en la serie (p. ej. se
+    // pagó la anterior en la web); si no, se manda a la app sin tocar nada.
+    const stored = await storedOccurrence(db, workspaceId, projected[1]!, projected[2]!);
+    if (!stored) return OPEN_APP;
+    id = stored;
+    result = await markDone(db, workspaceId, stored, by);
   } else {
     result = await markDone(db, workspaceId, itemKey, by);
   }
