@@ -1,19 +1,20 @@
 import { handle } from '@astrojs/cloudflare/handler';
 import PostalMime from 'postal-mime';
-import { runReminders } from './lib/agenda/reminders';
+import { runPushReminders, runReminders } from './lib/agenda/reminders';
 import { whatsappConfig } from './lib/agenda/whatsapp';
 import { getDb } from './lib/auth';
 import { emailCaptureEnabled } from './lib/email/config';
 import { receiveEmail } from './lib/email/inbound';
 import { dkimPassDomains, htmlToText } from './lib/email/notice';
 import { sha256Hex } from './lib/import/parse';
+import { vapidConfig } from './lib/push/webpush';
 
 /** Un aviso de cargo pesa unos KB; lo demás (adjuntos, boletines) no se procesa. */
 const MAX_EMAIL_BYTES = 1_000_000;
 
 /**
  * Punto de entrada del Worker: las páginas las sirve Astro y el correo que llega a `<token>@<INBOUND_EMAIL_DOMAIN>`
- * (Email Routing, regla comodín hacia este Worker) se procesa aquí. El cron diario manda los recordatorios por WhatsApp.
+ * (Email Routing, regla comodín hacia este Worker) se procesa aquí. El cron diario manda los recordatorios por WhatsApp y push.
  */
 export default {
   fetch: handle,
@@ -43,12 +44,13 @@ export default {
   },
 
   async scheduled(_controller, _env, ctx) {
-    const cfg = whatsappConfig();
-    if (!cfg) return;
-    ctx.waitUntil(
-      runReminders(getDb(), cfg, new Date())
-        .then((counts) => console.log(`recordatorios: ${counts.sent} enviados, ${counts.failed} fallidos, ${counts.skipped} saltados, ${counts.errors} errores`))
-        .catch((e) => console.error('recordatorios: corrida falló', e instanceof Error ? e.message : e)),
-    );
+    const now = new Date();
+    const log = (channel: string) => (counts: { sent: number; failed: number; skipped: number; errors: number }) =>
+      console.log(`recordatorios (${channel}): ${counts.sent} enviados, ${counts.failed} fallidos, ${counts.skipped} saltados, ${counts.errors} errores`);
+    const fail = (channel: string) => (e: unknown) => console.error(`recordatorios (${channel}): corrida falló`, e instanceof Error ? e.message : e);
+    const whatsapp = whatsappConfig();
+    if (whatsapp) ctx.waitUntil(runReminders(getDb(), whatsapp, now).then(log('whatsapp')).catch(fail('whatsapp')));
+    const vapid = vapidConfig();
+    if (vapid) ctx.waitUntil(runPushReminders(getDb(), vapid, now).then(log('push')).catch(fail('push')));
   },
 } satisfies ExportedHandler<Env>;

@@ -13,6 +13,7 @@ import { suggestedCardPayments, type SuggestedCardPayment } from '../../lib/agen
 import { anchorDays, idsWithChild, listAgenda, listBalances } from '../../lib/agenda/repo';
 import { RECURRENCES } from '../../lib/agenda/validation';
 import { whatsappConfig } from '../../lib/agenda/whatsapp';
+import { vapidConfig } from '../../lib/push/webpush';
 import { user } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -126,6 +127,8 @@ const defaultDate = month === current ? today : `${month}-01`;
 const whatsapp = whatsappConfig()
   ? ((await db.select({ phone: user.whatsappPhone, optIn: user.whatsappOptIn }).from(user).where(eq(user.id, currentUser.id)).limit(1))[0] ?? null)
   : null;
+// Notificaciones push: por navegador; el script decide qué mostrar (activar, desactivar o cómo instalar en iPhone).
+const pushKey = vapidConfig()?.publicKey ?? null;
 const messages = messagesFor(locale, ['agenda.', 'validation.', 'common.']);
 const title = t(locale, 'agenda.title', { month: monthName(month) });
 ---
@@ -337,6 +340,16 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
         )
       }
     </section>
+    {
+      pushKey && (
+        <section class="card" id="agenda-push" data-key={pushKey} hidden>
+          <h2>{t(locale, 'agenda.push.title')}</h2>
+          <p class="hint">{t(locale, 'agenda.push.hint')}</p>
+          <p data-push-note hidden></p>
+          <button type="button" class="btn btn-auto" data-push-toggle hidden></button>
+        </section>
+      )
+    }
     {
       whatsapp && (
         <section class="card">
