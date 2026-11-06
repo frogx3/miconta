@@ -1,6 +1,7 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import Help from '../../components/Help.astro';
+import Icon from '../../components/Icon.astro';
 import { messagesFor, t, tn } from '../../i18n/messages';
 import { getDb } from '../../lib/auth';
 import { formatDate, isoDate, todayISO } from '../../lib/date-format';
@@ -90,7 +91,7 @@ function labelFor(e: Entry): { text: string; tone: string } {
     const date = formatDate(doneAt ? isoDate(doneAt) : e.dueDate, locale);
     return { text: t(locale, e.kind === 'payable' ? 'agenda.label.paid' : 'agenda.label.received', { date }), tone: 'muted' };
   }
-  if (e.dueDate < today) return { text: t(locale, 'agenda.label.overdue'), tone: 'bad' };
+  if (e.dueDate < today) return { text: t(locale, 'agenda.label.overdue'), tone: 'warn' };
   if (e.dueDate === today) return { text: t(locale, 'agenda.label.today'), tone: 'warn' };
   return { text: tn(locale, 'agenda.label.in', daysBetween(today, e.dueDate)), tone: 'muted' };
 }
@@ -132,9 +133,9 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
 <AppLayout title={title} active="agenda">
   <div id="agenda" data-messages={JSON.stringify(messages)}>
     <header class="agenda-head">
-      <a class="btn btn-ghost agenda-nav" href={`/app/agenda?mes=${shiftMonth(month, -1)}`} aria-label={t(locale, 'agenda.prev')}>‹</a>
+      <a class="btn btn-ghost agenda-nav" href={`/app/agenda?mes=${shiftMonth(month, -1)}`} aria-label={t(locale, 'agenda.prev')}><Icon name="chevron-left" size={20} /></a>
       <h1>{title}</h1>
-      <a class="btn btn-ghost agenda-nav" href={`/app/agenda?mes=${shiftMonth(month, 1)}`} aria-label={t(locale, 'agenda.next')}>›</a>
+      <a class="btn btn-ghost agenda-nav" href={`/app/agenda?mes=${shiftMonth(month, 1)}`} aria-label={t(locale, 'agenda.next')}><Icon name="chevron-right" size={20} /></a>
     </header>
     <p class="hint">{t(locale, 'agenda.hint')}</p>
     <div id="agenda-error" class="alert" role="alert" hidden></div>
@@ -199,6 +200,26 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
         <h2>{t(locale, 'agenda.list.title')}</h2>
         <button type="button" class="btn btn-ghost btn-small" id="agenda-show-all" hidden>{t(locale, 'agenda.list.all')}</button>
       </div>
+      {
+        canWrite && (
+          <details class="agenda-add">
+            <summary class="btn btn-ghost btn-small">{t(locale, 'agenda.add')}</summary>
+            <form class="form-grid" novalidate data-method="POST" data-url="/api/agenda/items" data-extra="{}">
+              <fieldset class="field">
+                <legend>{t(locale, 'agenda.field.kind')}</legend>
+                <label class="check"><input type="radio" name="kind" value="payable" checked />{t(locale, 'agenda.kind.payable')}</label>
+                <label class="check"><input type="radio" name="kind" value="receivable" />{t(locale, 'agenda.kind.receivable')}</label>
+                <span class="field-error" data-error-for="kind"></span>
+              </fieldset>
+              <div class="field"><label>{t(locale, 'agenda.field.description')}<input name="description" type="text" maxlength="120" /></label><span class="field-error" data-error-for="description"></span></div>
+              <div class="field narrow"><label>{t(locale, 'agenda.field.amount', { currency })}<input name="amount" type="text" inputmode="decimal" /></label><span class="field-error" data-error-for="amount"></span></div>
+              <div class="field narrow"><label>{t(locale, 'agenda.field.dueDate')}<input name="dueDate" type="date" value={defaultDate} /></label><span class="field-error" data-error-for="dueDate"></span></div>
+              <div class="field narrow"><label>{t(locale, 'agenda.field.recurrence')}<select name="recurrence">{RECURRENCES.map((r) => <option value={r}>{t(locale, `agenda.recurrence.${r}`)}</option>)}</select></label><span class="field-error" data-error-for="recurrence"></span></div>
+              <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'agenda.create')}</button></div>
+            </form>
+          </details>
+        )
+      }
       {listed.length === 0 && <p class="empty">{t(locale, 'agenda.list.empty')}</p>}
       <ul class="agenda-list">
         {
@@ -230,7 +251,8 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
                 </div>
                 {canWrite && e.status === 'pending' && !e.projected && (
                   <div class="row-actions">
-                    <button type="button" class="btn btn-small" data-action data-method="POST" data-url={cardBody ? '/api/agenda/card-payments' : `/api/agenda/items/${e.key}/done`} data-body={JSON.stringify(cardBody ? { ...cardBody, action: 'done' } : {})}>
+                    <button type="button" class="btn btn-ghost btn-small agenda-done" data-action data-method="POST" data-url={cardBody ? '/api/agenda/card-payments' : `/api/agenda/items/${e.key}/done`} data-body={JSON.stringify(cardBody ? { ...cardBody, action: 'done' } : {})}>
+                      <Icon name="check" size={16} />
                       {t(locale, e.kind === 'payable' ? 'agenda.action.paid' : 'agenda.action.received')}
                     </button>
                     <button type="button" class="link-button" data-action data-method={cardBody ? 'POST' : 'DELETE'} data-url={cardBody ? '/api/agenda/card-payments' : `/api/agenda/items/${e.key}`} data-body={JSON.stringify(cardBody ? { ...cardBody, action: 'cancel' } : {})}>
@@ -270,27 +292,6 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
           })
         }
       </ul>
-
-      {
-        canWrite && (
-          <details class="agenda-add">
-            <summary class="btn btn-ghost btn-small">{t(locale, 'agenda.add')}</summary>
-            <form class="form-grid" novalidate data-method="POST" data-url="/api/agenda/items" data-extra="{}">
-              <fieldset class="field">
-                <legend>{t(locale, 'agenda.field.kind')}</legend>
-                <label class="check"><input type="radio" name="kind" value="payable" checked />{t(locale, 'agenda.kind.payable')}</label>
-                <label class="check"><input type="radio" name="kind" value="receivable" />{t(locale, 'agenda.kind.receivable')}</label>
-                <span class="field-error" data-error-for="kind"></span>
-              </fieldset>
-              <div class="field"><label>{t(locale, 'agenda.field.description')}<input name="description" type="text" maxlength="120" /></label><span class="field-error" data-error-for="description"></span></div>
-              <div class="field narrow"><label>{t(locale, 'agenda.field.amount', { currency })}<input name="amount" type="text" inputmode="decimal" /></label><span class="field-error" data-error-for="amount"></span></div>
-              <div class="field narrow"><label>{t(locale, 'agenda.field.dueDate')}<input name="dueDate" type="date" value={defaultDate} /></label><span class="field-error" data-error-for="dueDate"></span></div>
-              <div class="field narrow"><label>{t(locale, 'agenda.field.recurrence')}<select name="recurrence">{RECURRENCES.map((r) => <option value={r}>{t(locale, `agenda.recurrence.${r}`)}</option>)}</select></label><span class="field-error" data-error-for="recurrence"></span></div>
-              <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'agenda.create')}</button></div>
-            </form>
-          </details>
-        )
-      }
     </section>
 
     <section class="card">

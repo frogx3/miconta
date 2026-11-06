@@ -3099,10 +3099,13 @@ form + .row-actions {
 }
 
 .agenda-nav {
+  display: inline-flex;
+  align-items: center;
   width: auto;
-  padding: 0.2rem 0.8rem;
-  font-size: 1.4rem;
-  line-height: 1;
+  padding: 0.2rem 0.6rem;
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
   text-decoration: none;
 }
 
@@ -3110,33 +3113,33 @@ form + .row-actions {
   flex: 1;
   margin: 0;
   min-width: 0;
+  font-size: clamp(1.15rem, 4.5vw, 1.5rem);
+  text-wrap: balance;
 }
 
-.agenda-result {
-  border-left: 4px solid var(--line);
-}
-
-.agenda-result.tone-good { border-left-color: var(--good); }
-.agenda-result.tone-bad { border-left-color: var(--danger); }
 
 .agenda-answer {
   font-size: 1.35rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  margin: 0 0 0.25rem;
+  line-height: 1.25;
+  text-wrap: balance;
+  margin: 0 0 0.35rem;
 }
 
+/* Calma, no culpa: el faltante se avisa en ámbar, nunca en rojo (el rojo es solo para errores). */
 .tone-good .agenda-answer { color: var(--good); }
-.tone-bad .agenda-answer { color: var(--danger); }
+.tone-bad .agenda-answer { color: var(--warn); }
+
+.agenda-result .muted { font-variant-numeric: tabular-nums; margin: 0; }
 
 .agenda-strategy {
-  margin: 0.35rem 0;
-  padding-left: 0.75rem;
-  border-left: 3px solid var(--line);
+  margin: 0.5rem 0 0;
+  max-width: 70ch;
+  font-variant-numeric: tabular-nums;
 }
 
-.agenda-strategy.tone-bad { border-left-color: var(--danger); }
-.agenda-strategy.tone-good { border-left-color: var(--good); }
+.agenda-strategy + .agenda-strategy { color: var(--muted); }
 
 .agenda-legend {
   display: flex;
@@ -3160,7 +3163,7 @@ form + .row-actions {
   background: var(--muted);
 }
 
-.dot-pay { background: var(--danger); }
+.dot-pay { background: var(--text); }
 .dot-receive { background: var(--good); }
 .dot-done { background: var(--line); border: 1px solid var(--muted); }
 
@@ -3217,7 +3220,7 @@ form + .row-actions {
   white-space: nowrap;
 }
 
-.agenda-day-balance.is-negative { color: var(--danger); font-weight: 700; }
+.agenda-day-balance.is-negative { color: var(--warn); font-weight: 700; }
 
 .agenda-list,
 .agenda-balances {
@@ -3263,10 +3266,42 @@ form + .row-actions {
 .agenda-row.is-cancelled .agenda-amount { color: var(--muted); }
 .agenda-row.is-cancelled strong { text-decoration: line-through; }
 
-.agenda-edit > summary {
-  font-size: 0.875rem;
-  color: var(--accent);
+.agenda-row .row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
 }
+
+.agenda-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  min-height: 44px;
+}
+
+.agenda-row .link-button,
+.agenda-balance-form .link-button,
+.agenda-edit > summary {
+  min-height: 44px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.agenda-edit > summary {
+  display: inline-flex;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.agenda-edit > summary::-webkit-details-marker { display: none; }
+.agenda-edit[open] { flex-basis: 100%; }
+.agenda-row .link-button:hover,
+.agenda-edit > summary:hover { color: var(--text); }
 
 .agenda-edit form,
 .agenda-add form {
@@ -3279,6 +3314,12 @@ form + .row-actions {
   align-items: flex-end;
   gap: 0.5rem 0.75rem;
 }
+
+.agenda-balance-form .field { margin: 0; }
+.agenda-balance-form .btn,
+.agenda-balance-form .link-button { min-height: 44px; }
+
+.agenda-add { margin: 0 0 0.5rem; }
 
 .agenda-add > summary {
   list-style: none;
