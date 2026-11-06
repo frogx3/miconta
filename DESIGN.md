@@ -163,7 +163,7 @@ Paleta de marca de tres colores (navy, dorado, blanco) sobre un papel cálido qu
 ### Acompañantes
 Equilibran la pareja navy/dorado para que la pantalla no canse; ninguno compite con el dorado ni con el rojo de peligro.
 - **Salvia** (#35705D; #90CDB7 en oscuro): dinero a favor: cobros, «Sí te alcanza». Verde azulado que conversa con el navy.
-- **Terracota** (#A14E2B): avisos, vencidos, «No te alcanza» en claro. Cálida y distinta del dorado, sin llegar al rojo. En oscuro los avisos van en navy claro #A8BFE2.
+- **Terracota** (#A14E2B): avisos, vencidos, «No te alcanza» en claro. Cálida y distinta del dorado, sin llegar al rojo. En oscuro los avisos van en coral #EC7272.
 - **Cielo** (#EAF1FA con texto #293E5C; banda #1A2331 con texto #A8BFE2 en oscuro): encabezados de tabla; lleva el navy al contenido sin volverlo fondo.
 - **Marfil** (#EBE7DF): texto principal en oscuro; su calidez compensa lo frío del navy.
 - **Línea Fina** (#DCD5C6, derivado): bordes y divisores de 1px.
