@@ -51,3 +51,22 @@ export async function requireWorkspaceWithBody(
   if ('response' in access) return access;
   return { ...access, body: parseJsonObject(raw) };
 }
+
+/**
+ * Para acciones de la propia persona (sus avisos, su respaldo, borrar su cuenta): basta la sesión, el espacio activo y
+ * el origen propio; también las puede hacer quien solo lee. Consume el cuerpo antes de decidir, como `requireWorkspaceWithBody`.
+ */
+export async function requireSelfWithBody(
+  locals: App.Locals,
+  request: Request,
+): Promise<{ workspace: Workspace; user: NonNullable<App.Locals['user']>; body: Record<string, unknown> | null } | { response: Response }> {
+  const raw = await request.text();
+  const access = requireWorkspace(locals, request, { write: false });
+  if ('response' in access) return access;
+  if (!sameOrigin(request)) return { response: json(403, { code: 'BAD_ORIGIN' }) };
+  return { workspace: access.workspace, user: locals.user!, body: parseJsonObject(raw) };
+}
+
+/** El usuario confirma una acción destructiva escribiendo su correo. */
+export const confirmsEmail = (body: Record<string, unknown> | null, email: string) =>
+  typeof body?.confirm === 'string' && body.confirm.trim().toLowerCase() === email.toLowerCase();

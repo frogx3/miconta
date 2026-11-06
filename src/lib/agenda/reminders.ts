@@ -111,7 +111,7 @@ export async function runReminders(db: Db, cfg: WhatsappConfig, now: Date, fetch
     .from(workspaceMembers)
     .innerJoin(user, eq(user.id, workspaceMembers.userId))
     // Solo quien puede registrar el pago: un lector no podría usar el botón "Ya lo pagué".
-    .where(and(isNotNull(user.whatsappVerifiedAt), eq(user.whatsappOptIn, true), isNotNull(user.whatsappPhone), inArray(workspaceMembers.role, WRITE_ROLES)));
+    .where(and(isNull(user.deletedAt), isNotNull(user.whatsappVerifiedAt), eq(user.whatsappOptIn, true), isNotNull(user.whatsappPhone), inArray(workspaceMembers.role, WRITE_ROLES)));
   if (recipients.length === 0) return { sent: 0, failed: 0, skipped: 0, errors: 0 };
   return deliver(db, 'whatsapp', recipients, now, async (target, recipient) =>
     sendReminder(cfg, recipient.phone!, {

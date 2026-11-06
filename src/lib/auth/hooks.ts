@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import { APIError } from 'better-auth/api';
 import * as schema from '../../db/schema';
@@ -72,6 +72,11 @@ export function createUserHooks(db: Db, allowSignup: boolean, setup: SetupConfig
         }),
         db.insert(schema.workspaceMembers).values({ workspaceId, userId: user.id, role: 'owner' }),
       ]);
+    },
+
+    beforeSession: async (session: { userId: string } & Record<string, unknown>) => {
+      const [row] = await db.select({ deletedAt: schema.user.deletedAt }).from(schema.user).where(eq(schema.user.id, session.userId)).limit(1);
+      if (row?.deletedAt) throw new APIError('UNAUTHORIZED', { message: 'Invalid email or password', code: 'INVALID_EMAIL_OR_PASSWORD' });
     },
   };
 }

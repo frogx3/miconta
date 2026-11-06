@@ -3,16 +3,23 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { t, type MessageKey } from '../../i18n/messages';
 import { getAuth } from '../../lib/auth';
 import { SUPPORTED_LOCALES } from '../../lib/locale';
+import { getDb } from '../../lib/auth';
+import { formatDate } from '../../lib/date-format';
+import { DELETION_GRACE_DAYS, listPendingDeletion } from '../../lib/me/lifecycle';
 
 const { user, locale } = Astro.locals;
 if (user?.role !== 'admin') return Astro.redirect('/app');
 
-const { users } = await getAuth().api.listUsers({
+const { users: allUsers } = await getAuth().api.listUsers({
   query: { limit: 200, sortBy: 'createdAt', sortDirection: 'asc' },
   headers: Astro.request.headers,
 });
+// Las cuentas borradas por su dueño (stand-by) o ya purgadas no aparecen en la lista principal.
+const pendingDeletion = await listPendingDeletion(getDb());
+const users = allUsers.filter((row) => !(row as { deletedAt?: unknown }).deletedAt);
+const purgeOn = (date: Date) => new Date(date.getTime() + DELETION_GRACE_DAYS * 86_400_000).toISOString().slice(0, 10);
 
-const keys: MessageKey[] = ['auth.working', 'admin.create.submit', 'admin.create.done', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail'];
+const keys: MessageKey[] = ['admin.deletion.confirmPurge', 'admin.deletion.error', 'auth.working', 'admin.create.submit', 'admin.create.done', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail'];
 const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
 ---
 
@@ -53,6 +60,31 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
       </tbody>
     </table>
   </section>
+
+  {
+    pendingDeletion.length > 0 && (
+      <section class="card" id="pending-deletion">
+        <h2>{t(locale, 'admin.deletion.title')}</h2>
+        <p class="hint">{t(locale, 'admin.deletion.hint', { days: String(DELETION_GRACE_DAYS) })}</p>
+        <div id="deletion-error" class="alert" role="alert" hidden></div>
+        <ul class="pending-invites">
+          {pendingDeletion.map((row) => (
+            <li data-user={row.id} data-email={row.email}>
+              <span>
+                <strong>{row.name}</strong> <span class="muted">{row.email}</span>
+                <br />
+                <span class="muted">{t(locale, 'admin.deletion.when', { requested: formatDate(row.deletedAt.toISOString().slice(0, 10), locale), purge: formatDate(purgeOn(row.deletedAt), locale) })}</span>
+              </span>
+              <span class="row-actions">
+                <button type="button" class="btn btn-ghost btn-small" data-deletion="POST">{t(locale, 'admin.deletion.restore')}</button>
+                <button type="button" class="btn btn-danger btn-small" data-deletion="DELETE">{t(locale, 'admin.deletion.purge')}</button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 
   <section class="card">
     <h2>{t(locale, 'admin.create.title')}</h2>
@@ -101,6 +133,22 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
   const doneBox = document.querySelector<HTMLElement>('#done')!;
   const button = form.querySelector<HTMLButtonElement>('button')!;
   const messages = JSON.parse(form.dataset.messages!) as Record<string, string>;
+
+  // Cuentas por eliminar: restablecer o eliminar para siempre (esta última pide escribir el correo).
+  document.querySelectorAll<HTMLButtonElement>('#pending-deletion [data-deletion]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      const row = button.closest<HTMLElement>('li')!;
+      const box = document.querySelector<HTMLElement>('#deletion-error')!;
+      const method = button.dataset.deletion!;
+      if (method === 'DELETE' && window.prompt(messages['admin.deletion.confirmPurge']!.replace('{email}', row.dataset.email!))?.trim().toLowerCase() !== row.dataset.email!.toLowerCase()) return;
+      button.disabled = true;
+      const response = await fetch(`/api/admin/users/${row.dataset.user}/deletion`, { method, headers: { 'content-type': 'application/json' }, body: '{}' }).catch(() => null);
+      if (response?.ok) return location.reload();
+      button.disabled = false;
+      box.textContent = messages['admin.deletion.error']!;
+      box.hidden = false;
+    }),
+  );
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

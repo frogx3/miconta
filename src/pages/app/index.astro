@@ -11,6 +11,8 @@ import { listPlans } from '../../lib/plans/repo';
 import { summarize } from '../../lib/plans/schedule';
 import GoalCard from '../../components/GoalCard.astro';
 import { buildGoalViews } from '../../lib/goals/view';
+import { loadAgendaMonth } from '../../lib/agenda/month';
+import { monthOf } from '../../lib/spending/analysis';
 
 const { user, workspace, locale } = Astro.locals;
 if (!user) return Astro.redirect('/login');
@@ -18,10 +20,60 @@ if (!user) return Astro.redirect('/login');
 const accounts = workspace ? await listAccounts(getDb(), workspace.id) : [];
 const summaries = workspace ? summarize(await listPlans(getDb(), workspace.id), todayISO()) : [];
 const goalViews = workspace ? (await buildGoalViews(getDb(), workspace.id, todayISO())).slice(0, 4) : [];
+
+// Agenda del mes: solo si hay algo cargado (pagos, cobros o saldos).
+const today = todayISO();
+const agenda = workspace ? await loadAgendaMonth(getDb(), workspace.id, monthOf(today), today) : null;
+const hasAgenda = Boolean(agenda && (agenda.entries.length > 0 || agenda.balances.length > 0));
+const upcoming = (agenda?.entries ?? [])
+  .filter((e) => e.status === 'pending')
+  .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.description.localeCompare(b.description))
+  .slice(0, 5);
+const money = (minor: number, currency: string) => formatMinor(minor, currency, locale);
 ---
 
 <AppLayout title={t(locale, 'app.dashboard.title')} active="dashboard">
   <h1>{t(locale, 'app.dashboard.welcome', { name: user.name })}</h1>
+
+  {
+    hasAgenda && agenda && (
+      <section class="card home-agenda">
+        <h2>{t(locale, 'app.dashboard.agenda')}<Help topic="agenda.available" /></h2>
+        {agenda.results.map((r) => (
+          <div class:list={['agenda-result', r.resultMinor > 0 ? 'tone-good' : r.resultMinor < 0 ? 'tone-bad' : 'tone-zero']}>
+            <p class="agenda-answer">
+              {r.resultMinor > 0 ? t(locale, 'agenda.result.surplus', { amount: money(r.resultMinor, r.currency) }) : r.resultMinor < 0 ? t(locale, 'agenda.result.short', { amount: money(-r.resultMinor, r.currency) }) : t(locale, 'agenda.result.zero')}
+            </p>
+            <p class="muted">{t(locale, 'agenda.math', { available: money(r.availableMinor, r.currency), receivable: money(r.receivableMinor, r.currency), payable: money(r.payableMinor, r.currency) })}</p>
+          </div>
+        ))}
+        {upcoming.length > 0 && (
+          <>
+            <h3>{t(locale, 'app.dashboard.agendaNext')}</h3>
+            <ul class="home-agenda-list">
+              {upcoming.map((e) => (
+                <li>
+                  <span>
+                    <strong>{e.description}</strong>
+                    <span class="muted activity-sub">
+                      {formatDate(e.dueDate, locale)}
+                      {e.dueDate < today && <span class="badge badge-warn">{t(locale, 'agenda.label.overdue')}</span>}
+                      {e.dueDate === today && <span class="badge badge-warn">{t(locale, 'agenda.label.today')}</span>}
+                    </span>
+                  </span>
+                  <span class:list={['agenda-amount', e.kind === 'receivable' ? 'is-receivable' : 'is-payable']}>
+                    {e.kind === 'receivable' ? '+' : '−'}
+                    {money(e.amountMinor, e.currency)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        <a class="touch-link" href="/app/agenda">{t(locale, 'app.dashboard.agendaLink')} →</a>
+      </section>
+    )
+  }
 
   {
     summaries.map((summary) => (
@@ -96,19 +148,5 @@ const goalViews = workspace ? (await buildGoalViews(getDb(), workspace.id, today
       )
     }
   </section>
-  {
-    workspace && (
-      <section class="card">
-        <dl class="facts">
-          <dt>{t(locale, 'app.dashboard.workspace')}</dt>
-          <dd>{workspace.name}</dd>
-          <dt>{t(locale, 'app.dashboard.role')}</dt>
-          <dd>{t(locale, `role.${workspace.role}` as 'role.owner')}</dd>
-          <dt>{t(locale, 'app.dashboard.currency')}</dt>
-          <dd>{workspace.defaultCurrency}</dd>
-        </dl>
-      </section>
-    )
-  }
 
 </AppLayout>

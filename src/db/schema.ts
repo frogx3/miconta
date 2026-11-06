@@ -42,6 +42,10 @@ export const user = sqliteTable('user', {
   whatsappPhone: text('whatsapp_phone'),
   whatsappVerifiedAt: integer('whatsapp_verified_at', { mode: 'timestamp_ms' }),
   whatsappOptIn: integer('whatsapp_opt_in', { mode: 'boolean' }).notNull().default(true),
+  /** Avisos dentro de la app (banda de "hoy toca pagar" y respaldos listos). */
+  inAppNotifications: integer('in_app_notifications', { mode: 'boolean' }).notNull().default(true),
+  /** El usuario pidió borrar su cuenta: queda sin acceso y se purga a los 30 días salvo que un admin la restablezca. */
+  deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex('user_whatsapp_phone_uq').on(t.whatsappPhone)]);
@@ -599,3 +603,22 @@ export const agendaNotifications = sqliteTable(
 
 export type AgendaItem = typeof agendaItems.$inferSelect;
 export type CashBalance = typeof cashBalances.$inferSelect;
+
+/** Respaldos CSV pedidos desde Tu cuenta; los genera la cola `miconta-backups` y los archivos viven en R2. */
+export const backupExports = sqliteTable(
+  'backup_exports',
+  {
+    id: id(),
+    workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
+    requestedBy: text('requested_by').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: ['queued', 'running', 'ready', 'failed'] }).notNull().default('queued'),
+    error: text('error'),
+    createdAt: createdAt(),
+    finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
+    /** Cuándo vio el aviso "respaldo listo" quien lo pidió. */
+    seenAt: integer('seen_at', { mode: 'timestamp_ms' }),
+  },
+  (t) => [index('backup_exports_ws_idx').on(t.workspaceId, t.createdAt)],
+);
+
+export type BackupExport = typeof backupExports.$inferSelect;

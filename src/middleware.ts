@@ -8,7 +8,7 @@ import { isSupportedLocale, resolveLocale } from './lib/locale';
 const isArea = (pathname: string, area: string) => pathname === area || pathname.startsWith(`${area}/`);
 const GUEST_ONLY = ['/login', '/registro'];
 /** APIs de datos de usuario: necesitan el espacio activo. */
-const WORKSPACE_APIS = ['/api/accounts', '/api/import', '/api/plans', '/api/categories', '/api/category-rules', '/api/movements', '/api/workspace', '/api/statement-cutoffs', '/api/members', '/api/goals', '/api/email-messages', '/api/agenda'];
+const WORKSPACE_APIS = ['/api/accounts', '/api/import', '/api/plans', '/api/categories', '/api/category-rules', '/api/movements', '/api/workspace', '/api/statement-cutoffs', '/api/members', '/api/goals', '/api/email-messages', '/api/agenda', '/api/me'];
 
 /**
  * Cabeceras de seguridad. La CSP solo se aplica en el build de producción: en desarrollo, Vite necesita websockets
@@ -65,7 +65,9 @@ async function handle(context: APIContext, next: MiddlewareNext): Promise<Respon
   // Better Auth resuelve su propia sesión en sus endpoints.
   if (isArea(pathname, '/api/auth')) return next();
 
-  const data = await getAuth().api.getSession({ headers: context.request.headers });
+  const session = await getAuth().api.getSession({ headers: context.request.headers });
+  // Una cuenta en stand-by (borrada por su dueño) no tiene acceso aunque le quedara una sesión.
+  const data = session?.user.deletedAt ? null : session;
   if (data) {
     context.locals.user = data.user;
     context.locals.session = data.session;

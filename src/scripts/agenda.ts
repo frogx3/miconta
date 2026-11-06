@@ -72,57 +72,6 @@ if (root) {
     else fail(null, data);
   });
 
-  // Notificaciones push en este navegador. En iPhone solo existen con Don Bigo agregado a la pantalla de inicio.
-  const push = root.querySelector<HTMLElement>('#agenda-push');
-  if (push) {
-    const note = push.querySelector<HTMLElement>('[data-push-note]')!;
-    const toggle = push.querySelector<HTMLButtonElement>('[data-push-toggle]')!;
-    const say = (key: string | null) => {
-      note.textContent = key ? msg(key) : '';
-      note.hidden = key === null;
-    };
-    push.hidden = false;
-    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-      say(ios ? 'agenda.push.ios' : 'agenda.push.unsupported');
-    } else {
-      void (async () => {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        let current = await registration.pushManager.getSubscription();
-        const render = () => {
-          toggle.hidden = false;
-          toggle.textContent = msg(current ? 'agenda.push.disable' : 'agenda.push.enable');
-          say(current ? 'agenda.push.enabled' : Notification.permission === 'denied' ? 'agenda.push.denied' : null);
-        };
-        render();
-        toggle.addEventListener('click', async () => {
-          toggle.disabled = true;
-          try {
-            if (current) {
-              await call('DELETE', '/api/agenda/push', { endpoint: current.endpoint });
-              await current.unsubscribe();
-              current = null;
-            } else if ((await Notification.requestPermission()) === 'granted') {
-              const key = Uint8Array.from(atob(push.dataset.key!.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
-              current = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-              const { ok, data } = await call('POST', '/api/agenda/push', current.toJSON());
-              if (!ok) {
-                await current.unsubscribe();
-                current = null;
-                fail(null, data);
-              }
-            }
-          } catch {
-            show(msg('common.error'));
-          } finally {
-            toggle.disabled = false;
-            render();
-          }
-        });
-      })();
-    }
-  }
-
   // Tocar un día filtra la lista sin recargar; tocarlo otra vez (o "Ver todo el mes") la muestra completa.
   const days = [...root.querySelectorAll<HTMLButtonElement>('.agenda-day')];
   const rows = [...root.querySelectorAll<HTMLElement>('.agenda-row')];

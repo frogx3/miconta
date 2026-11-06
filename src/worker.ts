@@ -8,13 +8,16 @@ import { receiveEmail } from './lib/email/inbound';
 import { dkimPassDomains, htmlToText } from './lib/email/notice';
 import { sha256Hex } from './lib/import/parse';
 import { vapidConfig } from './lib/push/webpush';
+import { expireBackups, runBackup, type BackupJob } from './lib/me/backup';
+import { notifyBackupReady } from './lib/me/notify';
+import { purgeExpired } from './lib/me/lifecycle';
 
 /** Un aviso de cargo pesa unos KB; lo demás (adjuntos, boletines) no se procesa. */
 const MAX_EMAIL_BYTES = 1_000_000;
 
 /**
  * Punto de entrada del Worker: las páginas las sirve Astro y el correo que llega a `<token>@<INBOUND_EMAIL_DOMAIN>`
- * (Email Routing, regla comodín hacia este Worker) se procesa aquí. El cron diario manda los recordatorios por WhatsApp y push.
+ * (Email Routing, regla comodín hacia este Worker) se procesa aquí. El cron diario manda los recordatorios por WhatsApp y push y purga cuentas y respaldos vencidos; la cola genera los respaldos.
  */
 export default {
   fetch: handle,
@@ -43,7 +46,21 @@ export default {
     if (result === 'rejected') message.setReject('Unknown address');
   },
 
-  async scheduled(_controller, _env, ctx) {
+  /** Cola `miconta-backups`: genera los CSV de un respaldo y avisa por push a quien lo pidió. */
+  async queue(batch, env) {
+    for (const message of batch.messages) {
+      try {
+        if ((await runBackup(getDb(), env.FILES, message.body.backupId)) === 'ready') await notifyBackupReady(getDb(), message.body.backupId);
+        message.ack();
+      } catch (e) {
+        console.error('respaldo falló', message.body.backupId, e instanceof Error ? e.message : e);
+        // runBackup ya lo marcó como fallido; no se reintenta para no dejar al usuario esperando en bucle.
+        message.ack();
+      }
+    }
+  },
+
+  async scheduled(_controller, env, ctx) {
     const now = new Date();
     const log = (channel: string) => (counts: { sent: number; failed: number; skipped: number; errors: number }) =>
       console.log(`recordatorios (${channel}): ${counts.sent} enviados, ${counts.failed} fallidos, ${counts.skipped} saltados, ${counts.errors} errores`);
@@ -52,5 +69,10 @@ export default {
     if (whatsapp) ctx.waitUntil(runReminders(getDb(), whatsapp, now).then(log('whatsapp')).catch(fail('whatsapp')));
     const vapid = vapidConfig();
     if (vapid) ctx.waitUntil(runPushReminders(getDb(), vapid, now).then(log('push')).catch(fail('push')));
+    ctx.waitUntil(
+      Promise.all([purgeExpired(getDb(), env.FILES, now), expireBackups(getDb(), env.FILES, now)])
+        .then(([users, backups]) => console.log(`limpieza: ${users} cuentas purgadas, ${backups} respaldos vencidos`))
+        .catch((e: unknown) => console.error('limpieza falló', e instanceof Error ? e.message : e)),
+    );
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<Env, BackupJob>;

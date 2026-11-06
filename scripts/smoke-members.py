@@ -119,8 +119,8 @@ check("B (miembro) puede crear una cuenta", 201, b.call("POST", "/api/accounts",
 check("B no puede crear invitaciones", 403, b.call("POST", "/api/members/invitations", {"role": "viewer", "days": 7})[0])
 ids = {r["email"]: r["id"] for r in d1("SELECT id, email FROM user")}
 check("B no puede cambiar roles", 403, b.call("PATCH", f"/api/members/{ids['a@miconta.test']}", {"role": "viewer"})[0])
-check("la pantalla de miembros carga para B, sin formulario de invitar", (200, False), (lambda r: (r[0], 'id="invite-form"' in r[1]))(b.call("GET", "/app/miembros", raw=True)))
-check("la pantalla de miembros carga para A, con formulario de invitar", (200, True), (lambda r: (r[0], 'id="invite-form"' in r[1]))(a.call("GET", "/app/miembros", raw=True)))
+check("la pantalla de miembros carga para B, sin formulario de invitar", (200, False), (lambda r: (r[0], 'id="invite-form"' in r[1]))(b.call("GET", "/app/cuenta", raw=True)))
+check("la pantalla de miembros carga para A, con formulario de invitar", (200, True), (lambda r: (r[0], 'id="invite-form"' in r[1]))(a.call("GET", "/app/cuenta", raw=True)))
 
 print("4) Roles: cambiar, lectura, y el dueño es intocable")
 check("A pasa a B a solo lectura", 200, a.call("PATCH", f"/api/members/{ids['b@miconta.test']}", {"role": "viewer"})[0])

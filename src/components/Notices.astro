@@ -1,0 +1,92 @@
+---
+/**
+ * Avisos dentro de la app (móvil y escritorio): lo que toca pagar hoy, pagos vencidos y respaldos listos. Se calculan
+ * en cada página; el usuario los apaga en Tu cuenta. "Cerrar" oculta el aviso de pagos hasta que cambie lo pendiente o
+ * el día (en este navegador); el de respaldo se marca como visto.
+ */
+import Icon from './Icon.astro';
+import { t, tn } from '../i18n/messages';
+import { getDb } from '../lib/auth';
+import { todayISO } from '../lib/date-format';
+import { formatMinor } from '../lib/money-format';
+import { duePayables, loadAgendaMonth } from '../lib/agenda/month';
+import { unseenBackups } from '../lib/me/backup';
+import { monthOf } from '../lib/spending/analysis';
+
+const { user, workspace, locale } = Astro.locals;
+const enabled = Boolean(user && workspace && user.inAppNotifications !== false);
+const today = todayISO();
+const db = getDb();
+const [month, backups] = enabled
+  ? await Promise.all([loadAgendaMonth(db, workspace!.id, monthOf(today), today), unseenBackups(db, workspace!.id, user!.id)])
+  : [null, []];
+const due = month ? duePayables(month.entries, today) : { today: [], overdue: [] };
+const money = (minor: number, currency: string) => formatMinor(minor, currency, locale);
+// Huella de lo pendiente: si cambia (se agrega o se paga algo), el aviso cerrado vuelve a salir.
+const dueKey = `${today}:${[...due.today, ...due.overdue].map((e) => e.key).join(',')}`;
+---
+
+{
+  enabled && (due.today.length > 0 || due.overdue.length > 0 || backups.length > 0) && (
+    <div class="notices" id="notices">
+      {(due.today.length > 0 || due.overdue.length > 0) && (
+        <div class="notice notice-due" role="status" data-notice-key={dueKey} hidden>
+          <span class="notice-icon" aria-hidden="true"><Icon name="bell" size={20} /></span>
+          <div class="notice-body">
+            {due.today.length > 0 && (
+              <p>
+                <strong>{tn(locale, 'notice.today', due.today.length)}</strong>{' '}
+                {due.today.map((e) => `${e.description} (${money(e.amountMinor, e.currency)})`).join(' · ')}
+              </p>
+            )}
+            {due.overdue.length > 0 && <p>{tn(locale, 'notice.overdue', due.overdue.length)}</p>}
+            <a href="/app/agenda">{t(locale, 'notice.seeAgenda')} →</a>
+          </div>
+          <button type="button" class="notice-close" data-notice-close aria-label={t(locale, 'notice.close')}><Icon name="x" size={18} /></button>
+        </div>
+      )}
+      {backups.length > 0 && (
+        <div class="notice" role="status" data-notice-backup>
+          <span class="notice-icon" aria-hidden="true"><Icon name="download" size={20} /></span>
+          <div class="notice-body">
+            <p><strong>{t(locale, 'notice.backup')}</strong></p>
+            <a href="/app/cuenta#respaldo" data-notice-seen>{t(locale, 'notice.backupLink')} →</a>
+          </div>
+          <button type="button" class="notice-close" data-notice-close data-notice-seen aria-label={t(locale, 'notice.close')}><Icon name="x" size={18} /></button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+<script>
+  const STORE = 'donbigo.notice.closed';
+  const read = () => {
+    try {
+      return localStorage.getItem(STORE);
+    } catch {
+      return null;
+    }
+  };
+  document.querySelectorAll<HTMLElement>('#notices [data-notice-key]').forEach((notice) => {
+    notice.hidden = read() === notice.dataset.noticeKey;
+  });
+  document.querySelectorAll<HTMLElement>('#notices [data-notice-seen]').forEach((el) =>
+    el.addEventListener('click', () => {
+      void fetch('/api/me/backups', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: '{}', keepalive: true });
+    }),
+  );
+  document.querySelectorAll<HTMLButtonElement>('#notices [data-notice-close]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const notice = button.closest<HTMLElement>('.notice')!;
+      notice.hidden = true;
+      if (notice.dataset.noticeKey) {
+        try {
+          localStorage.setItem(STORE, notice.dataset.noticeKey);
+        } catch {
+          /* sin almacenamiento: solo se oculta ahora */
+        }
+      }
+    }),
+  );
+</script>

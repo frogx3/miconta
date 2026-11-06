@@ -37,6 +37,8 @@ export function createAuthInstance({ db, secret, baseURL, allowSignup, setupCode
     user: {
       additionalFields: {
         locale: { type: 'string', required: false, defaultValue: DEFAULT_LOCALE, input: true },
+        inAppNotifications: { type: 'boolean', required: false, defaultValue: true, input: false },
+        deletedAt: { type: 'date', required: false, input: false },
       },
     },
     plugins: [admin({ defaultRole: 'user' })],
@@ -44,6 +46,8 @@ export function createAuthInstance({ db, secret, baseURL, allowSignup, setupCode
     rateLimit: { enabled: true, storage: 'database' },
     databaseHooks: {
       user: { create: { before: hooks.before, after: hooks.after } },
+      // Una cuenta borrada (en stand-by) no puede entrar y responde como credenciales inválidas: como si no existiera.
+      session: { create: { before: hooks.beforeSession } },
     },
   });
 }
