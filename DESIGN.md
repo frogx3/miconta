@@ -14,10 +14,10 @@ colors:
   danger: "#B3261E"
   danger-bg: "#FDECEA"
   danger-ink: "#2A0D0B"
-  night: "#0E1114"
-  night-surface: "#161A1E"
-  night-line: "#30353B"
-  night-text: "#E8EBEF"
+  night: "#12100F"
+  night-surface: "#1B1917"
+  night-line: "#373430"
+  night-text: "#EBE7DF"
 typography:
   display:
     fontFamily: "Montserrat, system-ui, sans-serif"
@@ -141,7 +141,8 @@ Es una interfaz de trabajo (Operate): densidad media, tablas y listas legibles, 
 - Plano con líneas finas; sin sombras ni degradados.
 - Navy como tinta y acción; dorado escaso, solo para progreso y "liberado".
 - Montserrat en todo, cifras con numerales tabulares.
-- Claro por defecto; oscuro profundo (navy noche) cuando el sistema lo pide.
+- Claro por defecto; oscuro en grafito cálido con navy y dorado solo en detalles.
+- Acompañantes que equilibran la pareja de marca: salvia (positivo), terracota (aviso), cielo (encabezados de tabla) y marfil (texto en oscuro).
 - Acciones y objetivos táctiles pensados para una mano.
 
 ## Colors
@@ -158,16 +159,21 @@ Paleta de marca de tres colores (navy, dorado, blanco) sobre un papel cálido qu
 - **Blanco** (#FFFFFF): superficie de tarjetas y texto sobre navy.
 - **Papel Cálido** (#F1EEE6, derivado): fondo de página y de campos; lo bastante hondo para que las tarjetas blancas se despeguen sin sombras.
 - **Tinta** (#14202F, derivado): texto principal.
-- **Gris Cálido** (#665F55, derivado): texto secundario y encabezados de tabla; cálido para combinar con el papel (5.4:1 sobre Papel).
-- **Ámbar Aviso** (#9C5200; #F0C040 en oscuro): «no te alcanza», vencidos y avisos; ámbar quemado, no mostaza.
+- **Gris Cálido** (#665F55, derivado): texto secundario; cálido para combinar con el papel (5.4:1 sobre Papel).
+### Acompañantes
+Equilibran la pareja navy/dorado para que la pantalla no canse; ninguno compite con el dorado ni con el rojo de peligro.
+- **Salvia** (#35705D; #90CDB7 en oscuro): dinero a favor: cobros, «Sí te alcanza». Verde azulado que conversa con el navy.
+- **Terracota** (#A14E2B; #E29F81 en oscuro): avisos, vencidos, «No te alcanza». Cálida y distinta del dorado, sin llegar al rojo.
+- **Cielo** (#EAF1FA con texto #293E5C; banda #1A2331 con texto #A8BFE2 en oscuro): encabezados de tabla; lleva el navy al contenido sin volverlo fondo.
+- **Marfil** (#EBE7DF): texto principal en oscuro; su calidez compensa lo frío del navy.
 - **Línea Fina** (#DCD5C6, derivado): bordes y divisores de 1px.
 - **Azul Noche** (#0E1A2C, derivado): texto sobre dorado y base del modo oscuro.
 - **Peligro** (#B3261E) sobre **Fondo Peligro** (#FDECEA): errores y acciones destructivas (existentes en el código).
 
-Tema elegible por la persona: Claro, Oscuro o Auto (sigue al sistema; es la opción por defecto). Se cambia con el ícono de sol/luna del encabezado (o de la esquina de las pantallas de acceso) y con el selector de tres opciones del menú; se recuerda en el navegador. Los tokens oscuros viven bajo `:root[data-theme='dark']` y, en Auto, bajo la preferencia del sistema; el icono blanco de la marca se alterna por CSS. Modo oscuro: grafito con apenas un rastro de navy (croma OKLCH ≈0.01, no navy saturado): fondo #0E1114, superficie #161A1E, línea #30353B, texto #E8EBEF, secundario #A6ABB2, borde de campo #6C727A; el dorado asume el papel de acento activo y el navy deja de usarse como relleno.
+Tema elegible por la persona: Claro, Oscuro o Auto (sigue al sistema; es la opción por defecto). Se cambia con el ícono de sol/luna del encabezado (o de la esquina de las pantallas de acceso) y con el selector de tres opciones del menú; se recuerda en el navegador. Los tokens oscuros viven bajo `:root[data-theme='dark']` y, en Auto, bajo la preferencia del sistema; el icono blanco de la marca se alterna por CSS. Modo oscuro: fondos neutros en grafito cálido (fondo #12100F, superficie #1B1917, línea #373430, texto marfil #EBE7DF, secundario #B6B0A7, borde de campo #78746E); encabezado y pie también son superficie, separados por una línea navy #344E73. El navy y el dorado nunca son fondo en oscuro: el dorado es la acción principal y el progreso; el navy, en tono claro (#7494C3, #A8BFE2), vive en barras de la escalera, encabezados de tabla y bordes de detalle.
 
 ### Named Rules
-**The Frame-Not-Fill Rule.** El navy vive en las bandas que enmarcan la pantalla (encabezado y pie) y en la acción principal; el contenido va sobre papel y blanco. Cada tema se compone aparte: en oscuro las bandas son superficie, no navy.
+**The Frame-Not-Fill Rule.** En claro, el navy vive en las bandas que enmarcan la pantalla (encabezado y pie), en la acción principal y en la tinta de los títulos; el contenido va sobre papel y blanco. En oscuro, navy y dorado son detalles y elementos que destacan, nunca fondos: los fondos son grafito cálido.
 **The Gold Is a Step Rule.** El dorado marca avance conseguido (pagos hechos, "liberado"). Si aparece en más del 10% de una pantalla o decora algo sin progreso, sobra.
 **The Ink-Not-Gold Text Rule.** Ningún texto va en dorado sobre blanco; el dorado es relleno o borde, el texto es navy o tinta.
 
@@ -231,7 +237,7 @@ Esquinas suaves y consistentes: 10px en tarjetas, 8px en botones, campos y panel
 Encabezado fijo con marca a la izquierda y, a la derecha, acciones de solo ícono (Importar, Cerrar sesión) más el botón de menú. El menú es siempre hamburguesa y abre un panel lateral (`<dialog>`) con los destinos y un ícono por cada uno; la página actual lleva el ícono relleno en Dorado Peldaño. Íconos de trazo propios (24px, trazo 1.75, una sola familia en `src/lib/icons.ts`). El pie de página repite la navegación y lleva el aviso legal (Don Bigo no es un banco ni sustituye los estados de cuenta). En móvil, la acción principal de una lista (Nueva cuenta) se ofrece como botón flotante al alcance del pulgar. Cada pantalla de detalle abre con una miga de pan (`Cuentas › Mi Banorte`), y el primer elemento enfocable de la página es "Saltar al contenido". Las entidades se enlazan entre sí: una cuenta ofrece enlaces a sus planes, movimientos, gastos e importación (solo si hay datos), y las vistas filtradas por cuenta o tarjeta muestran una pastilla "Mostrando: …" con una X de 44px para quitar el filtro.
 
 ### Escalera de compromisos (signature)
-Lista mes a mes de lo que se debe pagar, con la fecha de libertad de pagos al final. Cada mes es un peldaño: cuando un plan se libera, su peldaño se marca en dorado. Las barras de avance son píldoras de Línea Fina con relleno dorado; en tarjetas de plan, base navy con relleno dorado de lo pagado. En «Compromisos por mes», la barra de cada mes es lo pendiente (navy en claro, pizarra #8893A2 en oscuro, para que el dorado no se confunda con el acento) y, si ese mes termina un plan, un segmento dorado a continuación muestra el peldaño que se soltó; la cifra de «Se libera» va en píldora dorada suave (`--freed-bg`/`--freed-ink`), nunca solo por color.
+Lista mes a mes de lo que se debe pagar, con la fecha de libertad de pagos al final. Cada mes es un peldaño: cuando un plan se libera, su peldaño se marca en dorado. Las barras de avance son píldoras de Línea Fina con relleno dorado; en tarjetas de plan, base navy con relleno dorado de lo pagado. En «Compromisos por mes», la barra de cada mes es lo pendiente (navy en claro, navy claro #7494C3 en oscuro, para que el dorado no se confunda con el acento) y, si ese mes termina un plan, un segmento dorado a continuación muestra el peldaño que se soltó; la cifra de «Se libera» va en píldora dorada suave (`--freed-bg`/`--freed-ink`), nunca solo por color.
 
 ## Do's and Don'ts
 
