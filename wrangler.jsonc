@@ -7,7 +7,7 @@
   "observability": { "enabled": true },
   // Dominio propio (la zona donbigo.com está en esta misma cuenta de Cloudflare).
   "routes": [{ "pattern": "donbigo.com", "custom_domain": true }],
-  // Recordatorios de pago por WhatsApp: todos los días a las 9:00 de Ciudad de México (15:00 UTC, sin horario de verano).
+  // Recordatorios de pago (WhatsApp y push): todos los días a las 9:00 de Ciudad de México (15:00 UTC, sin horario de verano).
   "triggers": { "crons": ["0 15 * * *"] },
   "vars": {
     // Registro público cerrado: el primer usuario se crea libremente (admin) y el resto los da de alta un admin.
@@ -20,7 +20,11 @@
     // (dígitos E.164 sin "+", para wa.me) e interruptor en "true"; luego desplegar.
     "WHATSAPP_NOTIFICATIONS": "false",
     "KAPSO_REMINDER_TEMPLATE": "",
-    "KAPSO_BUSINESS_PHONE": ""
+    "KAPSO_BUSINESS_PHONE": "",
+    // Notificaciones push: se encienden con la clave pública de aquí más el secreto `wrangler secret put VAPID_PRIVATE_KEY`
+    // (ambas salen de `node scripts/vapid-keys.mjs`; no cambiarlas después o las suscripciones existentes dejan de servir).
+    "VAPID_PUBLIC_KEY": "BOA1zhqR7dgPxbpXZsZ7ZzSSIw2nUVKkQXwgM9WFYp-MhANuPz9RsC15JX_TxUqvTyViiR5FtNtYfULb0hmFugo",
+    "VAPID_SUBJECT": "https://donbigo.com"
     // Secretos de Kapso: `wrangler secret put KAPSO_API_KEY`, `wrangler secret put KAPSO_PHONE_NUMBER_ID`,
     // `wrangler secret put KAPSO_WEBHOOK_SECRET`.
     // BETTER_AUTH_URL se define en producción (`wrangler secret put` o aquí); en local vive en .dev.vars.

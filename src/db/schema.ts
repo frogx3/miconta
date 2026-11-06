@@ -565,7 +565,21 @@ export const whatsappLinkCodes = sqliteTable('whatsapp_link_codes', {
   usedAt: integer('used_at', { mode: 'timestamp_ms' }),
 });
 
-/** Avisos de WhatsApp enviados (evita duplicados por elemento, usuario y anticipación). */
+/** Navegadores suscritos a notificaciones push (uno por dispositivo); se borran cuando el servicio responde 404/410. */
+export const pushSubscriptions = sqliteTable(
+  'push_subscriptions',
+  {
+    id: id(),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('push_subscriptions_endpoint_uq').on(t.endpoint), index('push_subscriptions_user_idx').on(t.userId)],
+);
+
+/** Avisos enviados (evita duplicados por elemento, usuario, anticipación y canal). */
 export const agendaNotifications = sqliteTable(
   'agenda_notifications',
   {
@@ -574,12 +588,13 @@ export const agendaNotifications = sqliteTable(
     itemKey: text('item_key').notNull(),
     userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
     offset: text('offset', { enum: ['7d', '2d'] }).notNull(),
+    channel: text('channel', { enum: ['whatsapp', 'push'] }).notNull().default('whatsapp'),
     sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
     kapsoMessageId: text('kapso_message_id'),
     error: text('error'),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('agenda_notifications_uq').on(t.itemKey, t.userId, t.offset)],
+  (t) => [uniqueIndex('agenda_notifications_uq').on(t.itemKey, t.userId, t.offset, t.channel)],
 );
 
 export type AgendaItem = typeof agendaItems.$inferSelect;
