@@ -198,6 +198,20 @@ if done_body:
     check("pagar el sugerido dos veces: done y already", (200, "done", 200, "already"), (s1, r1.get("result"), s2, r2.get("result")))
     check("queda una sola fila guardada y hecha", [{"n": 1, "status": "done"}], d1(f"SELECT count(*) AS n, max(status) AS status FROM agenda_items WHERE card_id='card-tdc-{RUN}' AND due_date='{due}'"))
     check("B no puede pagar la tarjeta de A", 404, b.call("POST", "/api/agenda/card-payments", done_body)[0])
+    card_item = scalar(f"SELECT id FROM agenda_items WHERE card_id='card-tdc-{RUN}' AND due_date='{due}'")
+    check("deshacer el pago de tarjeta", (200, "reopened"), (lambda r: (r[0], r[1].get("result")))(a.call("POST", f"/api/agenda/items/{card_item}/undo", {})))
+
+    def to_pay():
+        found = re.search(r"por pagar \$([\d,]+\.\d\d)", text_of(a.call("GET", f"/app/agenda?mes={due[:7]}", raw=True)[1]))
+        return round(float(found.group(1).replace(",", "")) * 100) if found else None
+
+    check("cancelar el pago de tarjeta", (200, "cancelled"), (a.call("POST", "/api/agenda/card-payments", {**done_body, "action": "cancel"})[0], scalar(f"SELECT status FROM agenda_items WHERE id='{card_item}'")))
+    before = to_pay()
+    check("deshacer la cancelación", (200, "reopened", "pending"), (*(lambda r: (r[0], r[1].get("result")))(a.call("POST", f"/api/agenda/items/{card_item}/undo", {})), scalar(f"SELECT status FROM agenda_items WHERE id='{card_item}'")))
+    html = a.call("GET", f"/app/agenda?mes={due[:7]}", raw=True)[1]
+    check("…el sugerido sigue oculto (lo reemplaza el registro)", False, any(f"card-tdc-{RUN}" in m and due in m for m in re.findall(r'data-body="([^"]*)"', html)))
+    check("…y vuelve a contar en por pagar", scalar(f"SELECT amount_minor FROM agenda_items WHERE id='{card_item}'"), (to_pay() or 0) - (before or 0))
+    check("deshacer otra vez", 409, a.call("POST", f"/api/agenda/items/{card_item}/undo", {})[0])
 check("tarjeta de débito no es pago sugerido", 404, a.call("POST", "/api/agenda/card-payments", {"cardId": f"card-deb-{RUN}", "dueDate": month_end.isoformat(), "action": "done"})[0])
 check("fecha que no es de un sugerido", 404, a.call("POST", "/api/agenda/card-payments", {"cardId": f"card-tdc-{RUN}", "dueDate": "2020-01-01", "action": "done"})[0])
 

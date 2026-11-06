@@ -124,8 +124,14 @@ export async function markDone(db: Db, workspaceId: string, id: string, by: Done
   return 'done';
 }
 
-/** Reabre un hecho y borra la ocurrencia que generó, solo si sigue pendiente y sin cambios. */
+/** Reabre un hecho (y borra la ocurrencia que generó, solo si sigue pendiente y sin cambios) o un cancelado. */
 export async function undoDone(db: Db, workspaceId: string, id: string): Promise<'reopened' | 'not_done' | 'not_found'> {
+  const restored = await db
+    .update(agendaItems)
+    .set({ status: 'pending' })
+    .where(and(eq(agendaItems.id, id), eq(agendaItems.workspaceId, workspaceId), eq(agendaItems.status, 'cancelled')))
+    .returning({ id: agendaItems.id });
+  if (restored.length > 0) return 'reopened';
   const rows = await db
     .update(agendaItems)
     .set({ status: 'pending', doneAt: null, doneByUserId: null, doneVia: null })

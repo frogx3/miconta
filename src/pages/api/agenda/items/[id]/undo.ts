@@ -3,7 +3,7 @@ import { getDb } from '../../../../../lib/auth';
 import { undoDone } from '../../../../../lib/agenda/repo';
 import { json, requireWorkspaceWithBody } from '../../../../../lib/http';
 
-/** Deshace un "Ya lo pagué": reabre el registro y quita la siguiente ocurrencia si nadie la tocó. */
+/** Deshace un "Ya lo pagué" (reabre y quita la siguiente ocurrencia si nadie la tocó) o una cancelación. */
 export const POST: APIRoute = async ({ request, locals, params }) => {
   const access = await requireWorkspaceWithBody(locals, request);
   if ('response' in access) return access.response;

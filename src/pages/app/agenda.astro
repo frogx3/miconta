@@ -259,7 +259,7 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
                     </details>
                   </div>
                 )}
-                {canWrite && e.status === 'done' && (
+                {canWrite && (e.status === 'done' || e.status === 'cancelled') && !e.projected && (
                   <div class="row-actions">
                     <button type="button" class="link-button" data-action data-method="POST" data-url={`/api/agenda/items/${e.key}/undo`} data-body="{}">{t(locale, 'agenda.action.undo')}</button>
                   </div>
