@@ -22,7 +22,7 @@ function apply(choice: Choice) {
   else root.setAttribute('data-theme', choice);
   const effective = choice === 'system' ? (dark.matches ? 'dark' : 'light') : choice;
   root.setAttribute('data-mode', effective);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', effective === 'dark' ? '#1d3557' : '#ffffff');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', effective === 'dark' ? '#1b1917' : '#ffffff');
   document.querySelectorAll<HTMLInputElement>('input[data-theme-choice]').forEach((input) => (input.checked = input.value === choice));
 }
 

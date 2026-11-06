@@ -19,6 +19,7 @@
   --ladder-fill: #1d3557;
   --info-bg: #eaf1fa;
   --info-ink: #293e5c;
+  --header-line: rgb(255 255 255 / 0.14);
   --header-bg: #1d3557;
   --header-ink: #ffffff;
   --header-hover: rgb(255 255 255 / 0.12);
@@ -49,12 +50,12 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0e1520;
-    --surface: #17202c;
+    --bg: #12100f;
+    --surface: #1b1917;
     --text: #ebe7df;
     --muted: #b6b0a7;
-    --line: #2c3645;
-    --field-line: #6a7586;
+    --line: #373430;
+    --field-line: #78746e;
     --accent: #c5a047;
     --accent-text: #0e1a2c;
     --step: #c5a047;
@@ -66,16 +67,17 @@
     --step-soft: #3c3116;
     --freed-bg: #3c3116;
     --freed-ink: #e6cf8a;
-    --ladder-fill: #899ab1;
-    --info-bg: #202c3d;
-    --info-ink: #c9d6ea;
-    --header-bg: #1d3557;
+    --ladder-fill: #7494c3;
+    --info-bg: #1a2331;
+    --info-ink: #a8bfe2;
+    --header-line: #344e73;
+    --header-bg: #1b1917;
     --header-ink: #ebe7df;
-    --header-hover: rgb(255 255 255 / 0.12);
-    --footer-bg: #1d3557;
+    --header-hover: rgb(255 255 255 / 0.08);
+    --footer-bg: #1b1917;
     --footer-ink: #ebe7df;
     --footer-muted: #b6b0a7;
-    --auth-canvas: #0e1520;
+    --auth-canvas: #12100f;
     --auth-ink: #ebe7df;
     --warn: #e29f81;
     --good: #90cdb7;
@@ -83,12 +85,12 @@
 }
 
 :root[data-theme='dark'] {
-  --bg: #0e1520;
-  --surface: #17202c;
+  --bg: #12100f;
+  --surface: #1b1917;
   --text: #ebe7df;
   --muted: #b6b0a7;
-  --line: #2c3645;
-  --field-line: #6a7586;
+  --line: #373430;
+  --field-line: #78746e;
   --accent: #c5a047;
   --accent-text: #0e1a2c;
   --step: #c5a047;
@@ -100,16 +102,17 @@
   --step-soft: #3c3116;
   --freed-bg: #3c3116;
   --freed-ink: #e6cf8a;
-  --ladder-fill: #899ab1;
-  --info-bg: #202c3d;
-  --info-ink: #c9d6ea;
-  --header-bg: #1d3557;
+  --ladder-fill: #7494c3;
+  --info-bg: #1a2331;
+  --info-ink: #a8bfe2;
+  --header-line: #344e73;
+  --header-bg: #1b1917;
   --header-ink: #ebe7df;
-  --header-hover: rgb(255 255 255 / 0.12);
-  --footer-bg: #1d3557;
+  --header-hover: rgb(255 255 255 / 0.08);
+  --footer-bg: #1b1917;
   --footer-ink: #ebe7df;
   --footer-muted: #b6b0a7;
-  --auth-canvas: #0e1520;
+  --auth-canvas: #12100f;
   --auth-ink: #ebe7df;
   --warn: #e29f81;
   --good: #90cdb7;
@@ -1367,7 +1370,7 @@ textarea {
   z-index: 20;
   color: var(--header-ink);
   background: var(--header-bg);
-  border-bottom: 1px solid color-mix(in srgb, var(--header-ink) 14%, transparent);
+  border-bottom: 1px solid var(--header-line);
 }
 
 /* El encabezado es siempre una banda oscura: aquí va la versión blanca del icono en ambos temas. */
