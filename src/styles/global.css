@@ -14,6 +14,9 @@
   --on-danger: #ffffff;
   --brand-ink: #1d3557;
   --step-soft: #f3e8c8;
+  --freed-bg: #f3e8c8;
+  --freed-ink: #0e1a2c;
+  --ladder-fill: #1d3557;
   --header-bg: #1d3557;
   --header-ink: #ffffff;
   --header-hover: rgb(255 255 255 / 0.12);
@@ -59,6 +62,9 @@
     --on-danger: #2a0d0b;
     --brand-ink: #e8edf4;
     --step-soft: #33393b;
+    --freed-bg: #2f3434;
+    --freed-ink: #e6cf8a;
+    --ladder-fill: #8193ab;
     --header-bg: #132238;
     --header-ink: #e8edf4;
     --header-hover: rgb(255 255 255 / 0.08);
@@ -88,6 +94,9 @@
   --on-danger: #2a0d0b;
   --brand-ink: #e8edf4;
   --step-soft: #33393b;
+  --freed-bg: #2f3434;
+  --freed-ink: #e6cf8a;
+  --ladder-fill: #8193ab;
   --header-bg: #132238;
   --header-ink: #e8edf4;
   --header-hover: rgb(255 255 255 / 0.08);
@@ -753,9 +762,26 @@ details.sample {
   vertical-align: middle;
 }
 
-.ladder .freed,
+/* Escalera: el peldaño que se suelta ese mes se ve en dorado, junto a lo que sigue pendiente. */
+.ladder .bar {
+  display: flex;
+  gap: 2px;
+}
+
+.ladder .bar > span {
+  background: var(--ladder-fill);
+}
+
+.ladder .bar > .bar-shed {
+  background: var(--step);
+}
+
 .freed {
-  color: var(--accent);
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--freed-bg);
+  color: var(--freed-ink);
   font-weight: 600;
 }
 
