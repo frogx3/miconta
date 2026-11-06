@@ -294,14 +294,14 @@ if CRON_URL:
     check("primer disparo del cron", 200, trigger())
     for _ in range(10):  # el handler termina en waitUntil: se espera a que el aviso quede con su error
         rows = d1(f"SELECT 1 FROM agenda_notifications WHERE item_key='{internet}' AND error IS NOT NULL")
-        if len(rows) >= 2:
+        if len(rows) >= 1:
             break
         time.sleep(1)
     rows = d1(f"SELECT user_id, offset, sent_at, error IS NOT NULL AS has_error FROM agenda_notifications WHERE item_key='{internet}'")
-    check("un aviso de 7 días por destinatario (A y V), con error por la llave falsa", sorted([(id_a, "7d", None, 1), (id_v, "7d", None, 1)]), sorted(tuple(r.values()) for r in rows))
+    check("un aviso de 7 días solo para quien puede registrar (A, no V), con error por la llave falsa", [(id_a, "7d", None, 1)], [tuple(r.values()) for r in rows])
     check("segundo disparo del cron", 200, trigger())
     time.sleep(3)
-    check("no se crean filas nuevas", 2, scalar(f"SELECT count(*) FROM agenda_notifications WHERE item_key='{internet}'"))
+    check("no se crean filas nuevas", 1, scalar(f"SELECT count(*) FROM agenda_notifications WHERE item_key='{internet}'"))
 else:
     print("6) Cron: se salta (sin SMOKE_CRON_URL)")
 

@@ -3,6 +3,7 @@ import { agendaItems, agendaNotifications, user, workspaceMembers } from '../../
 import type { Db } from '../auth/hooks';
 import { formatDate } from '../date-format';
 import { formatMinor } from '../money-format';
+import { WRITE_ROLES } from '../http';
 import { addDays } from '../spending/statement';
 import { suggestedCardPayments } from './card-payments';
 import { sendReminder } from './kapso';
@@ -61,7 +62,8 @@ export async function runReminders(db: Db, cfg: WhatsappConfig, now: Date, fetch
     .select({ workspaceId: workspaceMembers.workspaceId, userId: user.id, phone: user.whatsappPhone, locale: user.locale })
     .from(workspaceMembers)
     .innerJoin(user, eq(user.id, workspaceMembers.userId))
-    .where(and(isNotNull(user.whatsappVerifiedAt), eq(user.whatsappOptIn, true), isNotNull(user.whatsappPhone)));
+    // Solo quien puede registrar el pago: un lector no podría usar el botón "Ya lo pagué".
+    .where(and(isNotNull(user.whatsappVerifiedAt), eq(user.whatsappOptIn, true), isNotNull(user.whatsappPhone), inArray(workspaceMembers.role, WRITE_ROLES)));
   if (recipients.length === 0) return counts;
 
   const today = mexicoCityToday(now);
