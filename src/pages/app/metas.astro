@@ -16,7 +16,7 @@ if (!workspace) return Astro.redirect('/login');
 const db = getDb();
 const showArchived = Astro.url.searchParams.get('archivadas') === '1';
 const canWrite = workspace.role !== 'viewer';
-const [views, plans] = await Promise.all([buildGoalViews(db, workspace.id, todayISO(), showArchived), canWrite ? listPlans(db, workspace.id) : Promise.resolve([])]);
+const [views, plans] = await Promise.all([buildGoalViews(db, workspace.id, todayISO(Astro.locals.timeZone), showArchived), canWrite ? listPlans(db, workspace.id) : Promise.resolve([])]);
 const openPlans = plans.filter(isOpen);
 const active = views.filter((view) => !view.goal.archivedAt);
 const archived = views.filter((view) => view.goal.archivedAt);
@@ -74,7 +74,7 @@ const currency = workspace.defaultCurrency;
             </div>
             <div class="field narrow" data-for="debt_free payoff_plan savings">
               <label for="g-date" data-label-savings={t(locale, 'goals.field.dateOptional')} data-label-default={t(locale, 'goals.field.date')}>{t(locale, 'goals.field.date')}</label>
-              <input id="g-date" name="targetDate" type="date" min={todayISO()} />
+              <input id="g-date" name="targetDate" type="date" min={todayISO(Astro.locals.timeZone)} />
               <span class="field-error" data-error-for="targetDate"></span>
             </div>
             <div class="field narrow" data-for="ant_spend savings" hidden>

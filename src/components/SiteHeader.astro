@@ -23,7 +23,7 @@ const items = navFor(area, { readOnly });
 const home = area === 'admin' ? '/admin' : '/app';
 const importItem = items.find((item) => item.key === 'import');
 // En la app, el botón de próximos pagos ocupa el lugar de cerrar sesión (que sigue en el menú).
-const today = todayISO();
+const today = todayISO(Astro.locals.timeZone);
 const tomorrow = addDays(today, 1);
 const agenda = area === 'app' ? await currentAgenda(Astro.locals, getDb(), today) : null;
 const upcoming = agenda ? upcomingEntries(agenda.entries) : [];

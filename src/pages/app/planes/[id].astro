@@ -27,7 +27,7 @@ const fromAccount = Astro.url.searchParams.get('cuenta') === card.accountId;
 const money = (minor: number) => formatMinor(minor, plan.currency, locale);
 const tr = (key: string, params?: Record<string, string | number>) => t(locale, key as MessageKey, params);
 const open = isOpen(plan);
-const schedule = buildSchedule(plan, todayISO());
+const schedule = buildSchedule(plan, todayISO(Astro.locals.timeZone));
 const paidPct = Math.min(100, (plan.paidInstallments / plan.totalInstallments) * 100);
 const rateInput = new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 2 }).format(plan.interestRateBp / 100);
 const messages = messagesFor(locale, ['validation.', 'common.', 'plan.edit.', 'plan.settle.', 'plan.tags.']);

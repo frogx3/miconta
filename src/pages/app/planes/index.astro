@@ -19,8 +19,8 @@ if (!workspace) return Astro.redirect('/login');
 const everything = await listPlans(getDb(), workspace.id);
 const accountFilter = Astro.url.searchParams.get('cuenta') ?? '';
 const all = accountFilter ? everything.filter((plan) => plan.accountId === accountFilter) : everything;
-const summaries = summarize(all, todayISO());
-const byCurrencyCards = summarizeByCard(all, todayISO());
+const summaries = summarize(all, todayISO(Astro.locals.timeZone));
+const byCurrencyCards = summarizeByCard(all, todayISO(Astro.locals.timeZone));
 const scopeName = accountFilter ? ((await getAccount(getDb(), workspace.id, accountFilter))?.name ?? '') : '';
 
 const tab = Astro.url.searchParams.get('estado') === 'cerrados' ? 'closed' : 'active';
@@ -277,7 +277,7 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
               </div>
               <div class="field narrow">
                 <label for="b-date">{t(locale, 'balances.asOf')}</label>
-                <input id="b-date" name="asOf" type="date" required value={todayISO()} />
+                <input id="b-date" name="asOf" type="date" required value={todayISO(Astro.locals.timeZone)} />
                 <span class="field-error" data-error-for="asOf" />
               </div>
               <div class="field">

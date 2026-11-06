@@ -14,7 +14,7 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
   const db = getDb();
   const goal = await getGoal(db, access.workspace.id, params.id!);
   if (!goal) return json(404, { code: 'NOT_FOUND' });
-  const parsed = validateEntry(access.body, { locale: locals.locale, currency: goal.currency, todayISO: todayISO() });
+  const parsed = validateEntry(access.body, { locale: locals.locale, currency: goal.currency, todayISO: todayISO(locals.timeZone) });
   if (!parsed.ok) return validationError(parsed.errors);
 
   const result = await addEntry(db, access.workspace.id, access.userId, goal.id, parsed.value);

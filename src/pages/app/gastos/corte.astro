@@ -18,7 +18,7 @@ const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
 
 const db = getDb();
-const today = todayISO();
+const today = todayISO(Astro.locals.timeZone);
 const params = Astro.url.searchParams;
 // El estado de cuenta es por cuenta (la tarjeta física y la digital comparten corte). Hace falta una tarjeta de crédito para el día de pago y la moneda.
 const accounts = (await listAccounts(db, workspace.id))

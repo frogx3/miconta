@@ -22,7 +22,7 @@ const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
 
 const db = getDb();
-const today = todayISO();
+const today = todayISO(Astro.locals.timeZone);
 const params = Astro.url.searchParams;
 // `a:<id>` = toda una cuenta; `c:<id>` = una tarjeta.
 const scope = params.get('filtro') ?? '';

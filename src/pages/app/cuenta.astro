@@ -23,6 +23,8 @@ const isOwner = workspace.role === 'owner';
 const ownerWithMembers = isOwner && members.length > 1;
 const pushKey = vapidConfig()?.publicKey ?? null;
 const messages = messagesFor(locale, ['members.', 'validation.', 'common.', 'me.', 'agenda.push.']);
+const zones = Intl.supportedValuesOf('timeZone');
+if (!zones.includes(Astro.locals.timeZone)) zones.unshift(Astro.locals.timeZone);
 const iso = (date: Date) => date.toISOString().slice(0, 10);
 const busy = backups.some((b) => b.status === 'queued' || b.status === 'running');
 const expiresOn = (date: Date) => iso(new Date(date.getTime() + BACKUP_DAYS * 86_400_000));
@@ -164,6 +166,13 @@ const expiresOn = (date: Date) => iso(new Date(date.getTime() + BACKUP_DAYS * 86
         <span class="muted">{t(locale, 'me.settings.inAppHint')}</span>
       </span>
     </label>
+    <div class="field">
+      <label for="me-tz">{t(locale, 'me.settings.timeZone')}</label>
+      <select id="me-tz" data-saved={user.timeZone ?? undefined}>
+        {zones.map((zone) => <option value={zone} selected={zone === Astro.locals.timeZone}>{zone.replaceAll('_', ' ')}</option>)}
+      </select>
+      <span class="muted">{t(locale, user.timeZone ? 'me.settings.timeZoneHint' : 'me.settings.timeZoneAuto')}</span>
+    </div>
     <p id="me-settings-saved" class="hint" role="status" hidden>{t(locale, 'me.settings.saved')}</p>
   </section>
   {

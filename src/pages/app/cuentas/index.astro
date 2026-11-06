@@ -17,7 +17,7 @@ const showArchived = Astro.url.searchParams.get('archivadas') === '1';
 const accounts = await listAccounts(getDb(), workspace.id, showArchived);
 const canWrite = workspace.role !== 'viewer';
 const allPlans = await listPlans(getDb(), workspace.id);
-const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => plan.accountId === accountId), todayISO()).find((entry) => entry.thisMonthMinor > 0);
+const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => plan.accountId === accountId), todayISO(Astro.locals.timeZone)).find((entry) => entry.thisMonthMinor > 0);
 ---
 
 <AppLayout title={t(locale, 'accounts.title')} active="accounts">

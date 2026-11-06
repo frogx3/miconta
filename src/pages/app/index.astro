@@ -19,11 +19,11 @@ const { user, workspace, locale } = Astro.locals;
 if (!user) return Astro.redirect('/login');
 
 const accounts = workspace ? await listAccounts(getDb(), workspace.id) : [];
-const summaries = workspace ? summarize(await listPlans(getDb(), workspace.id), todayISO()) : [];
-const goalViews = workspace ? (await buildGoalViews(getDb(), workspace.id, todayISO())).slice(0, 4) : [];
+const summaries = workspace ? summarize(await listPlans(getDb(), workspace.id), todayISO(Astro.locals.timeZone)) : [];
+const goalViews = workspace ? (await buildGoalViews(getDb(), workspace.id, todayISO(Astro.locals.timeZone))).slice(0, 4) : [];
 
 // Agenda del mes: solo si hay algo cargado (pagos, cobros o saldos).
-const today = todayISO();
+const today = todayISO(Astro.locals.timeZone);
 const agenda = await currentAgenda(Astro.locals, getDb(), today);
 const hasAgenda = Boolean(agenda && (agenda.entries.length > 0 || agenda.balances.length > 0));
 const upcoming = upcomingEntries(agenda?.entries ?? []);

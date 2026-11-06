@@ -4,6 +4,7 @@ import { cards, importBatches, importProfiles, movements, planEvents, plans, sta
 import type { Db } from '../auth/hooks';
 import type { AccountWithCards, Card } from '../accounts/repo';
 import { lastCutoffDate } from '../cutoff';
+import { todayISO } from '../date-format';
 import { currencyDigits, toInputString } from '../money-format';
 import { validateCardInput, type CardInput } from '../accounts/validation';
 import { validatePlanDraft, type PlanDraft, type PlanFieldError } from '../plans/validation';
@@ -88,7 +89,6 @@ export class ImportInputError extends Error {
   }
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 const activeCards = (account: AccountWithCards): Card[] => account.cards.filter((card) => !card.archivedAt);
 
@@ -272,7 +272,7 @@ async function analyze(
 
 function cutoffSuggestion(account: AccountWithCards): string | null {
   const day = activeCards(account).find((card) => card.kind === 'credit' && card.cutoffDay)?.cutoffDay;
-  return day ? lastCutoffDate(day, today()) : null;
+  return day ? lastCutoffDate(day, todayISO()) : null;
 }
 
 /** Vista previa: lee el archivo, deduplica contra lo ya guardado y propone planes. No escribe nada. */
