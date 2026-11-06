@@ -1,0 +1,38 @@
+---
+/** Lista de lo que sigue en la agenda (portada y desplegado del encabezado). */
+import { t } from '../i18n/messages';
+import { formatDate } from '../lib/date-format';
+import { formatMinor } from '../lib/money-format';
+import type { Entry } from '../lib/agenda/compute';
+
+interface Props {
+  entries: Entry[];
+  today: string;
+  tomorrow?: string;
+}
+
+const { entries, today, tomorrow } = Astro.props;
+const { locale } = Astro.locals;
+---
+
+<ul class="home-agenda-list">
+  {
+    entries.map((e) => (
+      <li>
+        <span>
+          <strong>{e.description}</strong>
+          <span class="muted activity-sub">
+            {formatDate(e.dueDate, locale)}
+            {e.dueDate < today && <span class="badge badge-warn">{t(locale, 'agenda.label.overdue')}</span>}
+            {e.dueDate === today && <span class="badge badge-warn">{t(locale, 'agenda.label.today')}</span>}
+            {tomorrow && e.dueDate === tomorrow && <span class="badge badge-warn">{t(locale, 'agenda.label.tomorrow')}</span>}
+          </span>
+        </span>
+        <span class:list={['agenda-amount', e.kind === 'receivable' ? 'is-receivable' : 'is-payable']}>
+          {e.kind === 'receivable' ? '+' : '−'}
+          {formatMinor(e.amountMinor, e.currency, locale)}
+        </span>
+      </li>
+    ))
+  }
+</ul>

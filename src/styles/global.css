@@ -3411,3 +3411,32 @@ form + .row-actions {
 .me-danger-item summary { display: inline-flex; align-items: center; list-style: none; }
 .me-danger-item summary::-webkit-details-marker { display: none; }
 #me-settings .check { align-items: flex-start; gap: 0.75rem; }
+
+/* Encabezado: próximos pagos */
+.upcoming-btn { position: relative; }
+.upcoming-dot {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--step);
+  box-shadow: 0 0 0 2px var(--header-bg);
+}
+.upcoming-pop {
+  position: fixed;
+  inset: 4.25rem max(1rem, calc((100vw - 87.5rem) / 2 + 1rem)) auto auto;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 5.5rem);
+  overflow: auto;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+}
+.upcoming-pop h2 { margin: 0 0 0.5rem; font-size: 1rem; }
+.upcoming-pop .home-agenda-list { margin-bottom: 0.5rem; }
