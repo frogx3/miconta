@@ -40,7 +40,7 @@ if (push) {
           } else if ((await Notification.requestPermission()) === 'granted') {
             const key = Uint8Array.from(atob(push.dataset.key!.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
             current = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-            if (!(await call('POST', current.toJSON()))) {
+            if (!(await call('POST', { ...current.toJSON(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }))) {
               await current.unsubscribe();
               current = null;
               error = true;

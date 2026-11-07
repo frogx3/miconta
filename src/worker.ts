@@ -69,6 +69,8 @@ export default {
     if (whatsapp) ctx.waitUntil(runReminders(getDb(), whatsapp, now).then(log('whatsapp')).catch(fail('whatsapp')));
     const vapid = vapidConfig();
     if (vapid) ctx.waitUntil(runPushReminders(getDb(), vapid, now).then(log('push')).catch(fail('push')));
+    // El cron corre cada hora (los avisos salen a las 9 de cada zona); la limpieza basta una vez al día.
+    if (now.getUTCHours() !== 15) return;
     ctx.waitUntil(
       Promise.all([purgeExpired(getDb(), env.FILES, now), expireBackups(getDb(), env.FILES, now)])
         .then(([users, backups]) => console.log(`limpieza: ${users} cuentas purgadas, ${backups} respaldos vencidos`))

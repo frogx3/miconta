@@ -593,7 +593,7 @@ export const agendaNotifications = sqliteTable(
     workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
     itemKey: text('item_key').notNull(),
     userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-    offset: text('offset', { enum: ['7d', '2d'] }).notNull(),
+    offset: text('offset', { enum: ['7d', '2d', '0d', 'overdue', 'cutoff'] }).notNull(),
     channel: text('channel', { enum: ['whatsapp', 'push'] }).notNull().default('whatsapp'),
     sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
     kapsoMessageId: text('kapso_message_id'),

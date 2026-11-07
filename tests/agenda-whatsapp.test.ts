@@ -7,7 +7,8 @@ vi.mock('cloudflare:workers', () => ({ env }));
 import { readFileSync } from 'node:fs';
 import { newLinkCode, parseInbound, parseLinkMessage, signItemToken, verifyItemToken, verifyWebhookSignature, whatsappConfig, whatsappEnabled, type WhatsappConfig } from '../src/lib/agenda/whatsapp';
 import { sendReminder, sendText } from '../src/lib/agenda/kapso';
-import { mexicoCityToday, reminderOffset, runReminders } from '../src/lib/agenda/reminders';
+import { localHour, reminderOffset, runReminders } from '../src/lib/agenda/reminders';
+import { todayISO } from '../src/lib/date-format';
 import type { Db } from '../src/lib/auth/hooks';
 
 const cfg: WhatsappConfig = { apiKey: 'key-123', phoneNumberId: '987', webhookSecret: 's', template: 'recordatorio_pago', businessPhone: '5215500000000' };
@@ -77,11 +78,14 @@ describe('envío por Kapso', () => {
 });
 
 describe('recordatorios', () => {
-  it('hoy en Ciudad de México', () => {
-    expect(mexicoCityToday(new Date('2026-11-06T03:00:00Z'))).toBe('2026-11-05');
-    expect(mexicoCityToday(new Date('2026-11-06T06:00:00Z'))).toBe('2026-11-06');
+  it('hoy y la hora en la zona de cada persona', () => {
+    expect(todayISO('America/Mexico_City', new Date('2026-11-06T03:00:00Z'))).toBe('2026-11-05');
+    expect(todayISO('America/Mexico_City', new Date('2026-11-06T06:00:00Z'))).toBe('2026-11-06');
+    expect(localHour(new Date('2026-11-05T15:00:00Z'), 'America/Mexico_City')).toBe(9);
+    expect(localHour(new Date('2026-11-05T15:00:00Z'), 'Europe/Madrid')).toBe(16);
   });
-  it('aviso a 7 y a 2 días', () => {
+  it('aviso a 7 y a 2 días y el mismo día', () => {
+    expect(reminderOffset('2026-11-05', '2026-11-05')).toBe('0d');
     expect(reminderOffset('2026-11-05', '2026-11-12')).toBe('7d');
     expect(reminderOffset('2026-11-05', '2026-11-07')).toBe('2d');
     expect(reminderOffset('2026-11-05', '2026-11-08')).toBeNull();
@@ -105,6 +109,19 @@ describe('recordatorios', () => {
     expect(await runReminders(db, cfg, new Date('2026-11-05T15:00:00Z'))).toEqual({ sent: 0, failed: 0, skipped: 0, errors: 2 });
     expect(quiet).toHaveBeenCalledTimes(2);
     quiet.mockRestore();
+  });
+  it('solo avisa a quien en su zona son las 9', async () => {
+    const rows = [{ workspaceId: 'w1', userId: 'u1', phone: '5215500000001', locale: 'es-MX', timeZone: 'Europe/Madrid' }];
+    let calls = 0;
+    const db = {
+      select: () => {
+        if (calls++ > 0) throw new Error('no debía consultar pagos');
+        const chain = { from: () => chain, innerJoin: () => chain, where: () => Promise.resolve(rows) };
+        return chain;
+      },
+    } as unknown as Db;
+    // 15:00 UTC = 16:00 en Madrid: no le toca.
+    expect(await runReminders(db, cfg, new Date('2026-11-05T15:00:00Z'))).toEqual({ sent: 0, failed: 0, skipped: 0, errors: 0 });
   });
 });
 

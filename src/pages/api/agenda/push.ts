@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { and, eq } from 'drizzle-orm';
-import { pushSubscriptions } from '../../../db/schema';
+import { pushSubscriptions, user } from '../../../db/schema';
 import { t } from '../../../i18n/messages';
+import { isTimeZone } from '../../../lib/date-format';
 import { getDb } from '../../../lib/auth';
 import { json, parseJsonObject, sameOrigin } from '../../../lib/http';
 import { parseSubscription, sendPush, vapidConfig } from '../../../lib/push/webpush';
@@ -27,6 +28,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     .insert(pushSubscriptions)
     .values({ userId: result.userId, ...sub })
     .onConflictDoUpdate({ target: pushSubscriptions.endpoint, set: { userId: result.userId, p256dh: sub.p256dh, auth: sub.auth } });
+  // Los avisos salen a las 9 de su zona: si nunca la eligió, se toma la del navegador que se suscribe.
+  if (!locals.user!.timeZone && isTimeZone(result.body?.timeZone)) await getDb().update(user).set({ timeZone: result.body.timeZone }).where(eq(user.id, result.userId));
   const { locale } = locals;
   const sent = await sendPush(result.cfg, sub, { title: t(locale, 'push.welcome.title'), body: t(locale, 'push.welcome.body'), url: '/app/agenda' }, new Date());
   if (sent.ok) return json(200, { ok: true });
