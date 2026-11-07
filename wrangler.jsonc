@@ -8,7 +8,7 @@
   // Dominio propio (la zona donbigo.com está en esta misma cuenta de Cloudflare).
   "routes": [{ "pattern": "donbigo.com", "custom_domain": true }],
   // Recordatorios de pago (WhatsApp y push): todos los días a las 9:00 de Ciudad de México (15:00 UTC, sin horario de verano).
-  "triggers": { "crons": ["0 15 * * *"] },
+  "triggers": { "crons": ["0 * * * *"] },
   "vars": {
     // Registro público cerrado: el primer usuario se crea libremente (admin) y el resto los da de alta un admin.
     "ALLOW_SIGNUP": "false",

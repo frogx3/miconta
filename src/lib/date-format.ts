@@ -37,4 +37,4 @@ export function isTimeZone(value: unknown): value is string {
 }
 
 /** Hoy (`YYYY-MM-DD`) en la zona horaria de la persona: en UTC, las tardes de México ya serían "mañana". */
-export const todayISO = (timeZone = DEFAULT_TIME_ZONE): string => new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+export const todayISO = (timeZone = DEFAULT_TIME_ZONE, now = new Date()): string => new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
