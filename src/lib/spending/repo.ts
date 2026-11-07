@@ -81,31 +81,46 @@ export async function seedCategories(db: Db, workspaceId: string, defaults: { na
 export interface RuleRow {
   id: string;
   pattern: string;
-  categoryId: string;
-  categoryName: string;
+  name: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
   categoryColor: string | null;
 }
 
 export async function listRules(db: Db, workspaceId: string): Promise<RuleRow[]> {
   return db
-    .select({ id: categoryRules.id, pattern: categoryRules.pattern, categoryId: categoryRules.categoryId, categoryName: categories.name, categoryColor: categories.color })
+    .select({ id: categoryRules.id, pattern: categoryRules.pattern, name: categoryRules.name, categoryId: categoryRules.categoryId, categoryName: categories.name, categoryColor: categories.color })
     .from(categoryRules)
-    .innerJoin(categories, eq(categories.id, categoryRules.categoryId))
+    .leftJoin(categories, eq(categories.id, categoryRules.categoryId))
     .where(eq(categoryRules.workspaceId, workspaceId))
     .orderBy(asc(categoryRules.pattern));
 }
 
 export async function loadRules(db: Db, workspaceId: string): Promise<Rule[]> {
-  return db.select({ categoryId: categoryRules.categoryId, pattern: categoryRules.pattern }).from(categoryRules).where(eq(categoryRules.workspaceId, workspaceId));
+  return db.select({ categoryId: categoryRules.categoryId, pattern: categoryRules.pattern, name: categoryRules.name }).from(categoryRules).where(eq(categoryRules.workspaceId, workspaceId));
 }
 
 export type RuleResult = { ok: true; id: string } | { ok: false; reason: 'category_not_found' | 'duplicate' };
 
-export async function createRule(db: Db, workspaceId: string, input: { pattern: string; categoryId: string }): Promise<RuleResult> {
-  const [category] = await db.select({ id: categories.id }).from(categories).where(and(eq(categories.id, input.categoryId), eq(categories.workspaceId, workspaceId))).limit(1);
-  if (!category) return { ok: false, reason: 'category_not_found' };
-  const [duplicate] = await db.select({ id: categoryRules.id }).from(categoryRules).where(and(eq(categoryRules.workspaceId, workspaceId), eq(categoryRules.pattern, input.pattern))).limit(1);
-  if (duplicate) return { ok: false, reason: 'duplicate' };
+/**
+ * Crea una regla. Si ya hay una con el mismo texto, la completa: le pone el nombre (o lo cambia: así se renombra) o la
+ * categoría que le faltaba. Cambiarle la categoría a una regla existente sí es un duplicado.
+ */
+export async function createRule(db: Db, workspaceId: string, input: { pattern: string; categoryId: string | null; name: string | null }): Promise<RuleResult> {
+  if (input.categoryId) {
+    const [category] = await db.select({ id: categories.id }).from(categories).where(and(eq(categories.id, input.categoryId), eq(categories.workspaceId, workspaceId))).limit(1);
+    if (!category) return { ok: false, reason: 'category_not_found' };
+  }
+  const [existing] = await db.select().from(categoryRules).where(and(eq(categoryRules.workspaceId, workspaceId), eq(categoryRules.pattern, input.pattern))).limit(1);
+  if (existing) {
+    if (input.categoryId && existing.categoryId && input.categoryId !== existing.categoryId) return { ok: false, reason: 'duplicate' };
+    if (!input.name && (!input.categoryId || existing.categoryId)) return { ok: false, reason: 'duplicate' };
+    await db
+      .update(categoryRules)
+      .set({ categoryId: existing.categoryId ?? input.categoryId, name: input.name ?? existing.name })
+      .where(eq(categoryRules.id, existing.id));
+    return { ok: true, id: existing.id };
+  }
   const [row] = await db.insert(categoryRules).values({ workspaceId, ...input }).returning({ id: categoryRules.id });
   return { ok: true, id: row!.id };
 }

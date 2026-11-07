@@ -49,17 +49,20 @@ export function validateCategory(
   return errors.length ? { ok: false, errors } : { ok: true, value: { name, color: color || null, ...(budgetMinor !== undefined ? { budgetMinor } : {}) } };
 }
 
-export function validateRule(raw: Record<string, unknown>): { ok: true; value: { pattern: string; categoryId: string } } | { ok: false; errors: SpendingFieldError[] } {
+export function validateRule(raw: Record<string, unknown>): { ok: true; value: { pattern: string; categoryId: string | null; name: string | null } } | { ok: false; errors: SpendingFieldError[] } {
   const errors: SpendingFieldError[] = [];
   const pattern = normalizePattern(text(raw.pattern));
   if (!pattern) errors.push({ field: 'pattern', code: 'required' });
   else if (pattern.length < 2) errors.push({ field: 'pattern', code: 'too_short' });
   else if (pattern.length > 60) errors.push({ field: 'pattern', code: 'too_long' });
 
-  const categoryId = text(raw.categoryId);
-  if (!categoryId) errors.push({ field: 'categoryId', code: 'required' });
+  // Una regla categoriza, renombra o las dos cosas.
+  const categoryId = text(raw.categoryId) || null;
+  const name = text(raw.name) || null;
+  if (name && name.length > 60) errors.push({ field: 'name', code: 'too_long' });
+  if (!categoryId && !name) errors.push({ field: 'categoryId', code: 'required' });
 
-  return errors.length ? { ok: false, errors } : { ok: true, value: { pattern, categoryId } };
+  return errors.length ? { ok: false, errors } : { ok: true, value: { pattern, categoryId, name } };
 }
 
 /** Umbral de gasto hormiga escrito en el formato del locale, en unidades menores de la moneda. */

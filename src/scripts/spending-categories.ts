@@ -111,6 +111,7 @@ if (root) {
     const { ok, data: result } = await call('POST', '/api/category-rules', {
       pattern: data.get('pattern'),
       categoryId: data.get('categoryId'),
+      name: data.get('name'),
       applyNow: data.get('applyNow') === 'on',
     });
     if (ok) location.reload();

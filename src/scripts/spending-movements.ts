@@ -78,25 +78,45 @@ if (root && root.dataset.config) {
 
   // Regla para todo el comercio, en un modal: "si el concepto contiene X, va a esta categoría".
   const ruleDialog = document.querySelector<HTMLDialogElement>('#rule-dialog');
-  async function createRule(key: string, categoryId: string) {
+  // Con `categoryId` nulo la regla solo renombra: "si el concepto contiene X, muéstralo como Y".
+  async function createRule(key: string, categoryId: string | null, name = '') {
     if (!ruleDialog) return;
     const form = ruleDialog.querySelector('form')!;
     form.reset();
+    const renaming = categoryId === null;
+    ruleDialog.querySelector('h2')!.textContent = messages[renaming ? 'movements.rename.title' : 'movements.rule.title']!;
+    ruleDialog.querySelector<HTMLElement>('[data-apply-now]')!.hidden = renaming;
     form.querySelector<HTMLInputElement>('[name="pattern"]')!.value = key;
+    const nameInput = form.querySelector<HTMLInputElement>('[name="name"]')!;
+    nameInput.value = name;
+    nameInput.required = renaming;
     let applied = 0;
+    let named = false;
     const saved = await openDialog(ruleDialog, async (data) => {
+      const newName = String(data.get('name') ?? '').trim();
+      if (renaming && !newName) return messages['validation.required']!;
       const response = await fetch('/api/category-rules', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ pattern: data.get('pattern'), categoryId, applyNow: data.get('applyNow') === 'on' }),
+        body: JSON.stringify({ pattern: data.get('pattern'), categoryId, name: newName, applyNow: !renaming && data.get('applyNow') === 'on' }),
       });
       if (!response.ok) return errorOf(response, 'rules.duplicate');
       applied = ((await response.json()) as { applied?: number }).applied ?? 0;
+      named = newName !== '';
       return null;
     });
-    // La regla categorizó otros movimientos de la lista: recarga para verlos.
-    if (saved && applied > 0) location.reload();
+    // La regla categorizó otros movimientos o les puso nombre: recarga para verlos.
+    if (saved && (applied > 0 || named)) location.reload();
     return saved;
+  }
+
+  if (ruleDialog) {
+    root.querySelectorAll<HTMLButtonElement>('.row-rename').forEach((button) => {
+      button.addEventListener('click', () => {
+        const row = button.closest<HTMLElement>('tr')!;
+        void createRule(merchantKey(row.dataset.desc!), null, row.dataset.alias ?? '');
+      });
+    });
   }
 
   // Categoría de una fila. Si se asignó una, se ofrece crear una regla para todo el comercio.

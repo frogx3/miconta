@@ -1,9 +1,11 @@
 import { normalizeDescription } from '../import/text';
 
 export interface Rule {
-  categoryId: string;
+  categoryId: string | null;
   /** Texto normalizado (mayúsculas, sin acentos) que debe estar contenido en el concepto. */
   pattern: string;
+  /** Nombre propio que reemplaza al concepto al mostrarlo. */
+  name?: string | null;
 }
 
 /** Los patrones se guardan normalizados, igual que el concepto de los movimientos. */
@@ -15,14 +17,23 @@ export const normalizePattern = (raw: string): string => normalizeDescription(ra
  * el resultado sea siempre el mismo.
  */
 export function matchCategory(descriptionNorm: string, rules: readonly Rule[]): string | null {
+  return bestRule(descriptionNorm, rules, 'categoryId')?.categoryId ?? null;
+}
+
+/** Nombre propio de un movimiento según las reglas, con el mismo criterio; una regla que no renombra no cuenta. */
+export function matchName(descriptionNorm: string, rules: readonly Rule[]): string | null {
+  return bestRule(descriptionNorm, rules, 'name')?.name ?? null;
+}
+
+function bestRule(descriptionNorm: string, rules: readonly Rule[], field: 'categoryId' | 'name'): Rule | null {
   let best: Rule | null = null;
   for (const rule of rules) {
-    if (!rule.pattern || !descriptionNorm.includes(rule.pattern)) continue;
+    if (!rule[field] || !rule.pattern || !descriptionNorm.includes(rule.pattern)) continue;
     if (!best || rule.pattern.length > best.pattern.length || (rule.pattern.length === best.pattern.length && rule.pattern < best.pattern)) {
       best = rule;
     }
   }
-  return best?.categoryId ?? null;
+  return best;
 }
 
 /** Prefijos de procesadores de pago: lo que importa es el comercio que viene después del asterisco. */

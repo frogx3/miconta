@@ -343,8 +343,11 @@ export const categoryRules = sqliteTable(
   {
     id: id(),
     workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
-    categoryId: text('category_id').notNull().references(() => categories.id, { onDelete: 'restrict' }),
+    /** Nula si la regla solo renombra. */
+    categoryId: text('category_id').references(() => categories.id, { onDelete: 'restrict' }),
     pattern: text('pattern').notNull(),
+    /** Nombre propio que se muestra en lugar del concepto del banco ("AMZN MKTP" → "Amazon"); nulo = no renombra. */
+    name: text('name'),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('category_rules_workspace_pattern_uq').on(t.workspaceId, t.pattern), index('category_rules_category_idx').on(t.categoryId)],
