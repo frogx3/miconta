@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   analyzeMonth, annualized, budgetStatus, isFinanceCharge, defaultAntThreshold, isAnt, lastMonths, shiftMonth, thresholdFor, trend, type SpendRow,
 } from '../src/lib/spending/analysis';
-import { matchCategory, mergeMerchantKeys, merchantKey, normalizePattern } from '../src/lib/spending/categorize';
+import { matchCategory, matchName, mergeMerchantKeys, merchantKey, normalizePattern } from '../src/lib/spending/categorize';
 import { currentCutoffMonth, cutoffInMonth, recordsByMonth, statementPeriod, summarizeStatement } from '../src/lib/spending/statement';
 import { validateCategory, validateCutoff, validateRule, validateThreshold } from '../src/lib/spending/validation';
 
@@ -21,6 +21,20 @@ describe('reglas de categorización', () => {
   it('sin coincidencia devuelve null', () => {
     expect(matchCategory('TELMEX CARGO RECURR', rules)).toBeNull();
     expect(matchCategory('ALGO', [])).toBeNull();
+  });
+
+  it('nombre propio: gana el patrón más largo que renombra; uno sin nombre no cuenta', () => {
+    const named = [
+      { categoryId: 'compras', pattern: 'AMZN', name: 'Amazon' },
+      { categoryId: 'subs', pattern: 'AMZN PRIME', name: null },
+      { categoryId: null, pattern: 'AMZN MKTP', name: 'Amazon Marketplace' },
+    ];
+    expect(matchName('AMZN MKTP MX 2K4', named)).toBe('Amazon Marketplace');
+    expect(matchName('AMZN PRIME MX', named)).toBe('Amazon');
+    expect(matchName('OXXO', named)).toBeNull();
+    // Una regla que solo renombra no le quita la categoría a la más corta.
+    expect(matchCategory('AMZN MKTP MX 2K4', named)).toBe('compras');
+    expect(matchCategory('AMZN PRIME MX', named)).toBe('subs');
   });
 
   it('a igual longitud el resultado es siempre el mismo', () => {
@@ -176,9 +190,12 @@ describe('validación', () => {
   });
 
   it('regla: patrón normalizado de 2 a 60 caracteres', () => {
-    expect(validateRule({ pattern: ' oxxo ', categoryId: 'c1' })).toEqual({ ok: true, value: { pattern: 'OXXO', categoryId: 'c1' } });
+    expect(validateRule({ pattern: ' oxxo ', categoryId: 'c1' })).toEqual({ ok: true, value: { pattern: 'OXXO', categoryId: 'c1', name: null } });
     expect(validateRule({ pattern: 'a', categoryId: 'c1' })).toEqual({ ok: false, errors: [{ field: 'pattern', code: 'too_short' }] });
+    // Categoría o nombre: al menos uno.
     expect(validateRule({ pattern: 'ok', categoryId: '' })).toEqual({ ok: false, errors: [{ field: 'categoryId', code: 'required' }] });
+    expect(validateRule({ pattern: 'amzn', categoryId: '', name: ' Amazon ' })).toEqual({ ok: true, value: { pattern: 'AMZN', categoryId: null, name: 'Amazon' } });
+    expect(validateRule({ pattern: 'amzn', name: 'x'.repeat(61) })).toEqual({ ok: false, errors: [{ field: 'name', code: 'too_long' }] });
   });
 
   it('umbral: monto positivo en el formato del locale', () => {

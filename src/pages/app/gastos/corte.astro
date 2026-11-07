@@ -10,7 +10,8 @@ import { formatDate, formatMonthLong, todayISO } from '../../../lib/date-format'
 import { formatMinor, toInputString } from '../../../lib/money-format';
 import { listPlans } from '../../../lib/plans/repo';
 import { shiftMonth, thresholdFor } from '../../../lib/spending/analysis';
-import { cutAdjustments, getWorkspaceSettings, listCutoffs, movementsForAccount, type PeriodMovement } from '../../../lib/spending/repo';
+import { cutAdjustments, getWorkspaceSettings, listCutoffs, loadRules, movementsForAccount, type PeriodMovement } from '../../../lib/spending/repo';
+import { matchName } from '../../../lib/spending/categorize';
 import { findExactSubset, moveCandidates, type MoveUnit } from '../../../lib/spending/suggest';
 import { cutoffInMonth, realCuts, selectCut, summarizeStatement } from '../../../lib/spending/statement';
 
@@ -21,6 +22,7 @@ const db = getDb();
 const today = todayISO(Astro.locals.timeZone);
 const params = Astro.url.searchParams;
 // El estado de cuenta es por cuenta (la tarjeta física y la digital comparten corte). Hace falta una tarjeta de crédito para el día de pago y la moneda.
+const rules = await loadRules(db, workspace.id);
 const accounts = (await listAccounts(db, workspace.id))
   .map((entry) => ({ entry, credit: entry.cards.filter((card) => card.kind === 'credit' && card.cutoffDay !== null && !card.archivedAt) }))
   .filter((item) => item.credit.length > 0);
@@ -289,7 +291,7 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                 <ul class="group-lines">
                   {view!.adjustments![side].map((row) => (
                     <li>
-                      <span>{formatDate(row.date, locale)} · {row.description}</span>
+                      <span>{formatDate(row.date, locale)} · {matchName(row.descriptionNorm, rules) ?? row.description}</span>
                       <span class="num">{row.chargeMinor > 0 ? money(row.chargeMinor) : `−${money(row.creditMinor)}`}</span>
                       {canWrite && <button class="link-button" type="button" data-move-ids={JSON.stringify([row.id])} data-move-month="">{t(locale, 'statement.moves.undo')}</button>}
                     </li>

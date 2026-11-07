@@ -14,7 +14,8 @@ import { formatDate, formatMonth, formatMonthLong, todayISO } from '../../../lib
 import { formatMinor, toInputString } from '../../../lib/money-format';
 import { groupedMemberKeys, paymentGroups } from '../../../lib/spending/groups';
 import { isAnt, isFinance, isMonth, isSpend, monthBounds, thresholdFor } from '../../../lib/spending/analysis';
-import { getWorkspaceSettings, listCategories, listCutoffs, listMovements, movementMonths } from '../../../lib/spending/repo';
+import { getWorkspaceSettings, listCategories, listCutoffs, listMovements, loadRules, movementMonths } from '../../../lib/spending/repo';
+import { matchName } from '../../../lib/spending/categorize';
 import { realCuts, sinceLastCut } from '../../../lib/spending/statement';
 import { CATEGORY_COLORS } from '../../../lib/spending/validation';
 
@@ -77,6 +78,9 @@ if (isMonth(period)) {
   cutScope = { month: selectedCut.month, from: selectedCut.from, to: selectedCut.to };
   periodNote = `${t(locale, 'movements.period.cutoffName', { month: formatMonthLong(selectedCut.month, locale) })} · ${t(locale, 'statement.period', { from: formatDate(selectedCut.from, locale), to: formatDate(selectedCut.to, locale) })}`;
 }
+const rules = await loadRules(db, workspace.id);
+/** Nombre propio por regla ("AMZN MKTP" → "Amazon"); nulo = se muestra el concepto del banco. */
+const nameOf = (row: { descriptionNorm: string }) => matchName(row.descriptionNorm, rules);
 const list = await listMovements(db, workspace.id, { fromDate: bounds.from, toDate: bounds.to, cut: cutScope, cardId: cardFilter || undefined, accountId: accountFilter || undefined, categoryId: categoryFilter || undefined, q: q || undefined, batchId: batch?.id });
 const thresholdOf = (currency: string) => thresholdFor(currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor });
 const scopeLabel = scopedAccount ? (scopedCard ? cardDisplay({ accountName: scopedAccount.name, last4: scopedCard.last4, label: scopedCard.label }) : scopedAccount.name) : '';
@@ -315,11 +319,12 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
                   const ant = isAnt(row, thresholdOf(row.currency));
                   const group = groups.get(row.id);
                   return (
-                    <tr data-id={row.id} data-desc={row.descriptionNorm} data-name={row.description} data-amount={charge ? toInputString(group?.totalMinor ?? row.chargeMinor, locale, row.currency) : undefined} data-type={group ? 'mci' : undefined}>
+                    <tr data-id={row.id} data-desc={row.descriptionNorm} data-name={nameOf(row) ?? row.description} data-alias={nameOf(row) ?? ''} data-amount={charge ? toInputString(group?.totalMinor ?? row.chargeMinor, locale, row.currency) : undefined} data-type={group ? 'mci' : undefined}>
                       {canWrite && <td class="col-pick">{charge && <label class="pick-label"><input type="checkbox" class="pick" aria-label={row.description} /></label>}</td>}
                       <td class="nowrap col-date">{formatDate(row.date, locale)}</td>
                       <td>
-                        {row.description}
+                        {nameOf(row) ? <><strong>{nameOf(row)}</strong><br /><span class="muted">{row.description}</span></> : row.description}
+                        {canWrite && <> <button class="link-button hint row-rename" type="button">{t(locale, 'movements.rename')}</button></>}
                         {row.reference && <><br /><span class="muted">{row.reference}</span></>}
                         {(row.planId || group || isFinance(row) || (ant && !group) || row.statementMonth) && (
                           <div class="cell-tags">
@@ -417,7 +422,12 @@ const config = { canWrite, locale, categories: categories.map((c) => ({ id: c.id
             <label for="rd-pattern">{t(locale, 'rules.pattern')}</label>
             <input id="rd-pattern" name="pattern" maxlength="60" required />
           </div>
-          <label class="check wide"><input type="checkbox" name="applyNow" checked /><span>{t(locale, 'rules.applyNow')}</span></label>
+          <div class="field">
+            <label for="rd-name">{t(locale, 'rules.name')}</label>
+            <input id="rd-name" name="name" maxlength="60" autocomplete="off" />
+            <span class="hint">{t(locale, 'rules.nameHint')}</span>
+          </div>
+          <label class="check wide" data-apply-now><input type="checkbox" name="applyNow" checked /><span>{t(locale, 'rules.applyNow')}</span></label>
           <div class="alert" role="alert" hidden></div>
           <div class="form-actions row-actions">
             <button class="btn btn-auto" type="submit" value="save">{t(locale, 'rules.add')}</button>

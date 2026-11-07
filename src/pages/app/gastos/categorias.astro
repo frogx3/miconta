@@ -121,7 +121,8 @@ const messages = messagesFor(locale, ['categories.', 'rules.', 'validation.', 'c
             {rules.map((rule) => (
               <li>
                 <code>{rule.pattern}</code> →
-                <span class="chip"><span class="dot" style={`background:${rule.categoryColor ?? 'var(--muted)'}`}></span> {rule.categoryName}</span>
+                {rule.categoryName && <span class="chip"><span class="dot" style={`background:${rule.categoryColor ?? 'var(--muted)'}`}></span> {rule.categoryName}</span>}
+                {rule.name && <span class="muted">{t(locale, 'rules.shownAs', { name: rule.name })}</span>}
                 {canWrite && <button class="link-button" type="button" data-delete-rule={rule.id}>{t(locale, 'rules.delete')}</button>}
               </li>
             ))}
@@ -146,8 +147,15 @@ const messages = messagesFor(locale, ['categories.', 'rules.', 'validation.', 'c
                   <label for="rule-category">{t(locale, 'rules.category')}</label>
                   <select id="rule-category" name="categoryId">
                     {categories.map((category) => <option value={category.id}>{category.name}</option>)}
+                    <option value="">{t(locale, 'rules.noCategory')}</option>
                   </select>
                   <span class="field-error" data-error-for="categoryId"></span>
+                </div>
+                <div class="field">
+                  <label for="rule-name">{t(locale, 'rules.name')}</label>
+                  <input id="rule-name" name="name" type="text" maxlength="60" autocomplete="off" />
+                  <span class="hint">{t(locale, 'rules.nameHint')}</span>
+                  <span class="field-error" data-error-for="name"></span>
                 </div>
                 <label class="check wide"><input type="checkbox" name="applyNow" checked /><span>{t(locale, 'rules.applyNow')}</span></label>
                 <div class="form-actions row-actions">

@@ -106,7 +106,7 @@ const es = {
 
   // Categorías
   'categories.list.title': 'Los grupos en que ordenas tus gastos. Puedes ponerles color y, si quieres, un presupuesto mensual.',
-  'rules.title': 'Reglas que categorizan por ti. Por ejemplo, si el concepto contiene “OXXO”, el movimiento va a “Despensa”. Se aplican solas cada vez que importas un archivo.',
+  'rules.title': 'Reglas que categorizan por ti. Por ejemplo, si el concepto contiene “OXXO”, el movimiento va a “Despensa”. Se aplican solas cada vez que importas un archivo. También pueden renombrar: “AMZN MKTP” se muestra como “Amazon”, en lo ya cargado y en lo que llegue.',
   'triage.title': 'Tus compras sin categoría, agrupadas por comercio. Con una sola regla ordenas todas las compras de un mismo lugar.',
 
   // Panel
@@ -213,7 +213,7 @@ const en: Record<HelpTopic, string> = {
   'statement.real.title': 'Enter your statement’s details here: the statement date and the payment. We then compare your estimate with the real figure and show the difference.',
 
   'categories.list.title': 'The groups you organize your spending in. You can give them a color and, if you want, a monthly budget.',
-  'rules.title': 'Rules that categorize for you. For example, if the description contains “OXXO”, the transaction goes to “Groceries”. They apply automatically each time you import a file.',
+  'rules.title': 'Rules that categorize for you. For example, if the description contains “OXXO”, the transaction goes to “Groceries”. They apply automatically each time you import a file. They can also rename: “AMZN MKTP” is shown as “Amazon”, for what is loaded and what comes next.',
   'triage.title': 'Your purchases without a category, grouped by store. One rule sorts every purchase from the same place.',
 
   'app.dashboard.accountsList': 'A shortcut to your accounts and what you pay this month in each.',
