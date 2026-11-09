@@ -6,6 +6,7 @@ import { SUPPORTED_LOCALES } from '../../lib/locale';
 import { getDb } from '../../lib/auth';
 import { formatDate } from '../../lib/date-format';
 import { DELETION_GRACE_DAYS, listPendingDeletion } from '../../lib/me/lifecycle';
+import { lastAccessCodes } from '../../lib/auth/access-code';
 
 const { user, locale } = Astro.locals;
 if (user?.role !== 'admin') return Astro.redirect('/app');
@@ -17,6 +18,16 @@ const { users: allUsers } = await getAuth().api.listUsers({
 // Las cuentas borradas por su dueño (stand-by) o ya purgadas no aparecen en la lista principal.
 const pendingDeletion = await listPendingDeletion(getDb());
 const users = allUsers.filter((row) => !(row as { deletedAt?: unknown }).deletedAt);
+// Estado de la invitación por correo (solo usuarios a los que se les mandó código).
+const invites = await lastAccessCodes(getDb());
+const sentOn = (date: Date) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: Astro.locals.timeZone }).format(date);
+const inviteBadges = new Map(
+  [...invites].map(([userId, code]): [string, { cls: string; text: string }] => {
+    if (code.usedAt) return [userId, { cls: '', text: t(locale, 'admin.invite.badge.accessed') }];
+    const pending = code.expiresAt > new Date();
+    return [userId, { cls: pending ? 'badge-warn' : 'badge-muted', text: t(locale, pending ? 'admin.invite.badge.pending' : 'admin.invite.badge.expired', { sent: sentOn(code.sentAt) }) }];
+  }),
+);
 const purgeOn = (date: Date) => new Date(date.getTime() + DELETION_GRACE_DAYS * 86_400_000).toISOString().slice(0, 10);
 
 const keys: MessageKey[] = ['admin.deletion.confirmPurge', 'admin.deletion.error', 'auth.working', 'admin.create.submit', 'admin.create.done', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail', 'admin.create.invited', 'admin.invite.emailFailed', 'admin.invite.notConfigured'];
@@ -50,6 +61,7 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
                 <span class:list={['badge', row.banned && 'badge-off']}>
                   {t(locale, row.banned ? 'admin.status.suspended' : 'admin.status.active')}
                 </span>
+                {inviteBadges.has(row.id) && <span class:list={['badge', inviteBadges.get(row.id)!.cls]}>{inviteBadges.get(row.id)!.text}</span>}
               </td>
               <td>
                 <a href={`/admin/users/${row.id}`}>{t(locale, 'admin.edit.link')}</a>

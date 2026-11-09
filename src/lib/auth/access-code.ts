@@ -42,8 +42,14 @@ export async function claimAccessCode(db: Db, input: string, now = new Date()): 
   return row?.userId ?? null;
 }
 
-/** El último código mandado al usuario, para mostrar en el admin si está pendiente, vencido o usado. */
-export async function lastAccessCode(db: Db, userId: string) {
-  const [row] = await db.select({ expiresAt: accessCodes.expiresAt, usedAt: accessCodes.usedAt }).from(accessCodes).where(eq(accessCodes.userId, userId)).orderBy(desc(accessCodes.createdAt)).limit(1);
-  return row ?? null;
+/** Último código mandado a cada usuario (o solo a `userId`), para mostrar en el admin si está pendiente, vencido o usado. */
+export async function lastAccessCodes(db: Db, userId?: string) {
+  const rows = await db
+    .select({ userId: accessCodes.userId, sentAt: accessCodes.createdAt, expiresAt: accessCodes.expiresAt, usedAt: accessCodes.usedAt })
+    .from(accessCodes)
+    .where(userId ? eq(accessCodes.userId, userId) : undefined)
+    .orderBy(desc(accessCodes.createdAt));
+  const last = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) if (!last.has(row.userId)) last.set(row.userId, row);
+  return last;
 }
