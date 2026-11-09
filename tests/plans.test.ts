@@ -49,6 +49,7 @@ describe('calendario de pagos', () => {
     expect(paymentDateFor('2026-10-03', cuts, 4, 22)).toBe('2026-11-22'); // el corte de octubre fue el 2, no el 4
     expect(paymentDateFor('2026-11-27', cuts, 4, 22)).toBe('2026-12-22'); // sin corte capturado: se estima
     expect(paymentDateFor('2026-11-27', [], null, 22)).toBeNull();
+    expect(paymentDateFor('2026-09-03', cuts, 4, 22)).toBe('2026-10-22'); // AutoZone 3/9: un día antes del corte del 4-sep
 
     const amazon = plan({ id: 'b', firstChargeDate: '2026-08-27', totalInstallments: 3, paidInstallments: 3, status: 'completed_natural' });
     const payDateOf = (iso: string) => paymentDateFor(iso, cuts, 4, 22);
@@ -77,6 +78,13 @@ describe('calendario de pagos', () => {
     ]);
     expect(summary!.remainingBalanceMinor).toBe(10 * 112_312); // lo liquidado ya no es saldo a meses
     expect(summary!.openPlans).toBe(2);
+    // Banorte pasa al corte siguiente una mensualidad fechada un día antes del corte: AutoZone 5/9 (3-nov) va al del 4-dic.
+    const autozone = plan({ id: 'z', firstChargeDate: '2026-07-03', totalInstallments: 9, paidInstallments: 4, installmentAmountMinor: 54_982 });
+    expect(summarize([autozone], '2026-11-09', 2, payDateOf)[0]!.months.map((m) => [m.month, m.amountMinor])).toEqual([
+      ['2026-11', 54_982],
+      ['2026-12', 54_982],
+    ]);
+    expect(buildSchedule(autozone, '2026-11-09', 5, (iso) => payDateOf(autozone, iso)).map((r) => r.payDate).slice(3, 6)).toEqual(['2026-11-24', '2026-12-22', '2027-01-22']);
     // Sin fechas de pago todo queda como antes.
     expect(summarize([amazon, mapfre], '2026-11-09', 1)[0]!.months).toEqual([{ month: '2026-11', amountMinor: 112_312, plans: 1, overdue: 0 }]);
   });
