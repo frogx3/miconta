@@ -6,7 +6,7 @@ import { user as userTable } from '../../../db/schema';
 import { t, type MessageKey } from '../../../i18n/messages';
 import { checkDeletion, checkWipe } from '../../../lib/admin/users';
 import { getDb } from '../../../lib/auth';
-import { lastAccessCode } from '../../../lib/auth/access-code';
+import { lastAccessCodes } from '../../../lib/auth/access-code';
 import { SUPPORTED_LOCALES } from '../../../lib/locale';
 
 const { user: current, locale } = Astro.locals;
@@ -18,15 +18,15 @@ if (!target) return Astro.redirect('/admin');
 const isSelf = target.id === current.id;
 const { deletable } = await checkDeletion(getDb(), target.id);
 const { sharedWorkspaces } = await checkWipe(getDb(), target.id);
-const lastCode = await lastAccessCode(getDb(), target.id);
+const lastCode = (await lastAccessCodes(getDb(), target.id)).get(target.id);
 const when = (date: Date) => new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeStyle: 'short', timeZone: Astro.locals.timeZone }).format(date);
 const codeStatus = !lastCode
   ? t(locale, 'admin.invite.none')
   : lastCode.usedAt
     ? t(locale, 'admin.invite.used', { date: when(lastCode.usedAt) })
     : lastCode.expiresAt > new Date()
-      ? t(locale, 'admin.invite.pending', { date: when(lastCode.expiresAt) })
-      : t(locale, 'admin.invite.expired');
+      ? t(locale, 'admin.invite.pending', { sent: when(lastCode.sentAt), date: when(lastCode.expiresAt) })
+      : t(locale, 'admin.invite.expired', { sent: when(lastCode.sentAt) });
 const keys: MessageKey[] = ['admin.delete.error', 'admin.wipe.error', 'admin.wipe.done', 'auth.working', 'admin.edit.save', 'admin.edit.saved', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail', 'admin.invite.sent', 'admin.invite.emailFailed', 'admin.invite.notConfigured'];
 const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
 ---
