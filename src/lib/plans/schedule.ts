@@ -2,7 +2,7 @@ import { scheduledDate, naturalEndDate, remainingBalanceMinor } from '../import/
 import { daysBetween } from '../import/dates';
 import type { PlanStatus } from '../import/types';
 import { shiftMonth } from '../spending/analysis';
-import { cutoffInMonth, dueDateFor, type RealCut } from '../spending/statement';
+import { addDays, cutoffInMonth, dueDateFor, type RealCut } from '../spending/statement';
 
 /** Lo que necesitan los cálculos de un plan; lo cumple una fila de la base. */
 export interface PlanFacts {
@@ -48,15 +48,19 @@ export interface ScheduleRow {
 
 /**
  * Fecha en que se paga un cargo: la fecha límite del corte que lo incluye. Manda el corte real capturado (los bancos no
- * cortan siempre el mismo día); si no hay, se estima con el día de corte de la tarjeta (el primero en o después del cargo).
+ * cortan siempre el mismo día); después del último, se estima con el día de corte de la tarjeta.
  */
 export function paymentDateFor(chargeISO: string, cuts: readonly RealCut[], cutoffDay: number | null, paymentDueDay: number | null): string | null {
-  const real = cuts.find((cut) => cut.from <= chargeISO && chargeISO <= cut.to);
-  if (real) return real.dueDate;
+  // Una mensualidad con fecha de un día antes del corte (o el mismo) pasa al corte siguiente: Banorte cargó AutoZone 3/9
+  // (operación 3-sep) en el corte del 2-oct, no en el del 4-sep. shortcut: regla vista en Banorte; si otro banco difiere, hacerla por tarjeta.
+  const earliest = addDays(chargeISO, 2);
+  const lastReal = cuts.at(-1);
+  // Solo dentro de lo que cubren los cortes capturados; antes del primero o después del último se estima.
+  if (lastReal && chargeISO >= cuts[0]!.from && earliest <= lastReal.cutoff) return cuts.find((cut) => cut.cutoff >= earliest)!.dueDate;
   if (cutoffDay === null) return null;
-  const month = chargeISO.slice(0, 7);
+  const month = earliest.slice(0, 7);
   const sameMonth = cutoffInMonth(cutoffDay, month);
-  return dueDateFor(paymentDueDay, sameMonth >= chargeISO ? sameMonth : cutoffInMonth(cutoffDay, shiftMonth(month, 1)));
+  return dueDateFor(paymentDueDay, sameMonth >= earliest ? sameMonth : cutoffInMonth(cutoffDay, shiftMonth(month, 1)));
 }
 
 /**
