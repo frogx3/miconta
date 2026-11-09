@@ -9,7 +9,9 @@ import { naturalEndDate, remainingBalanceMinor, remainingInstallments } from '..
 import { formatMinor, toInputString } from '../../../lib/money-format';
 import { describeEvent } from '../../../lib/plans/events';
 import { getPlanDetail } from '../../../lib/plans/repo';
-import { buildSchedule, isOpen } from '../../../lib/plans/schedule';
+import { buildSchedule, isOpen, paymentDateFor } from '../../../lib/plans/schedule';
+import { listCutoffs } from '../../../lib/spending/repo';
+import { realCuts } from '../../../lib/spending/statement';
 import { listTags, tagsByPlan } from '../../../lib/plans/tags';
 
 const { workspace, locale } = Astro.locals;
@@ -27,7 +29,12 @@ const fromAccount = Astro.url.searchParams.get('cuenta') === card.accountId;
 const money = (minor: number) => formatMinor(minor, plan.currency, locale);
 const tr = (key: string, params?: Record<string, string | number>) => t(locale, key as MessageKey, params);
 const open = isOpen(plan);
-const schedule = buildSchedule(plan, todayISO(Astro.locals.timeZone));
+const today = todayISO(Astro.locals.timeZone);
+const cuts = realCuts(await listCutoffs(getDb(), workspace.id, card.accountId), card.cutoffDay, card.paymentDueDay);
+const schedule = buildSchedule(plan, today, 5, (chargeISO) => paymentDateFor(chargeISO, cuts, card.cutoffDay, card.paymentDueDay));
+const lastPayDate = schedule.at(-1)?.payDate ?? null;
+// El banco ya cargó todo, pero la última mensualidad aún se debe hasta la fecha límite de ese corte.
+const payingOff = plan.status === 'completed_natural' && lastPayDate !== null && lastPayDate >= today;
 const paidPct = Math.min(100, (plan.paidInstallments / plan.totalInstallments) * 100);
 const rateInput = new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 2 }).format(plan.interestRateBp / 100);
 const messages = messagesFor(locale, ['validation.', 'common.', 'plan.edit.', 'plan.settle.', 'plan.tags.']);
@@ -52,7 +59,7 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
     <h1>{plan.name}</h1>
     <div class="chips">
       <span class="chip">{t(locale, `import.plan.type.${plan.type}`)}</span>
-      <span class:list={['badge', plan.status === 'review' && 'badge-warn', plan.status === 'settled_manual' && 'badge-off']}>{t(locale, `plans.status.${plan.status}`)}</span>
+      <span class:list={['badge', plan.status === 'review' && 'badge-warn', plan.status === 'settled_manual' && 'badge-off']}>{payingOff ? t(locale, 'plans.status.payingOff', { date: formatDate(lastPayDate!, locale) }) : t(locale, `plans.status.${plan.status}`)}</span>
     </div>
   </div>
 
@@ -84,6 +91,7 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
       <dd>{formatDate(plan.firstChargeDate, locale)}</dd>
       <dt>{t(locale, 'plan.naturalEnd')}<Help topic="plan.naturalEnd" /></dt>
       <dd>{formatDate(naturalEndDate(plan), locale)}</dd>
+      {lastPayDate && (<><dt>{t(locale, 'plan.lastPayment')}<Help topic="plan.lastPayment" /></dt><dd>{formatDate(lastPayDate, locale)}</dd></>)}
     </dl>
     {plan.status === 'settled_manual' && plan.settlementNote && <p class="alert note">{t(locale, 'plan.settle.note', { note: plan.settlementNote })}</p>}
 
@@ -192,7 +200,8 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
         </div>
         <div class="field">
           <label for="firstChargeDate">{t(locale, 'plan.firstCharge')}</label>
-          <input id="firstChargeDate" name="firstChargeDate" type="date" value={plan.firstChargeDate} />
+          <input id="firstChargeDate" name="firstChargeDate" type="date" value={plan.firstChargeDate} aria-describedby="firstChargeDate-hint" />
+          <span class="hint" id="firstChargeDate-hint">{t(locale, 'plan.firstCharge.hint')}</span>
           <span class="field-error" data-error-for="firstChargeDate" />
         </div>
         <div class="field wide">
@@ -215,6 +224,7 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
           <tr>
             <th scope="col">{t(locale, 'plan.schedule.no')}<Help topic="plan.schedule.no" /></th>
             <th scope="col">{t(locale, 'plan.schedule.date')}<Help topic="plan.schedule.date" /></th>
+            <th scope="col">{t(locale, 'plan.schedule.payDate')}<Help topic="plan.schedule.payDate" /></th>
             <th scope="col" class="num">{t(locale, 'plan.schedule.amount')}<Help topic="plan.schedule.amount" /></th>
             <th scope="col">{t(locale, 'plan.schedule.state')}<Help topic="plan.schedule.state" /></th>
           </tr>
@@ -225,8 +235,9 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
               <tr class:list={[`state-${row.state}`]}>
                 <td>{row.no}</td>
                 <td class="nowrap">{formatDate(row.date, locale)}</td>
+                <td class="nowrap">{row.payDate ? formatDate(row.payDate, locale) : '—'}</td>
                 <td class="num nowrap">{money(row.amountMinor)}</td>
-                <td><span class:list={['badge', row.state === 'overdue' && 'badge-warn', (row.state === 'upcoming' || row.state === 'waived') && 'badge-muted']}>{t(locale, `plan.schedule.${row.state}`)}</span></td>
+                <td><span class:list={['badge', row.state === 'overdue' && 'badge-warn', (row.state === 'upcoming' || row.state === 'waived') && 'badge-muted', row.state === 'charged' && 'badge-warn']}>{t(locale, `plan.schedule.${row.state}`)}</span></td>
               </tr>
             ))
           }

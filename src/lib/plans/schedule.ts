@@ -1,6 +1,8 @@
 import { scheduledDate, naturalEndDate, remainingBalanceMinor, remainingInstallments } from '../import/plans';
 import { daysBetween } from '../import/dates';
 import type { PlanStatus } from '../import/types';
+import { shiftMonth } from '../spending/analysis';
+import { cutoffInMonth, dueDateFor, type RealCut } from '../spending/statement';
 
 /** Lo que necesitan los cálculos de un plan; lo cumple una fila de la base. */
 export interface PlanFacts {
@@ -20,30 +22,49 @@ export interface PlanFacts {
 /** Un plan debe dinero mientras esté activo o por revisar. */
 export const isOpen = (plan: Pick<PlanFacts, 'status'>): boolean => plan.status === 'active' || plan.status === 'review';
 
-export type InstallmentState = 'paid' | 'next' | 'upcoming' | 'overdue' | 'waived';
+/** `charged` = el banco ya lo cargó, pero la fecha límite del corte donde cayó aún no llega. */
+export type InstallmentState = 'paid' | 'charged' | 'next' | 'upcoming' | 'overdue' | 'waived';
 
 export interface ScheduleRow {
   no: number;
+  /** Fecha de operación del cargo (la que trae el CSV y el estado de cuenta). */
   date: string;
+  /** Fecha límite de pago del corte en que cae el cargo; nula si la tarjeta no tiene corte. */
+  payDate: string | null;
   amountMinor: number;
   state: InstallmentState;
 }
 
 /**
+ * Fecha en que se paga un cargo: la fecha límite del corte que lo incluye. Manda el corte real capturado (los bancos no
+ * cortan siempre el mismo día); si no hay, se estima con el día de corte de la tarjeta (el primero en o después del cargo).
+ */
+export function paymentDateFor(chargeISO: string, cuts: readonly RealCut[], cutoffDay: number | null, paymentDueDay: number | null): string | null {
+  const real = cuts.find((cut) => cut.from <= chargeISO && chargeISO <= cut.to);
+  if (real) return real.dueDate;
+  if (cutoffDay === null) return null;
+  const month = chargeISO.slice(0, 7);
+  const sameMonth = cutoffInMonth(cutoffDay, month);
+  return dueDateFor(paymentDueDay, sameMonth >= chargeISO ? sameMonth : cutoffInMonth(cutoffDay, shiftMonth(month, 1)));
+}
+
+/**
  * Calendario completo de pagos de un plan. La siguiente mensualidad pasa a "por registrar" si su
  * fecha ya pasó por más de `graceDays` (el banco suele postear unos días después).
- * Un plan liquidado a mano deja sus pagos pendientes como "liquidado" (ya no se deben).
+ * Un plan liquidado a mano deja sus pagos pendientes como "liquidado" (ya no se deben). Con `payDateOf` cada fila trae la
+ * fecha en que se paga, y un cargo registrado queda "cargado" (no "pagado") hasta que pasa esa fecha.
  */
-export function buildSchedule(plan: PlanFacts, todayISO: string, graceDays = 5): ScheduleRow[] {
+export function buildSchedule(plan: PlanFacts, todayISO: string, graceDays = 5, payDateOf: (chargeISO: string) => string | null = () => null): ScheduleRow[] {
   return Array.from({ length: plan.totalInstallments }, (_, index) => {
     const no = index + 1;
     const date = scheduledDate(plan, no);
+    const payDate = payDateOf(date);
     let state: InstallmentState;
-    if (plan.status === 'completed_natural' || no <= plan.paidInstallments) state = 'paid';
+    if (plan.status === 'completed_natural' || no <= plan.paidInstallments) state = payDate && payDate >= todayISO ? 'charged' : 'paid';
     else if (plan.status === 'settled_manual') state = 'waived';
     else if (no === plan.paidInstallments + 1) state = daysBetween(date, todayISO) > graceDays ? 'overdue' : 'next';
     else state = 'upcoming';
-    return { no, date, amountMinor: plan.installmentAmountMinor, state };
+    return { no, date, payDate, amountMinor: plan.installmentAmountMinor, state };
   });
 }
 

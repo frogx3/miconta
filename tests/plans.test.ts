@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isValidISODate } from '../src/lib/import/dates';
-import { buildSchedule, isOpen, summarize, type PlanFacts } from '../src/lib/plans/schedule';
+import { buildSchedule, isOpen, paymentDateFor, summarize, type PlanFacts } from '../src/lib/plans/schedule';
+import { realCuts, type RecordedCutoff } from '../src/lib/spending/statement';
 import { validatePlanEdit } from '../src/lib/plans/validation';
 
 const plan = (overrides: Partial<PlanFacts> & Pick<PlanFacts, 'id' | 'firstChargeDate'>): PlanFacts => ({
@@ -38,6 +39,25 @@ describe('calendario de pagos', () => {
     expect(buildSchedule({ ...p, status: 'completed_natural', paidInstallments: 6 }, '2027-01-01').every((r) => r.state === 'paid')).toBe(true);
     const manual = buildSchedule({ ...p, status: 'settled_manual' }, '2026-10-08');
     expect(manual.map((r) => r.state)).toEqual(['paid', 'paid', 'paid', 'waived', 'waived', 'waived']);
+  });
+
+  // Caso real (Banorte, estado de cuenta 04-nov-2026): compra 27-ago a 3 MSI; el 03/03 (operación 27-oct) se paga el 24-nov.
+  it('cada cargo se paga en la fecha límite de su corte; liquidado = cargado hasta que esa fecha pase', () => {
+    const cut = (cutoffDate: string, startDate: string | null = null) => ({ cutoffDate, startDate, officialPayMinor: null }) as RecordedCutoff;
+    const cuts = realCuts([cut('2026-09-04', '2026-08-05'), cut('2026-10-02', '2026-09-05'), cut('2026-11-04', '2026-10-03')], 4, 22);
+    expect(paymentDateFor('2026-10-27', cuts, 4, 22)).toBe('2026-11-22');
+    expect(paymentDateFor('2026-10-03', cuts, 4, 22)).toBe('2026-11-22'); // el corte de octubre fue el 2, no el 4
+    expect(paymentDateFor('2026-11-27', cuts, 4, 22)).toBe('2026-12-22'); // sin corte capturado: se estima
+    expect(paymentDateFor('2026-11-27', [], null, 22)).toBeNull();
+
+    const amazon = plan({ id: 'b', firstChargeDate: '2026-08-27', totalInstallments: 3, paidInstallments: 3, status: 'completed_natural' });
+    const payDateOf = (iso: string) => paymentDateFor(iso, cuts, 4, 22);
+    expect(buildSchedule(amazon, '2026-11-09', 5, payDateOf).map((r) => [r.payDate, r.state])).toEqual([
+      ['2026-09-22', 'paid'],
+      ['2026-10-22', 'paid'],
+      ['2026-11-22', 'charged'],
+    ]);
+    expect(buildSchedule(amazon, '2026-11-23', 5, payDateOf).at(-1)!.state).toBe('paid');
   });
 
   it('solo los planes activos o por revisar deben dinero', () => {
