@@ -298,7 +298,8 @@ describe('validación del corte real', () => {
   const ok = { accountId: 'a1', cutoffDate: '2026-10-02', startDate: '', officialPay: '25,305.72' };
 
   it('acepta fecha, primer día vacío y monto en formato del locale', () => {
-    expect(validateCutoff(ok, 'es-MX', 'MXN')).toEqual({ ok: true, value: { accountId: 'a1', cutoffDate: '2026-10-02', startDate: null, officialPayMinor: 2_530_572 } });
+    expect(validateCutoff(ok, 'es-MX', 'MXN')).toEqual({ ok: true, value: { accountId: 'a1', cutoffDate: '2026-10-02', startDate: null, officialPayMinor: 2_530_572, dueDate: null } });
+    expect(validateCutoff({ ...ok, dueDate: '2026-10-01' }, 'es-MX', 'MXN')).toEqual({ ok: false, errors: [{ field: 'dueDate', code: 'due_before_cutoff' }] });
   });
 
   it('rechaza fechas imposibles, primer día posterior al corte y montos inválidos', () => {

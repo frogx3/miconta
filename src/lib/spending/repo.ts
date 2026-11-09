@@ -374,6 +374,7 @@ export interface CutoffInput {
   cutoffDate: string;
   startDate: string | null;
   officialPayMinor: number | null;
+  dueDate: string | null;
 }
 
 export type SaveCutoffResult = { ok: true } | { ok: false; reason: 'not_found' | 'month_taken' };
@@ -405,7 +406,7 @@ export async function saveCutoff(db: Db, workspaceId: string, input: CutoffInput
   if (target) {
     await batch(db, [
       ...(others.length > 0 ? [db.delete(statementCutoffs).where(inArray(statementCutoffs.id, others.map((record) => record.id)))] : []),
-      db.update(statementCutoffs).set({ cutoffDate: input.cutoffDate, startDate: input.startDate, officialPayMinor: input.officialPayMinor }).where(eq(statementCutoffs.id, target.id)),
+      db.update(statementCutoffs).set({ cutoffDate: input.cutoffDate, startDate: input.startDate, officialPayMinor: input.officialPayMinor, dueDate: input.dueDate }).where(eq(statementCutoffs.id, target.id)),
     ]);
     // Si el corte cambió de mes, los movimientos asignados a él ya no tienen a dónde ir: vuelven a contarse por su fecha.
     if (target.cutoffDate.slice(0, 7) !== month) await clearOrphanMoves(db, workspaceId, input.accountId);

@@ -1,0 +1,1 @@
+ALTER TABLE `statement_cutoffs` ADD `due_date` text;

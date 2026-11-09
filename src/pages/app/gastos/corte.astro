@@ -44,7 +44,7 @@ type StatementView = {
   to: string | null;
   cutoff: string | null;
   dueDate: string | null;
-  recorded: { startDate: string | null; officialPayMinor: number | null } | null;
+  recorded: { startDate: string | null; officialPayMinor: number | null; dueDate?: string | null } | null;
   recordId: string;
   /** Fecha de corte sugerida para el formulario de captura. */
   suggestedCutoff: string;
@@ -325,6 +325,11 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
                 <label for="officialPay">{t(locale, 'statement.real.pay', { currency })}</label>
                 <input id="officialPay" name="officialPay" type="text" inputmode="decimal" value={official !== null ? toInputString(official, locale, currency) : ''} />
                 <span class="field-error" data-error-for="officialPay" />
+              </div>
+              <div class="field">
+                <label for="dueDate">{t(locale, 'statement.real.due')}</label>
+                <input id="dueDate" name="dueDate" type="date" value={view.recorded?.dueDate ?? ''} />
+                <span class="field-error" data-error-for="dueDate" />
               </div>
               <p class="hint form-note">{view.from ? t(locale, 'statement.real.startHint', { date: formatDate(view.from, locale) }) : t(locale, 'statement.real.startNone')}</p>
               <div class="form-actions">

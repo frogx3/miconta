@@ -267,6 +267,8 @@ export const statementCutoffs = sqliteTable(
     startDate: text('start_date'),
     /** "Pago para no generar intereses" del estado de cuenta, en unidades menores. */
     officialPayMinor: integer('official_pay_minor'),
+    /** Fecha límite de pago del estado de cuenta; nula = se estima con el día de pago de la tarjeta (Banorte: corte + 20 días). */
+    dueDate: text('due_date'),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('statement_cutoffs_account_date_uq').on(t.accountId, t.cutoffDate)],
