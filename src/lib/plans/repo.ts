@@ -1,10 +1,12 @@
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
-import { accounts, cards, movements, planEvents, plans, user } from '../../db/schema';
+import { accounts, cards, movements, planEvents, plans, statementCutoffs, user } from '../../db/schema';
 import { cardDisplay } from '../accounts/format';
 import type { Db } from '../auth/hooks';
 import { remainingBalanceMinor } from '../import/plans';
 import { groupedMemberKeys, paymentGroups } from '../spending/groups';
+import { realCuts } from '../spending/statement';
+import { paymentDateFor, type PayDateOf } from './schedule';
 import { validatePlanDraft, type PlanFieldError, type PlanEdit } from './validation';
 
 /**
@@ -42,6 +44,22 @@ export interface PlanDetail {
   card: { id: string; name: string; accountId: string; accountName: string; cutoffDay: number | null; paymentDueDay: number | null };
   events: (PlanEvent & { actorName: string })[];
   movements: { id: string; date: string; description: string; chargeMinor: number; planInstallmentNo: number | null }[];
+}
+
+/**
+ * Para los resúmenes por fecha de pago: carga una vez las tarjetas y cortes reales del espacio y devuelve en qué fecha
+ * se paga cada cargo de un plan (la fecha límite del corte de su cuenta en que cae).
+ */
+export async function payDateResolver(db: Db, workspaceId: string): Promise<PayDateOf> {
+  const [cardRows, cutRows] = await Promise.all([
+    db.select({ id: cards.id, accountId: cards.accountId, cutoffDay: cards.cutoffDay, paymentDueDay: cards.paymentDueDay }).from(cards).innerJoin(accounts, eq(accounts.id, cards.accountId)).where(eq(accounts.workspaceId, workspaceId)),
+    db.select().from(statementCutoffs).where(eq(statementCutoffs.workspaceId, workspaceId)),
+  ]);
+  const byCard = new Map(cardRows.map((card) => [card.id, { card, cuts: realCuts(cutRows.filter((cut) => cut.accountId === card.accountId), card.cutoffDay, card.paymentDueDay) }]));
+  return (plan, chargeISO) => {
+    const entry = plan.cardId ? byCard.get(plan.cardId) : undefined;
+    return entry ? paymentDateFor(chargeISO, entry.cuts, entry.card.cutoffDay, entry.card.paymentDueDay) : null;
+  };
 }
 
 export async function getPlanDetail(db: Db, workspaceId: string, planId: string): Promise<PlanDetail | null> {

@@ -7,7 +7,7 @@ import { getDb } from '../../lib/auth';
 import { listAccounts } from '../../lib/accounts/repo';
 import { formatDate, todayISO } from '../../lib/date-format';
 import { formatMinor } from '../../lib/money-format';
-import { listPlans } from '../../lib/plans/repo';
+import { listPlans, payDateResolver } from '../../lib/plans/repo';
 import { summarize } from '../../lib/plans/schedule';
 import GoalCard from '../../components/GoalCard.astro';
 import { buildGoalViews } from '../../lib/goals/view';
@@ -19,7 +19,7 @@ const { user, workspace, locale } = Astro.locals;
 if (!user) return Astro.redirect('/login');
 
 const accounts = workspace ? await listAccounts(getDb(), workspace.id) : [];
-const summaries = workspace ? summarize(await listPlans(getDb(), workspace.id), todayISO(Astro.locals.timeZone)) : [];
+const summaries = workspace ? summarize(await listPlans(getDb(), workspace.id), todayISO(Astro.locals.timeZone), 36, await payDateResolver(getDb(), workspace.id)) : [];
 const goalViews = workspace ? (await buildGoalViews(getDb(), workspace.id, todayISO(Astro.locals.timeZone))).slice(0, 4) : [];
 
 // Agenda del mes: solo si hay algo cargado (pagos, cobros o saldos).
