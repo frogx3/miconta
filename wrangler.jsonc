@@ -24,7 +24,13 @@
     // Notificaciones push: se encienden con la clave pública de aquí más el secreto `wrangler secret put VAPID_PRIVATE_KEY`
     // (ambas salen de `node scripts/vapid-keys.mjs`; no cambiarlas después o las suscripciones existentes dejan de servir).
     "VAPID_PUBLIC_KEY": "BOA1zhqR7dgPxbpXZsZ7ZzSSIw2nUVKkQXwgM9WFYp-MhANuPz9RsC15JX_TxUqvTyViiR5FtNtYfULb0hmFugo",
-    "VAPID_SUBJECT": "https://donbigo.com"
+    "VAPID_SUBJECT": "https://donbigo.com",
+    // Correo saliente (códigos de primer acceso) por SMTP. Vacío = sin envío; el admin verá el aviso al invitar.
+    // SMTP_FROM es la dirección remitente del dominio de envíos; la contraseña es secreto: `wrangler secret put SMTP_PASSWORD`.
+    "SMTP_HOST": "mail.donbigo.com",
+    "SMTP_PORT": "465",
+    "SMTP_USER": "contacto@donbigo.com",
+    "SMTP_FROM": "contacto@donbigo.com"
     // Secretos de Kapso: `wrangler secret put KAPSO_API_KEY`, `wrangler secret put KAPSO_PHONE_NUMBER_ID`,
     // `wrangler secret put KAPSO_WEBHOOK_SECRET`.
     // BETTER_AUTH_URL se define en producción (`wrangler secret put` o aquí); en local vive en .dev.vars.
