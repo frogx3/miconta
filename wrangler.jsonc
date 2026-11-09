@@ -27,10 +27,10 @@
     "VAPID_SUBJECT": "https://donbigo.com",
     // Correo saliente (códigos de primer acceso) por SMTP. Vacío = sin envío; el admin verá el aviso al invitar.
     // SMTP_FROM es la dirección remitente del dominio de envíos; la contraseña es secreto: `wrangler secret put SMTP_PASSWORD`.
-    "SMTP_HOST": "",
-    "SMTP_PORT": "587",
-    "SMTP_USER": "",
-    "SMTP_FROM": ""
+    "SMTP_HOST": "mail.donbigo.com",
+    "SMTP_PORT": "465",
+    "SMTP_USER": "contacto@donbigo.com",
+    "SMTP_FROM": "contacto@donbigo.com"
     // Secretos de Kapso: `wrangler secret put KAPSO_API_KEY`, `wrangler secret put KAPSO_PHONE_NUMBER_ID`,
     // `wrangler secret put KAPSO_WEBHOOK_SECRET`.
     // BETTER_AUTH_URL se define en producción (`wrangler secret put` o aquí); en local vive en .dev.vars.
