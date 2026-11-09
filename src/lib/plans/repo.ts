@@ -39,14 +39,14 @@ export async function listPlans(db: Db, workspaceId: string): Promise<PlanListIt
 
 export interface PlanDetail {
   plan: Plan;
-  card: { id: string; name: string; accountId: string; accountName: string };
+  card: { id: string; name: string; accountId: string; accountName: string; cutoffDay: number | null; paymentDueDay: number | null };
   events: (PlanEvent & { actorName: string })[];
   movements: { id: string; date: string; description: string; chargeMinor: number; planInstallmentNo: number | null }[];
 }
 
 export async function getPlanDetail(db: Db, workspaceId: string, planId: string): Promise<PlanDetail | null> {
   const [row] = await db
-    .select({ plan: plans, cardId: cards.id, accountId: accounts.id, accountName: accounts.name, last4: cards.last4, label: cards.label })
+    .select({ plan: plans, cardId: cards.id, accountId: accounts.id, accountName: accounts.name, last4: cards.last4, label: cards.label, cutoffDay: cards.cutoffDay, paymentDueDay: cards.paymentDueDay })
     .from(plans)
     .innerJoin(cards, eq(cards.id, plans.cardId))
     .innerJoin(accounts, eq(accounts.id, cards.accountId))
@@ -69,7 +69,7 @@ export async function getPlanDetail(db: Db, workspaceId: string, planId: string)
 
   return {
     plan: row.plan,
-    card: { id: row.cardId, name: cardDisplay({ accountName: row.accountName, last4: row.last4, label: row.label }), accountId: row.accountId, accountName: row.accountName },
+    card: { id: row.cardId, name: cardDisplay({ accountName: row.accountName, last4: row.last4, label: row.label }), accountId: row.accountId, accountName: row.accountName, cutoffDay: row.cutoffDay, paymentDueDay: row.paymentDueDay },
     events: events.map((e) => ({ ...e.event, actorName: e.actorName })),
     movements: linked,
   };
