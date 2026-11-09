@@ -166,3 +166,18 @@ describe('sugerir qué movimientos cambiar de corte', () => {
     expect(found.map((u) => u.label)).toEqual(['A']);
   });
 });
+
+describe('fecha límite capturada', () => {
+  // Banorte: fecha límite = corte + 20 días; con día de pago fijo (22) el corte del 4-nov daría 22-nov y no 24-nov.
+  it('manda la fecha límite del estado de cuenta sobre la estimada', () => {
+    const cuts = realCuts(
+      [
+        { cutoffDate: '2026-10-02', startDate: '2026-09-05', officialPayMinor: null },
+        { cutoffDate: '2026-11-04', startDate: '2026-10-03', officialPayMinor: null, dueDate: '2026-11-24' },
+      ],
+      4,
+      22,
+    );
+    expect(cuts.map((cut) => cut.dueDate)).toEqual(['2026-10-22', '2026-11-24']);
+  });
+});

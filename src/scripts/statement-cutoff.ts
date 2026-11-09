@@ -33,6 +33,7 @@ if (section && form) {
         cutoffDate: data.get('cutoffDate'),
         startDate: data.get('startDate'),
         officialPay: data.get('officialPay'),
+        dueDate: data.get('dueDate'),
       }),
     });
     if (response.ok) {

@@ -26,6 +26,8 @@ export interface RecordedCutoff {
   startDate: string | null;
   /** "Pago para no generar intereses" que dice el estado de cuenta, para conciliar. */
   officialPayMinor: number | null;
+  /** Fecha límite de pago que dice el estado de cuenta; si falta, se estima con el día de pago de la tarjeta. */
+  dueDate?: string | null;
 }
 
 /** Cortes capturados, indexados por el mes (`YYYY-MM`) en que caen. */
@@ -60,7 +62,7 @@ export function statementPeriod(cutoffDay: number, paymentDueDay: number | null,
   const from = recorded?.startDate ?? addDays(cutoffOf(cutoffDay, shiftMonth(month, -1), records), 1);
   // El pago cae en el mismo mes del corte si su día es posterior; si no, al mes siguiente.
   const dueMonth = paymentDueDay !== null && paymentDueDay <= Number(cutoff.slice(8)) ? shiftMonth(month, 1) : month;
-  return { cutoff, from, to: cutoff, dueDate: paymentDueDay === null ? null : cutoffInMonth(paymentDueDay, dueMonth), open: cutoff > todayISO, recorded };
+  return { cutoff, from, to: cutoff, dueDate: recorded?.dueDate ?? (paymentDueDay === null ? null : cutoffInMonth(paymentDueDay, dueMonth)), open: cutoff > todayISO, recorded };
 }
 
 /** Fecha límite de pago de un corte: el mismo mes si el día de pago es posterior al del corte, si no, el mes siguiente. */
@@ -97,7 +99,7 @@ export function realCuts(list: readonly RecordedCutoff[], cutoffDay: number | nu
       cutoff: record.cutoffDate,
       from: record.startDate ?? (previous ? addDays(previous.cutoffDate, 1) : estimatedStart),
       to: record.cutoffDate,
-      dueDate: dueDateFor(paymentDueDay, record.cutoffDate),
+      dueDate: record.dueDate ?? dueDateFor(paymentDueDay, record.cutoffDate),
       recorded: record,
     };
   });

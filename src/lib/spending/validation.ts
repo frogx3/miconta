@@ -7,7 +7,7 @@ export const CATEGORY_COLORS = ['#0f6b4f', '#2563eb', '#d97706', '#dc2626', '#7c
 
 export interface SpendingFieldError {
   field: string;
-  code: 'required' | 'too_long' | 'too_short' | 'invalid_color' | 'invalid_amount' | 'invalid_category' | 'invalid_date' | 'invalid_range' | 'invalid_card' | 'invalid_kind';
+  code: 'required' | 'too_long' | 'too_short' | 'invalid_color' | 'invalid_amount' | 'invalid_category' | 'invalid_date' | 'invalid_range' | 'due_before_cutoff' | 'invalid_card' | 'invalid_kind';
 }
 
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
@@ -78,6 +78,7 @@ export interface CutoffValues {
   cutoffDate: string;
   startDate: string | null;
   officialPayMinor: number | null;
+  dueDate: string | null;
 }
 
 /** Corte real capturado del estado de cuenta: fecha de corte, primer día opcional y monto oficial opcional. */
@@ -94,6 +95,10 @@ export function validateCutoff(raw: Record<string, unknown>, locale: string, cur
   if (startDate && !isValidISODate(startDate)) errors.push({ field: 'startDate', code: 'invalid_date' });
   else if (startDate && cutoffDate && isValidISODate(cutoffDate) && startDate > cutoffDate) errors.push({ field: 'startDate', code: 'invalid_range' });
 
+  const dueDate = text(raw.dueDate);
+  if (dueDate && !isValidISODate(dueDate)) errors.push({ field: 'dueDate', code: 'invalid_date' });
+  else if (dueDate && cutoffDate && isValidISODate(cutoffDate) && dueDate < cutoffDate) errors.push({ field: 'dueDate', code: 'due_before_cutoff' });
+
   const payInput = typeof raw.officialPay === 'number' ? String(raw.officialPay) : text(raw.officialPay);
   let officialPayMinor: number | null = null;
   if (payInput) {
@@ -101,7 +106,7 @@ export function validateCutoff(raw: Record<string, unknown>, locale: string, cur
     if (officialPayMinor === null || officialPayMinor < 0) errors.push({ field: 'officialPay', code: 'invalid_amount' });
   }
 
-  return errors.length ? { ok: false, errors } : { ok: true, value: { accountId, cutoffDate, startDate: startDate || null, officialPayMinor } };
+  return errors.length ? { ok: false, errors } : { ok: true, value: { accountId, cutoffDate, startDate: startDate || null, officialPayMinor, dueDate: dueDate || null } };
 }
 
 export interface MovementValues {
