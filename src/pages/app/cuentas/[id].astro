@@ -15,7 +15,7 @@ import { formatDate, todayISO } from '../../../lib/date-format';
 import { formatMinor } from '../../../lib/money-format';
 import { accountActivity, cardsInUse, getAccount } from '../../../lib/accounts/repo';
 import { cardFacts } from '../../../lib/accounts/format';
-import { listPlans } from '../../../lib/plans/repo';
+import { listPlans, payDateResolver } from '../../../lib/plans/repo';
 import { summarize } from '../../../lib/plans/schedule';
 
 const { workspace, locale } = Astro.locals;
@@ -27,7 +27,7 @@ if (!account) return Astro.redirect('/app/cuentas');
 const inUse = await cardsInUse(db, workspace.id, account.id);
 const activity = await accountActivity(db, workspace.id, account.id, account.cards.map((card) => card.id));
 // Lo que cuesta esta cuenta: el mismo cálculo del Panel, solo con los planes de esta cuenta.
-const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO(Astro.locals.timeZone));
+const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO(Astro.locals.timeZone), 36, await payDateResolver(db, workspace.id));
 
 const emailCapture = emailCaptureEnabled();
 const inbox = emailCapture ? await getInbox(db, workspace.id, account.id) : null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isValidISODate } from '../src/lib/import/dates';
-import { buildSchedule, isOpen, paymentDateFor, summarize, type PlanFacts } from '../src/lib/plans/schedule';
+import { buildSchedule, isOpen, paymentDateFor, stillPaying, summarize, type PlanFacts } from '../src/lib/plans/schedule';
 import { realCuts, type RecordedCutoff } from '../src/lib/spending/statement';
 import { validatePlanEdit } from '../src/lib/plans/validation';
 
@@ -58,6 +58,27 @@ describe('calendario de pagos', () => {
       ['2026-11-22', 'charged'],
     ]);
     expect(buildSchedule(amazon, '2026-11-23', 5, payDateOf).at(-1)!.state).toBe('paid');
+  });
+
+  it('los compromisos por mes cuentan por fecha de pago, también lo ya cargado que aún no vence', () => {
+    const cuts = realCuts([{ cutoffDate: '2026-11-04', startDate: '2026-10-03', officialPayMinor: null, dueDate: '2026-11-24' }], 4, 22);
+    const payDateOf = (_: PlanFacts, iso: string) => paymentDateFor(iso, cuts, 4, 22);
+    const amazon = plan({ id: 'b', firstChargeDate: '2026-08-27', totalInstallments: 3, paidInstallments: 3, status: 'completed_natural', installmentAmountMinor: 9_966 });
+    const mapfre = plan({ id: 'm', firstChargeDate: '2026-09-08', totalInstallments: 12, paidInstallments: 2, installmentAmountMinor: 112_312 });
+
+    expect(stillPaying(amazon, '2026-11-09', payDateOf)).toBe(true);
+    expect(stillPaying(amazon, '2026-11-25', payDateOf)).toBe(false);
+    const [summary] = summarize([amazon, mapfre], '2026-11-09', 3, payDateOf);
+    // Noviembre: el 03/03 de Amazon y el 02/12 de MAPFRE (cargados en el corte del 4-nov, se pagan el 24); el 03/12 (8-nov) se paga en diciembre.
+    expect(summary!.months.map((m) => [m.month, m.amountMinor])).toEqual([
+      ['2026-11', 9_966 + 112_312],
+      ['2026-12', 112_312],
+      ['2027-01', 112_312],
+    ]);
+    expect(summary!.remainingBalanceMinor).toBe(10 * 112_312); // lo liquidado ya no es saldo a meses
+    expect(summary!.openPlans).toBe(2);
+    // Sin fechas de pago todo queda como antes.
+    expect(summarize([amazon, mapfre], '2026-11-09', 1)[0]!.months).toEqual([{ month: '2026-11', amountMinor: 112_312, plans: 1, overdue: 0 }]);
   });
 
   it('solo los planes activos o por revisar deben dinero', () => {

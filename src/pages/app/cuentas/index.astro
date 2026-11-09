@@ -7,7 +7,7 @@ import { getDb } from '../../../lib/auth';
 import { listAccounts } from '../../../lib/accounts/repo';
 import { todayISO } from '../../../lib/date-format';
 import { formatMinor } from '../../../lib/money-format';
-import { listPlans } from '../../../lib/plans/repo';
+import { listPlans, payDateResolver } from '../../../lib/plans/repo';
 import { summarize } from '../../../lib/plans/schedule';
 
 const { workspace, locale } = Astro.locals;
@@ -16,8 +16,8 @@ if (!workspace) return Astro.redirect('/login');
 const showArchived = Astro.url.searchParams.get('archivadas') === '1';
 const accounts = await listAccounts(getDb(), workspace.id, showArchived);
 const canWrite = workspace.role !== 'viewer';
-const allPlans = await listPlans(getDb(), workspace.id);
-const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => plan.accountId === accountId), todayISO(Astro.locals.timeZone)).find((entry) => entry.thisMonthMinor > 0);
+const [allPlans, payDateOf] = await Promise.all([listPlans(getDb(), workspace.id), payDateResolver(getDb(), workspace.id)]);
+const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => plan.accountId === accountId), todayISO(Astro.locals.timeZone), 36, payDateOf).find((entry) => entry.thisMonthMinor > 0);
 ---
 
 <AppLayout title={t(locale, 'accounts.title')} active="accounts">

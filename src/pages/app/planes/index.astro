@@ -6,21 +6,22 @@ import Breadcrumb from '../../../components/Breadcrumb.astro';
 import { messagesFor, t } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { formatDate, formatMonth, todayISO } from '../../../lib/date-format';
-import { naturalEndDate, remainingBalanceMinor } from '../../../lib/import/plans';
+import { remainingBalanceMinor } from '../../../lib/import/plans';
 import { formatMinor } from '../../../lib/money-format';
 import { getAccount } from '../../../lib/accounts/repo';
-import { listPlans } from '../../../lib/plans/repo';
-import { isOpen, summarize, summarizeByCard } from '../../../lib/plans/schedule';
+import { listPlans, payDateResolver } from '../../../lib/plans/repo';
+import { isOpen, lastPayDate, stillPaying, summarize, summarizeByCard } from '../../../lib/plans/schedule';
 import { listTags, plansWithTag, tagsByPlan } from '../../../lib/plans/tags';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
 
-const everything = await listPlans(getDb(), workspace.id);
+const [everything, payDateOf] = await Promise.all([listPlans(getDb(), workspace.id), payDateResolver(getDb(), workspace.id)]);
+const today = todayISO(Astro.locals.timeZone);
 const accountFilter = Astro.url.searchParams.get('cuenta') ?? '';
 const all = accountFilter ? everything.filter((plan) => plan.accountId === accountFilter) : everything;
-const summaries = summarize(all, todayISO(Astro.locals.timeZone));
-const byCurrencyCards = summarizeByCard(all, todayISO(Astro.locals.timeZone));
+const summaries = summarize(all, today, 36, payDateOf);
+const byCurrencyCards = summarizeByCard(all, today, payDateOf);
 const scopeName = accountFilter ? ((await getAccount(getDb(), workspace.id, accountFilter))?.name ?? '') : '';
 
 const tab = Astro.url.searchParams.get('estado') === 'cerrados' ? 'closed' : 'active';
@@ -30,11 +31,13 @@ const tagFilter = allTags.some((tag) => tag.id === Astro.url.searchParams.get('e
 const withTag = tagFilter ? plansWithTag(tagMap, tagFilter) : null;
 const cards = [...new Map(all.map((plan) => [plan.cardId, plan.cardName])).entries()];
 
-const inTab = all.filter((plan) => (tab === 'active' ? isOpen(plan) : !isOpen(plan)));
+// Un plan liquidado sigue en activos hasta que vence el pago de su última mensualidad.
+const inTab = all.filter((plan) => (tab === 'active') === stillPaying(plan, today, payDateOf));
+const endOf = new Map(all.map((plan) => [plan.id, lastPayDate(plan, payDateOf)]));
 const shown = inTab
   .filter((plan) => !cardFilter || plan.cardId === cardFilter)
   .filter((plan) => !withTag || withTag.has(plan.id))
-  .sort((a, b) => naturalEndDate(a).localeCompare(naturalEndDate(b)) || a.name.localeCompare(b.name));
+  .sort((a, b) => endOf.get(a.id)!.localeCompare(endOf.get(b.id)!) || a.name.localeCompare(b.name));
 
 const href = (params: Record<string, string>) => {
   const merged = {
@@ -241,7 +244,7 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
                           <br />
                           <span class="muted">{t(locale, `import.plan.type.${plan.type}`)}</span>
                           {(tagMap.get(plan.id) ?? []).map((tag) => <a class="chip chip-tag" href={href({ estado: tab === 'closed' ? 'cerrados' : '', tarjeta: cardFilter, etiqueta: tag.id })}>{tag.name}</a>)}
-                          {plan.status !== 'active' && <span class:list={['badge', plan.status === 'review' && 'badge-warn', plan.status === 'settled_manual' && 'badge-off']}>{t(locale, `plans.status.${plan.status}`)}</span>}
+                          {plan.status !== 'active' && <span class:list={['badge', plan.status === 'review' && 'badge-warn', plan.status === 'settled_manual' && 'badge-off']}>{plan.status === 'completed_natural' && stillPaying(plan, today, payDateOf) ? t(locale, 'plans.status.payingOff', { date: formatDate(endOf.get(plan.id)!, locale) }) : t(locale, `plans.status.${plan.status}`)}</span>}
                         </td>
                         <td>{plan.cardName}</td>
                         <td class="nowrap">
@@ -252,7 +255,7 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
                         </td>
                         <td class="num nowrap">{formatMinor(plan.installmentAmountMinor, plan.currency, locale)}</td>
                         <td class="num nowrap">{isOpen(plan) ? formatMinor(remainingBalanceMinor(plan), plan.currency, locale) : '—'}</td>
-                        <td class="nowrap">{formatDate(naturalEndDate(plan), locale)}</td>
+                        <td class="nowrap">{formatDate(endOf.get(plan.id)!, locale)}</td>
                       </tr>
                     ))}
                   </tbody>
