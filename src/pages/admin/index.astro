@@ -19,7 +19,7 @@ const pendingDeletion = await listPendingDeletion(getDb());
 const users = allUsers.filter((row) => !(row as { deletedAt?: unknown }).deletedAt);
 const purgeOn = (date: Date) => new Date(date.getTime() + DELETION_GRACE_DAYS * 86_400_000).toISOString().slice(0, 10);
 
-const keys: MessageKey[] = ['admin.deletion.confirmPurge', 'admin.deletion.error', 'auth.working', 'admin.create.submit', 'admin.create.done', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail', 'admin.create.invited', 'admin.invite.emailFailed'];
+const keys: MessageKey[] = ['admin.deletion.confirmPurge', 'admin.deletion.error', 'auth.working', 'admin.create.submit', 'admin.create.done', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail', 'admin.create.invited', 'admin.invite.emailFailed', 'admin.invite.notConfigured'];
 const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
 ---
 
@@ -181,7 +181,8 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
     if (!typed) {
       const sent = await fetch(`/api/admin/users/${created.user.id}/access-code`, { method: 'POST' }).catch(() => null);
       if (!sent?.ok) {
-        errorBox.textContent = messages['admin.invite.emailFailed']!;
+        const failure = (await sent?.json().catch(() => null)) as { code?: string } | null;
+        errorBox.textContent = messages[failure?.code === 'SMTP_NOT_CONFIGURED' ? 'admin.invite.notConfigured' : 'admin.invite.emailFailed']!;
         errorBox.hidden = false;
         return;
       }

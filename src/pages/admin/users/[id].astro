@@ -27,7 +27,7 @@ const codeStatus = !lastCode
     : lastCode.expiresAt > new Date()
       ? t(locale, 'admin.invite.pending', { date: when(lastCode.expiresAt) })
       : t(locale, 'admin.invite.expired');
-const keys: MessageKey[] = ['admin.delete.error', 'admin.wipe.error', 'admin.wipe.done', 'auth.working', 'admin.edit.save', 'admin.edit.saved', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail', 'admin.invite.sent', 'admin.invite.emailFailed'];
+const keys: MessageKey[] = ['admin.delete.error', 'admin.wipe.error', 'admin.wipe.done', 'auth.working', 'admin.edit.save', 'admin.edit.saved', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail', 'admin.invite.sent', 'admin.invite.emailFailed', 'admin.invite.notConfigured'];
 const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
 ---
 
@@ -235,10 +235,10 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
     const box = document.querySelector<HTMLElement>('#invite-result')!;
     button.disabled = true;
     const response = await fetch(`/api/admin/users/${button.dataset.userId}/access-code`, { method: 'POST' }).catch(() => null);
-    const result = (await response?.json().catch(() => null)) as { email?: string } | null;
+    const result = (await response?.json().catch(() => null)) as { email?: string; code?: string } | null;
     button.disabled = false;
     box.classList.toggle('ok', Boolean(response?.ok));
-    box.textContent = response?.ok ? messages['admin.invite.sent']!.replace('{email}', result?.email ?? '') : messages['admin.invite.emailFailed']!;
+    box.textContent = response?.ok ? messages['admin.invite.sent']!.replace('{email}', result?.email ?? '') : messages[result?.code === 'SMTP_NOT_CONFIGURED' ? 'admin.invite.notConfigured' : 'admin.invite.emailFailed']!;
     box.hidden = false;
     if (response?.ok) setTimeout(() => location.reload(), 1200);
   });

@@ -3,7 +3,7 @@ import type { APIRoute } from 'astro';
 import { user as userTable } from '../../../../../db/schema';
 import { getDb } from '../../../../../lib/auth';
 import { issueAccessCode } from '../../../../../lib/auth/access-code';
-import { sendAccessCode } from '../../../../../lib/email/send-access';
+import { sendAccessCode, smtpConfig } from '../../../../../lib/email/send-access';
 import { json, sameOrigin } from '../../../../../lib/http';
 
 export const prerender = false;
@@ -13,6 +13,8 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   if (!locals.user) return json(401, { code: 'UNAUTHENTICATED' });
   if (locals.user.role !== 'admin') return json(403, { code: 'FORBIDDEN' });
   if (!sameOrigin(request)) return json(403, { code: 'BAD_ORIGIN' });
+
+  if (!smtpConfig()) return json(503, { code: 'SMTP_NOT_CONFIGURED' });
 
   const db = getDb();
   const [target] = await db.select().from(userTable).where(eq(userTable.id, params.id!)).limit(1);
