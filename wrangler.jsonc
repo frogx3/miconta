@@ -43,6 +43,9 @@
     "producers": [{ "binding": "BACKUPS", "queue": "miconta-backups" }],
     "consumers": [{ "queue": "miconta-backups", "max_batch_size": 1, "max_retries": 0 }]
   },
+  // Correo saliente (Cloudflare Email Service): códigos de primer acceso. El dominio donbigo.com debe estar
+  // dado de alta para envío en el panel (Email → Email Sending) para que salgan con SPF/DKIM.
+  "send_email": [{ "name": "EMAIL" }],
   "r2_buckets": [
     {
       "binding": "FILES",

@@ -156,6 +156,20 @@ export const workspaceInvitations = sqliteTable(
   (t) => [uniqueIndex('workspace_invitations_token_uq').on(t.tokenHash), index('workspace_invitations_workspace_idx').on(t.workspaceId)],
 );
 
+/** Código de primer acceso que un admin manda por correo: un solo uso, vence a las 48 h; mandar otro invalida el anterior. */
+export const accessCodes = sqliteTable(
+  'access_codes',
+  {
+    id: id(),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    usedAt: integer('used_at', { mode: 'timestamp_ms' }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('access_codes_code_uq').on(t.codeHash), index('access_codes_user_idx').on(t.userId)],
+);
+
 // ── Cuentas y tarjetas ───────────────────────────────────────────────────────────────────────────
 
 /**

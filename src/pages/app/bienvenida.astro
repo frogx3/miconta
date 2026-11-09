@@ -1,0 +1,80 @@
+---
+import { eq } from 'drizzle-orm';
+import AppLayout from '../../layouts/AppLayout.astro';
+import { accounts, movements, plans } from '../../db/schema';
+import { t } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+
+// Primer acceso: crear la primera cuenta y luego cargar el primer movimiento (CSV o a mano). El avance sale de los datos.
+const { user, workspace, locale } = Astro.locals;
+if (!user || !workspace) return Astro.redirect('/login');
+if (workspace.role === 'viewer') return Astro.redirect('/app');
+
+const db = getDb();
+const exists = async (table: typeof accounts | typeof movements | typeof plans) => (await db.select({ id: table.id }).from(table).where(eq(table.workspaceId, workspace.id)).limit(1)).length > 0;
+const [hasAccount, hasMovement, hasPlan] = await Promise.all([exists(accounts), exists(movements), exists(plans)]);
+const hasData = hasMovement || hasPlan;
+---
+
+<AppLayout title={t(locale, 'welcome.title')} active="dashboard">
+  <h1>{t(locale, 'welcome.heading', { name: user.name })}</h1>
+  <p class="hint">{t(locale, 'welcome.lead')}</p>
+
+  <ol class="welcome-steps">
+    <li class:list={['card', hasAccount && 'is-done']}>
+      <h2><span class="step-n" aria-hidden="true">1</span>{t(locale, 'welcome.step.account')}</h2>
+      <p class="muted">{t(locale, 'welcome.step.accountHint')}</p>
+      {hasAccount ? <span class="badge">{t(locale, 'welcome.step.done')}</span> : <a class="btn btn-link" href="/app/cuentas/nueva">{t(locale, 'welcome.step.accountCta')}</a>}
+    </li>
+    <li class:list={['card', hasData && 'is-done']} aria-disabled={!hasAccount ? 'true' : undefined}>
+      <h2><span class="step-n" aria-hidden="true">2</span>{t(locale, 'welcome.step.data')}</h2>
+      <p class="muted">{t(locale, hasAccount ? 'welcome.step.dataHint' : 'welcome.step.dataLocked')}</p>
+      {
+        hasData ? (
+          <span class="badge">{t(locale, 'welcome.step.done')}</span>
+        ) : (
+          hasAccount && (
+            <div class="row-actions">
+              <a class="btn btn-link" href="/app/importar">{t(locale, 'welcome.step.csv')}</a>
+              <a class="btn btn-ghost" href="/app/gastos/movimientos?agregar=1#movement-add">{t(locale, 'welcome.step.manual')}</a>
+            </div>
+          )
+        )
+      }
+    </li>
+  </ol>
+
+  <a class:list={['btn', !(hasAccount && hasData) && 'btn-ghost']} href="/app">{t(locale, hasAccount && hasData ? 'welcome.finish' : 'welcome.skip')}</a>
+</AppLayout>
+
+<style>
+  .welcome-steps {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    display: grid;
+    gap: 1rem;
+  }
+  .welcome-steps h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .step-n {
+    display: inline-grid;
+    place-items: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--surface, #fff);
+    font-size: 0.95rem;
+    flex: none;
+  }
+  .is-done .step-n {
+    opacity: 0.55;
+  }
+  [aria-disabled='true'] {
+    opacity: 0.6;
+  }
+</style>

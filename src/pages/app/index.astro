@@ -96,8 +96,8 @@ const money = (minor: number, currency: string) => formatMinor(minor, currency, 
         <>
           <p class="empty">{t(locale, 'accounts.empty')}</p>
           {workspace?.role !== 'viewer' && (
-            <a class="btn btn-link" href="/app/cuentas/nueva">
-              {t(locale, 'accounts.new')}
+            <a class="btn btn-link" href="/app/bienvenida">
+              {t(locale, 'welcome.title')}
             </a>
           )}
         </>

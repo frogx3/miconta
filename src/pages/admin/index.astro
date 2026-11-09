@@ -19,7 +19,7 @@ const pendingDeletion = await listPendingDeletion(getDb());
 const users = allUsers.filter((row) => !(row as { deletedAt?: unknown }).deletedAt);
 const purgeOn = (date: Date) => new Date(date.getTime() + DELETION_GRACE_DAYS * 86_400_000).toISOString().slice(0, 10);
 
-const keys: MessageKey[] = ['admin.deletion.confirmPurge', 'admin.deletion.error', 'auth.working', 'admin.create.submit', 'admin.create.done', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail'];
+const keys: MessageKey[] = ['admin.deletion.confirmPurge', 'admin.deletion.error', 'auth.working', 'admin.create.submit', 'admin.create.done', 'admin.error.generic', 'auth.error.userExists', 'auth.error.passwordTooShort', 'auth.error.invalidEmail', 'admin.create.invited', 'admin.invite.emailFailed'];
 const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
 ---
 
@@ -101,8 +101,8 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
       </div>
       <div class="field">
         <label for="password">{t(locale, 'auth.field.password')}</label>
-        <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required />
-        <span class="hint">{t(locale, 'auth.field.passwordHint')}</span>
+        <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" />
+        <span class="hint">{t(locale, 'admin.create.passwordOptional')}</span>
       </div>
       <div class="field">
         <label for="role">{t(locale, 'admin.create.type')}</label>
@@ -158,10 +158,13 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
     button.textContent = messages['auth.working']!;
 
     const data = new FormData(form);
-    const { error } = await authClient.admin.createUser({
+    const typed = String(data.get('password') ?? '');
+    // Sin contraseña se invita por correo: la cuenta nace con una aleatoria que nadie conoce y el código la reemplaza.
+    const random = () => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+    const { data: created, error } = await authClient.admin.createUser({
       name: String(data.get('name')),
       email: String(data.get('email')),
-      password: String(data.get('password')),
+      password: typed || random(),
       role: data.get('role') === 'admin' ? 'admin' : 'user',
       data: { locale: String(data.get('locale')) },
     });
@@ -175,7 +178,15 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
       errorBox.hidden = false;
       return;
     }
-    doneBox.textContent = messages['admin.create.done']!;
+    if (!typed) {
+      const sent = await fetch(`/api/admin/users/${created.user.id}/access-code`, { method: 'POST' }).catch(() => null);
+      if (!sent?.ok) {
+        errorBox.textContent = messages['admin.invite.emailFailed']!;
+        errorBox.hidden = false;
+        return;
+      }
+    }
+    doneBox.textContent = typed ? messages['admin.create.done']! : messages['admin.create.invited']!.replace('{email}', created.user.email);
     doneBox.hidden = false;
     setTimeout(() => location.reload(), 600);
   });
