@@ -16,19 +16,22 @@ const PAPER = '#f1eee6';
 const MUTED = '#665f55';
 const FONT = "Montserrat,'Segoe UI',Helvetica,Arial,sans-serif";
 
-/** `origin` sirve para el logo (PNG público: Gmail no muestra SVG) y el enlace al sitio. */
+/**
+ * En modo oscuro Gmail aclara los colores de fondo, pero no los degradados ni las imágenes: el navy del encabezado va
+ * también como degradado y el logo (`email-logo.png`) trae su propio fondo navy, así nunca se pierde.
+ * `origin` sirve para el logo (PNG público: Gmail no muestra SVG) y el enlace al sitio. */
 export function accessEmailHtml(text: AccessEmailText, code: string, url: string, origin: string): string {
   const e = escapeHtml;
   const host = new URL(origin).host;
   return `<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Don Bigo</title></head>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only"><title>Don Bigo</title></head>
 <body style="margin:0;padding:0;background:${PAPER}">
 <div style="display:none;max-height:0;overflow:hidden">${e(text.intro)} ${e(code)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER}">
 <tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #dcd5c6;border-radius:12px;overflow:hidden">
-  <tr><td align="center" style="background:${NAVY};padding:28px 24px 22px">
-    <img src="${e(origin)}/brand/miconta-icon-white-240.png" width="64" height="62" alt="Don Bigo" style="display:block;border:0;margin:0 auto 10px">
+  <tr><td align="center" bgcolor="${NAVY}" style="background-color:${NAVY};background-image:linear-gradient(${NAVY},${NAVY});padding:28px 24px 22px">
+    <img src="${e(origin)}/brand/email-logo.png" width="72" height="72" alt="Don Bigo" style="display:block;border:0;margin:0 auto 10px;border-radius:16px">
     <div style="font-family:${FONT};font-size:22px;font-weight:700;color:#ffffff;letter-spacing:.2px">Don <span style="color:${GOLD}">Bigo</span></div>
   </td></tr>
   <tr><td style="padding:32px 32px 8px;font-family:${FONT};color:#14202f;font-size:16px;line-height:1.55">
