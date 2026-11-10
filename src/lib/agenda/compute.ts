@@ -153,3 +153,14 @@ export function monthResults(input: { month: string; todayISO: string; balances:
     return result;
   });
 }
+
+/**
+ * Petición de "Ya lo pagué / Ya lo cobré" de una entrada; la usan la Agenda y la lista de lo que sigue. Un pago de
+ * tarjeta sugerido se guarda con la acción `done`; uno proyectado o que ya no está pendiente no tiene acción.
+ */
+export function doneRequest(e: Entry, suggestions: { key: string; cardId: string; dueDate: string }[]): { url: string; body: Record<string, string> } | null {
+  if (e.status !== 'pending' || e.projected) return null;
+  const suggestion = suggestions.find((s) => s.key === e.key);
+  if (suggestion) return { url: '/api/agenda/card-payments', body: { cardId: suggestion.cardId, dueDate: suggestion.dueDate, action: 'done' } };
+  return { url: `/api/agenda/items/${e.key}/done`, body: {} };
+}

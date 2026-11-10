@@ -70,7 +70,7 @@ const soon = agenda ? hasPaymentSoon(agenda.entries, tomorrow) : false;
     agenda && (
       <div class="upcoming-pop" id="upcoming-pop" popover aria-label={t(locale, 'header.upcoming')}>
         <h2>{t(locale, 'header.upcoming')}</h2>
-        {upcoming.length > 0 ? <UpcomingList entries={upcoming} today={today} tomorrow={tomorrow} /> : <p class="empty">{t(locale, 'header.upcoming.empty')}</p>}
+        {upcoming.length > 0 ? <UpcomingList entries={upcoming} today={today} tomorrow={tomorrow} agenda={agenda} group="upcoming-header" /> : <p class="empty">{t(locale, 'header.upcoming.empty')}</p>}
         <a class="touch-link" href="/app/agenda">{t(locale, 'app.dashboard.agendaLink')} →</a>
       </div>
     )

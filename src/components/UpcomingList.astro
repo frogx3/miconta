@@ -1,38 +1,120 @@
 ---
-/** Lista de lo que sigue en la agenda (portada y desplegado del encabezado). */
+/**
+ * Lista de lo que sigue en la agenda (portada y desplegado del encabezado). Tocar una entrada abre su detalle con
+ * "Marcar como pagado / cobrado" (la misma petición que la Agenda) y el enlace a su mes en la Agenda.
+ */
+import Icon from './Icon.astro';
 import { t } from '../i18n/messages';
 import { formatDate } from '../lib/date-format';
 import { formatMinor } from '../lib/money-format';
-import type { Entry } from '../lib/agenda/compute';
+import { doneRequest, type Entry } from '../lib/agenda/compute';
+import type { loadAgendaMonth } from '../lib/agenda/month';
 
 interface Props {
   entries: Entry[];
   today: string;
   tomorrow?: string;
+  agenda: Pick<Awaited<ReturnType<typeof loadAgendaMonth>>, 'items' | 'suggestions' | 'accounts'>;
+  /** Agrupa los detalles para que solo uno quede abierto por lista. */
+  group: string;
 }
 
-const { entries, today, tomorrow } = Astro.props;
-const { locale } = Astro.locals;
+const { entries, today, tomorrow, agenda, group } = Astro.props;
+const { locale, workspace } = Astro.locals;
+const canWrite = workspace?.role !== 'viewer';
+const itemById = new Map(agenda.items.map((item) => [item.id, item]));
+const cardName = new Map(agenda.accounts.flatMap((account) => account.cards.map((card) => [card.id, [account.name, card.label, card.last4 && `•••• ${card.last4}`].filter(Boolean).join(' · ')])));
+
+const details = entries.map((e) => {
+  const item = itemById.get(e.key);
+  const suggestion = agenda.suggestions.find((s) => s.key === e.key);
+  const cardId = item?.cardId ?? suggestion?.cardId;
+  return {
+    e,
+    // Una proyectada repite la serie de su registro: `proj:<id>:<fecha>`.
+    recurrence: e.projected ? itemById.get(e.key.split(':')[1]!)?.recurrence : item?.recurrence,
+    card: cardId ? cardName.get(cardId) : undefined,
+    estimate: suggestion?.basis === 'estimate',
+    done: canWrite ? doneRequest(e, agenda.suggestions) : null,
+  };
+});
 ---
 
-<ul class="home-agenda-list">
+<ul class="home-agenda-list" data-upcoming data-error={t(locale, 'common.error')}>
   {
-    entries.map((e) => (
+    details.map(({ e, recurrence, card, estimate, done }) => (
       <li>
-        <span>
-          <strong>{e.description}</strong>
-          <span class="muted activity-sub">
-            {formatDate(e.dueDate, locale)}
-            {e.dueDate < today && <span class="badge badge-warn">{t(locale, 'agenda.label.overdue')}</span>}
-            {e.dueDate === today && <span class="badge badge-warn">{t(locale, 'agenda.label.today')}</span>}
-            {tomorrow && e.dueDate === tomorrow && <span class="badge badge-warn">{t(locale, 'agenda.label.tomorrow')}</span>}
-          </span>
-        </span>
-        <span class:list={['agenda-amount', e.kind === 'receivable' ? 'is-receivable' : 'is-payable']}>
-          {e.kind === 'receivable' ? '+' : '−'}
-          {formatMinor(e.amountMinor, e.currency, locale)}
-        </span>
+        <details class="upcoming-item" name={group}>
+          <summary>
+            <span>
+              <strong>{e.description}</strong>
+              <span class="muted activity-sub">
+                {formatDate(e.dueDate, locale)}
+                {e.dueDate < today && <span class="badge badge-warn">{t(locale, 'agenda.label.overdue')}</span>}
+                {e.dueDate === today && <span class="badge badge-warn">{t(locale, 'agenda.label.today')}</span>}
+                {tomorrow && e.dueDate === tomorrow && <span class="badge badge-warn">{t(locale, 'agenda.label.tomorrow')}</span>}
+              </span>
+            </span>
+            <span class:list={['agenda-amount', e.kind === 'receivable' ? 'is-receivable' : 'is-payable']}>
+              {e.kind === 'receivable' ? '+' : '−'}
+              {formatMinor(e.amountMinor, e.currency, locale)}
+            </span>
+            <span class="upcoming-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
+          </summary>
+          <div class="upcoming-detail">
+            <dl>
+              <dt>{t(locale, 'agenda.field.kind')}</dt>
+              <dd>{t(locale, e.kind === 'payable' ? 'agenda.payable' : 'agenda.receivable')}</dd>
+              <dt>{t(locale, 'agenda.field.dueDate')}</dt>
+              <dd>{formatDate(e.dueDate, locale)}</dd>
+              {card && (
+                <>
+                  <dt>{t(locale, 'upcoming.card')}</dt>
+                  <dd>{card}</dd>
+                </>
+              )}
+              {recurrence && (
+                <>
+                  <dt>{t(locale, 'agenda.field.recurrence')}</dt>
+                  <dd>{t(locale, `agenda.recurrence.${recurrence}`)}</dd>
+                </>
+              )}
+            </dl>
+            {estimate && <p class="muted">{t(locale, 'upcoming.estimate')}</p>}
+            {e.projected && <p class="muted">{t(locale, 'upcoming.projected')}</p>}
+            <p class="upcoming-error field-error" role="alert" hidden />
+            <div class="row-actions">
+              {done && (
+                <button type="button" class="btn btn-small btn-auto" data-upcoming-done data-url={done.url} data-body={JSON.stringify(done.body)}>
+                  <Icon name="check" size={16} />
+                  {t(locale, e.kind === 'payable' ? 'upcoming.markPaid' : 'upcoming.markReceived')}
+                </button>
+              )}
+              <a class="touch-link" href={`/app/agenda?mes=${e.dueDate.slice(0, 7)}`}>{t(locale, 'upcoming.seeInAgenda')} →</a>
+            </div>
+          </div>
+        </details>
       </li>
     ))
   }
 </ul>
+
+<script>
+  // Marca y recarga: la portada, el encabezado y los avisos dependen de lo pendiente.
+  document.querySelectorAll<HTMLButtonElement>('[data-upcoming-done]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      const error = button.closest('.upcoming-detail')!.querySelector<HTMLElement>('.upcoming-error')!;
+      button.disabled = true;
+      error.hidden = true;
+      try {
+        const response = await fetch(button.dataset.url!, { method: 'POST', headers: { 'content-type': 'application/json' }, body: button.dataset.body });
+        if (response.ok) return location.reload();
+      } catch {
+        /* sin red: mismo aviso */
+      }
+      button.disabled = false;
+      error.textContent = button.closest<HTMLElement>('[data-upcoming]')!.dataset.error!;
+      error.hidden = false;
+    }),
+  );
+</script>

@@ -48,7 +48,7 @@ const money = (minor: number, currency: string) => formatMinor(minor, currency, 
         {upcoming.length > 0 && (
           <>
             <h3>{t(locale, 'app.dashboard.agendaNext')}</h3>
-            <UpcomingList entries={upcoming} today={today} tomorrow={addDays(today, 1)} />
+            <UpcomingList entries={upcoming} today={today} tomorrow={addDays(today, 1)} agenda={agenda} group="upcoming-home" />
           </>
         )}
         <a class="touch-link" href="/app/agenda">{t(locale, 'app.dashboard.agendaLink')} →</a>
