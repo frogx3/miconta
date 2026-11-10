@@ -1,6 +1,7 @@
 ---
 import { t, type MessageKey } from '../i18n/messages';
 import type { Account } from '../lib/accounts/repo';
+import { BANKS, OTHER_BANK } from '../lib/banks';
 
 interface Props {
   mode: 'create' | 'edit';
@@ -11,6 +12,7 @@ interface Props {
 }
 
 const { mode, account, readOnly = false, next } = Astro.props;
+const bankId = account?.bankId ?? '';
 const { locale } = Astro.locals;
 
 const keys: MessageKey[] = ['auth.working', 'common.saved', 'common.error', 'validation.required', 'validation.too_long'];
@@ -27,8 +29,17 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
       <span class="field-error" data-error-for="name"></span>
     </div>
     <div class="field">
-      <label for="bank">{t(locale, 'account.field.bank')}</label>
-      <input id="bank" name="bank" type="text" value={account?.bank ?? ''} maxlength="60" required />
+      <label for="bankId">{t(locale, 'account.field.bank')}</label>
+      <select id="bankId" name="bankId" required>
+        <option value="" disabled selected={!bankId}>{t(locale, 'account.bank.choose')}</option>
+        {BANKS.map((bank) => <option value={bank.id} selected={bankId === bank.id}>{bank.name}</option>)}
+        <option value={OTHER_BANK} selected={bankId === OTHER_BANK}>{t(locale, 'account.bank.other')}</option>
+      </select>
+      <span class="field-error" data-error-for="bankId"></span>
+    </div>
+    <div class="field" data-bank-other hidden={bankId !== OTHER_BANK}>
+      <label for="bank">{t(locale, 'account.field.bankOther')}</label>
+      <input id="bank" name="bank" type="text" value={bankId === OTHER_BANK ? account?.bank : ''} maxlength="60" />
       <span class="field-error" data-error-for="bank"></span>
     </div>
     <div class="field">
@@ -57,6 +68,12 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
     const errorBox = document.querySelector<HTMLElement>('#form-error')!;
     const status = form.querySelector<HTMLElement>('[data-status]')!;
     const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const bankSelect = form.querySelector<HTMLSelectElement>('#bankId')!;
+    const bankOther = form.querySelector<HTMLElement>('[data-bank-other]')!;
+    bankSelect.addEventListener('change', () => {
+      bankOther.hidden = bankSelect.value !== 'other';
+      if (!bankOther.hidden) bankOther.querySelector('input')?.focus();
+    });
 
     const clearErrors = () => {
       errorBox.hidden = true;
