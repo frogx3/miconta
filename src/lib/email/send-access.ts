@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { WorkerMailer } from 'worker-mailer';
+import { accessEmailHtml } from './access-template';
 import { t } from '../../i18n/messages';
 import { DEFAULT_TIME_ZONE, isTimeZone } from '../date-format';
 import { DEFAULT_LOCALE, isSupportedLocale } from '../locale';
@@ -21,8 +22,6 @@ export function smtpConfig() {
   };
 }
 
-const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
 interface Recipient {
   name: string;
   email: string;
@@ -42,18 +41,13 @@ export async function sendAccessCode(to: Recipient, code: string, expiresAt: Dat
     intro: t(locale, 'access.email.intro'),
     cta: t(locale, 'access.email.cta'),
     expires: t(locale, 'access.email.expires', { date }),
+    footer: t(locale, 'access.email.footer'),
   };
   await WorkerMailer.send(smtp.options, {
     from: { name: 'Don Bigo', email: smtp.from },
     to: { name: to.name, email: to.email },
     subject: t(locale, 'access.email.subject'),
     text: `${lines.greeting}\n\n${lines.intro}\n\n${code}\n\n${lines.cta}: ${url}\n\n${lines.expires}\n`,
-    html: `<div style="font-family:Montserrat,Arial,sans-serif;color:#1d3557;max-width:480px">
-<p>${escapeHtml(lines.greeting)}</p>
-<p>${escapeHtml(lines.intro)}</p>
-<p style="font-size:28px;font-weight:700;letter-spacing:4px;font-family:monospace">${escapeHtml(code)}</p>
-<p><a href="${escapeHtml(url)}" style="display:inline-block;background:#1d3557;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">${escapeHtml(lines.cta)}</a></p>
-<p style="color:#5b6577;font-size:14px">${escapeHtml(lines.expires)}</p>
-</div>`,
+    html: accessEmailHtml(lines, code, url, origin),
   });
 }
