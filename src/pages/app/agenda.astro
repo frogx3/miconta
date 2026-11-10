@@ -10,6 +10,7 @@ import { monthOf, shiftMonth } from '../../lib/spending/analysis';
 import { doneRequest, type Entry, type MonthResult } from '../../lib/agenda/compute';
 import type { SuggestedCardPayment } from '../../lib/agenda/card-payments';
 import { loadAgendaMonth } from '../../lib/agenda/month';
+import { balanceHistory, dailyBalance } from '../../lib/agenda/balance';
 import { RECURRENCES } from '../../lib/agenda/validation';
 import { whatsappConfig } from '../../lib/agenda/whatsapp';
 import { user } from '../../db/schema';
@@ -28,11 +29,15 @@ const isPast = month < current;
 const canWrite = workspace.role !== 'viewer';
 const currency = workspace.defaultCurrency;
 
-const { items, balances, suggestions, entries, debitCards, results } = await loadAgendaMonth(db, workspace.id, month, today);
+const { items, balances, suggestions, entries, results } = await loadAgendaMonth(db, workspace.id, month, today);
 const suggestionByKey = new Map<string, SuggestedCardPayment>(suggestions.map((s) => [s.key, s]));
 const itemById = new Map(items.map((item) => [item.id, item]));
-const freeBalances = balances.filter((b) => b.cardId === null);
-const balanceByCard = new Map(balances.filter((b) => b.cardId).map((b) => [b.cardId!, b]));
+// Saldo global en la moneda del espacio: total de hoy, historial (lo más reciente primero) y su gráfica.
+const balance = balances.find((b) => b.currency === currency) ?? null;
+const history = await balanceHistory(db, workspace.id, currency);
+let running = 0;
+const historyRows = history.map((m) => ({ ...m, after: (running += m.amountMinor) })).reverse();
+const points = dailyBalance(history);
 
 // shortcut: el calendario muestra el saldo de una sola moneda (la del espacio); con varias, cada bloque de resultado da la suya.
 const primary: MonthResult | undefined = results.find((r) => r.currency === currency) ?? results[0];
@@ -86,13 +91,25 @@ const leading = (new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay() + 6) %
 const dates = Array.from({ length: totalDays }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
 const weekdays = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, 1 + i))));
 
-const staleBefore = Date.now() - 7 * 86_400_000;
 const defaultDate = month === current ? today : `${month}-01`;
 // Avisos por WhatsApp: son del usuario (no del espacio), así que también los ve un `viewer`. Solo con la configuración
 // completa: si falta algo, vincular respondería 503.
 const whatsapp = whatsappConfig()
   ? ((await db.select({ phone: user.whatsappPhone, optIn: user.whatsappOptIn }).from(user).where(eq(user.id, currentUser.id)).limit(1))[0] ?? null)
   : null;
+// Gráfica del saldo: escalón por día (el saldo no cambia entre movimientos) hasta hoy.
+const chart = (() => {
+  if (points.length === 0) return null;
+  const series = points[points.length - 1]!.date < today ? [...points, { date: today, balanceMinor: points[points.length - 1]!.balanceMinor }] : points;
+  const W = 600, H = 160, pad = 8;
+  const t0 = Date.parse(series[0]!.date), t1 = Math.max(Date.parse(series[series.length - 1]!.date), t0 + 86_400_000);
+  const values = series.map((p) => p.balanceMinor).concat(0);
+  const lo = Math.min(...values), hi = Math.max(...values, lo + 1);
+  const x = (d: string) => pad + ((Date.parse(d) - t0) / (t1 - t0)) * (W - 2 * pad);
+  const y = (v: number) => pad + (1 - (v - lo) / (hi - lo)) * (H - 2 * pad);
+  const path = series.map((p, i) => (i === 0 ? `M${x(p.date)},${y(p.balanceMinor)}` : `H${x(p.date)}V${y(p.balanceMinor)}`)).join('') + `H${W - pad}`; // el último saldo sigue hasta hoy (orilla derecha)
+  return { W, H, path, zero: y(0), first: series[0]!.date, low: Math.min(...series.map((p) => p.balanceMinor)), high: Math.max(...series.map((p) => p.balanceMinor)) };
+})();
 const messages = messagesFor(locale, ['agenda.', 'validation.', 'common.']);
 const title = t(locale, 'agenda.title', { month: monthName(month) });
 ---
@@ -182,6 +199,7 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
               <div class="field narrow"><label>{t(locale, 'agenda.field.amount', { currency })}<input name="amount" type="text" inputmode="decimal" /></label><span class="field-error" data-error-for="amount"></span></div>
               <div class="field narrow"><label>{t(locale, 'agenda.field.dueDate')}<input name="dueDate" type="date" value={defaultDate} /></label><span class="field-error" data-error-for="dueDate"></span></div>
               <div class="field narrow"><label>{t(locale, 'agenda.field.recurrence')}<select name="recurrence">{RECURRENCES.map((r) => <option value={r}>{t(locale, `agenda.recurrence.${r}`)}</option>)}</select></label><span class="field-error" data-error-for="recurrence"></span></div>
+              <label class="check"><input type="checkbox" name="done" />{t(locale, 'agenda.field.done')}</label>
               <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'agenda.create')}</button></div>
             </form>
           </details>
@@ -264,42 +282,59 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
     <section class="card">
       <h2>{t(locale, 'agenda.balances.title')}<Help topic="agenda.available" /></h2>
       <p class="hint">{t(locale, 'agenda.balances.hint')}</p>
-      {debitCards.length === 0 && freeBalances.length === 0 && <p class="empty">{t(locale, 'agenda.balances.empty')}</p>}
-      <ul class="agenda-balances">
-        {
-          [
-            ...debitCards.map(({ card, accountName }) => ({ name: [accountName, card.label, card.last4 && `•••• ${card.last4}`].filter(Boolean).join(' · '), balance: balanceByCard.get(card.id), cur: card.currency, extra: { cardId: card.id } })),
-            ...freeBalances.map((b) => ({ name: b.label ?? '', balance: b, cur: b.currency, extra: { id: b.id } })),
-          ].map(({ name, balance, cur, extra }) => (
-            <li class="agenda-balance">
-              <div class="agenda-row-main">
-                <strong>{name}</strong>
-                <span class="agenda-amount">{balance ? money(balance.amountMinor, cur) : '—'}</span>
-              </div>
-              <div class="agenda-row-meta">
-                <span class="muted">{balance ? t(locale, 'agenda.balances.asOf', { date: formatDate(isoDate(balance.updatedAt), locale) }) : t(locale, 'agenda.balances.none')}</span>
-                {balance && balance.updatedAt.getTime() < staleBefore && <span class="badge badge-warn">{t(locale, 'agenda.stale')}</span>}
-              </div>
-              {canWrite && (
-                <form class="agenda-balance-form" novalidate data-method="PUT" data-url="/api/agenda/balances" data-extra={JSON.stringify('id' in extra ? { ...extra, label: name } : extra)}>
-                  <div class="field narrow"><label>{t(locale, 'agenda.balances.amount', { name, currency: cur })}<input name="amount" type="text" inputmode="decimal" value={balance ? toInputString(balance.amountMinor, locale, cur) : ''} /></label><span class="field-error" data-error-for="amount"></span></div>
-                  <button class="btn btn-auto btn-small" type="submit">{t(locale, 'agenda.action.save')}</button>
-                  {'id' in extra && <button type="button" class="link-button" data-action data-method="DELETE" data-url={`/api/agenda/balances/${extra.id}`} data-body="{}">{t(locale, 'agenda.balances.remove')}</button>}
-                </form>
-              )}
-            </li>
-          ))
-        }
-      </ul>
+      {balance ? (
+        <div class="agenda-row-main">
+          <strong class="agenda-balance-total">{money(balance.amountMinor, currency)}</strong>
+          <span class="muted">{t(locale, 'agenda.balances.asOf', { date: formatDate(balance.lastDate, locale) })}</span>
+        </div>
+      ) : (
+        <p class="empty">{t(locale, 'agenda.balances.empty')}</p>
+      )}
       {
         canWrite && (
           <details class="agenda-add">
-            <summary class="btn btn-ghost btn-small">{t(locale, 'agenda.balances.add')}</summary>
+            <summary class="btn btn-ghost btn-small">{t(locale, balance ? 'agenda.balances.adjust' : 'agenda.balances.add')}</summary>
             <form class="form-grid" novalidate data-method="PUT" data-url="/api/agenda/balances" data-extra="{}">
-              <div class="field"><label>{t(locale, 'agenda.balances.label')}<input name="label" type="text" maxlength="60" /></label><span class="field-error" data-error-for="label"></span></div>
-              <div class="field narrow"><label>{t(locale, 'agenda.field.amount', { currency })}<input name="amount" type="text" inputmode="decimal" /></label><span class="field-error" data-error-for="amount"></span></div>
+              <div class="field narrow"><label>{t(locale, 'agenda.balances.amount', { currency })}<input name="amount" type="text" inputmode="decimal" value={balance ? toInputString(balance.amountMinor, locale, currency) : ''} /></label><span class="field-error" data-error-for="amount"></span></div>
+              <p class="hint">{t(locale, 'agenda.balances.adjustHint')}</p>
               <div class="form-actions"><button class="btn btn-auto" type="submit">{t(locale, 'agenda.action.save')}</button></div>
             </form>
+          </details>
+        )
+      }
+      {
+        chart && (
+          <figure class="balance-chart">
+            <svg viewBox={`0 0 ${chart.W} ${chart.H}`} preserveAspectRatio="none" role="img" aria-label={t(locale, 'agenda.balances.chart', { from: formatDate(chart.first, locale), low: money(chart.low, currency), high: money(chart.high, currency) })}>
+              {chart.zero >= 0 && chart.zero <= chart.H && <line class="balance-chart-zero" x1="0" x2={chart.W} y1={chart.zero} y2={chart.zero} />}
+              <path class="balance-chart-line" d={chart.path} />
+            </svg>
+            <figcaption class="muted">{t(locale, 'agenda.balances.chart', { from: formatDate(chart.first, locale), low: money(chart.low, currency), high: money(chart.high, currency) })}</figcaption>
+          </figure>
+        )
+      }
+      {
+        historyRows.length > 0 && (
+          <details class="agenda-history">
+            <summary>{t(locale, 'agenda.balances.history')}</summary>
+            <ul class="agenda-list">
+              {historyRows.map((m) => (
+                <li class="agenda-row">
+                  <div class="agenda-row-main">
+                    <strong>{m.description ?? t(locale, `agenda.balances.kind.${m.kind}`)}</strong>
+                    <span class:list={['agenda-amount', m.amountMinor >= 0 ? 'is-receivable' : 'is-payable']}>
+                      {m.kind === 'opening' ? '' : m.amountMinor >= 0 ? '+' : '−'}
+                      {money(m.kind === 'opening' ? m.amountMinor : Math.abs(m.amountMinor), currency)}
+                    </span>
+                  </div>
+                  <div class="agenda-row-meta">
+                    <span>{formatDate(m.date, locale)}</span>
+                    {m.description && <span class="chip">{t(locale, `agenda.balances.kind.${m.kind}`)}</span>}
+                    <span class="muted">{t(locale, 'agenda.balances.after', { amount: money(m.after, currency) })}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </details>
         )
       }
