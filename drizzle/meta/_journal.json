@@ -134,6 +134,13 @@
       "when": 1794335302148,
       "tag": "0018_abandoned_the_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1794336108518,
+      "tag": "0019_bancos_adicionales",
+      "breakpoints": true
     }
   ]
 }

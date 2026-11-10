@@ -5,12 +5,19 @@ import { stripAccents } from './import/text';
  * cuenta de cada banco. "other" conserva el nombre que escribe el usuario en `accounts.bank`.
  */
 export const BANKS = [
-  { id: 'banorte', name: 'Banorte' },
-  { id: 'banamex', name: 'Banamex' },
-  { id: 'bbva', name: 'BBVA' },
-  { id: 'santander', name: 'Santander' },
-  { id: 'banjercito', name: 'Banjército' },
-  { id: 'hsbc', name: 'HSBC' },
+  // Orden alfabético por nombre; `aliases` ayuda a reconocer nombres escritos a mano.
+  { id: 'amex', name: 'American Express', aliases: ['american express', 'amex'] },
+  { id: 'banamex', name: 'Banamex', aliases: ['banamex'] },
+  { id: 'azteca', name: 'Banco Azteca', aliases: ['azteca'] },
+  { id: 'banjercito', name: 'Banjército', aliases: ['banjercito'] },
+  { id: 'banorte', name: 'Banorte', aliases: ['banorte'] },
+  { id: 'bbva', name: 'BBVA', aliases: ['bbva', 'bancomer'] },
+  { id: 'hsbc', name: 'HSBC', aliases: ['hsbc'] },
+  { id: 'invex', name: 'Invex', aliases: ['invex'] },
+  { id: 'klar', name: 'Klar', aliases: ['klar'] },
+  { id: 'mercadopago', name: 'Mercado Pago', aliases: ['mercado pago', 'mercadopago'] },
+  { id: 'plata', name: 'Plata', aliases: ['plata'] },
+  { id: 'santander', name: 'Santander', aliases: ['santander'] },
 ] as const;
 
 export const OTHER_BANK = 'other';
@@ -22,5 +29,8 @@ export const isBankId = (value: unknown): value is BankId => value === OTHER_BAN
 /** Deduce la clave desde un nombre escrito a mano ("Mi Banorte", "Citibanamex", "BBVA Bancomer"). */
 export function bankIdFromText(text: string): BankId {
   const plain = stripAccents(text).toLowerCase();
-  return BANKS.find((bank) => plain.includes(bank.id))?.id ?? OTHER_BANK;
+  // Gana el alias más largo: "banamex" contiene "amex".
+  let best: { id: BankId; length: number } = { id: OTHER_BANK, length: 0 };
+  for (const bank of BANKS) for (const alias of bank.aliases) if (alias.length > best.length && plain.includes(alias)) best = { id: bank.id, length: alias.length };
+  return best.id;
 }
