@@ -127,6 +127,13 @@
       "when": 1794263603035,
       "tag": "0017_access_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794335302148,
+      "tag": "0018_abandoned_the_stranger",
+      "breakpoints": true
     }
   ]
 }

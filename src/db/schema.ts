@@ -119,6 +119,8 @@ export const workspaces = sqliteTable('workspaces', {
    * pertenezca a un plan, cuenta como hormiga. Si es nulo se usa el valor por defecto de la moneda.
    */
   antThresholdMinor: integer('ant_threshold_minor'),
+  /** Nivel de membresía (src/lib/membership.ts). Durante la beta todos los espacios son Profesional. */
+  tier: text('tier', { enum: ['standard', 'professional', 'premium'] }).notNull().default('professional'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -183,7 +185,10 @@ export const accounts = sqliteTable(
     workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
     /** Nombre personalizado: "Mi Banorte", "Nómina", etc. */
     name: text('name').notNull(),
+    /** Nombre del banco que se muestra: el del catálogo o, si `bankId` es "other", el que escribió el usuario. */
     bank: text('bank').notNull(),
+    /** Clave del catálogo (src/lib/banks.ts) u "other". */
+    bankId: text('bank_id').notNull().default('other'),
     /** ID de cliente ante el banco (opcional, informativo). */
     customerId: text('customer_id'),
     archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),

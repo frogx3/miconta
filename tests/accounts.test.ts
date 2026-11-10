@@ -46,9 +46,17 @@ describe('validación de cuentas', () => {
   it('normaliza nombre, banco e ID de cliente opcional', () => {
     expect(validateAccountInput({ name: ' Mi Banorte ', bank: 'Banorte', customerId: ' 123456 ' })).toEqual({
       ok: true,
-      value: { name: 'Mi Banorte', bank: 'Banorte', customerId: '123456' },
+      value: { name: 'Mi Banorte', bank: 'Banorte', bankId: 'banorte', customerId: '123456' },
     });
     expect(validateAccountInput({ name: 'Nómina', bank: 'BBVA' })).toMatchObject({ ok: true, value: { customerId: null } });
+  });
+
+  it('usa el catálogo de bancos y "Otro" con nombre libre', () => {
+    expect(validateAccountInput({ name: 'Nómina', bankId: 'banjercito', bank: 'lo que sea' })).toMatchObject({ ok: true, value: { bank: 'Banjército', bankId: 'banjercito' } });
+    expect(validateAccountInput({ name: 'Ahorro', bankId: 'other', bank: ' Plata ' })).toMatchObject({ ok: true, value: { bank: 'Plata', bankId: 'other' } });
+    expect(validateAccountInput({ name: 'Ahorro', bankId: 'other', bank: '' })).toMatchObject({ ok: false, errors: [{ field: 'bank', code: 'required' }] });
+    expect(validateAccountInput({ name: 'Viejo', bank: 'Citibanamex' })).toMatchObject({ ok: true, value: { bank: 'Banamex', bankId: 'banamex' } });
+    expect(validateAccountInput({ name: 'Nada' })).toMatchObject({ ok: false, errors: [{ field: 'bankId', code: 'required' }] });
   });
 
   it('reporta los campos obligatorios y los demasiado largos', () => {

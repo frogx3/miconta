@@ -1,3 +1,4 @@
+import { bankIdFromText, bankName, isBankId, OTHER_BANK, type BankId } from '../banks';
 import { currencyDigits, parseMoneyInput } from '../money-format';
 
 export const CARD_KINDS = ['credit', 'debit'] as const;
@@ -13,6 +14,7 @@ export interface FieldError {
 export interface AccountInput {
   name: string;
   bank: string;
+  bankId: BankId;
   customerId: string | null;
 }
 
@@ -51,15 +53,21 @@ export function validateAccountInput(raw: Record<string, unknown>): Result<Accou
   if (!name) errors.push({ field: 'name', code: 'required' });
   else if (name.length > 60) errors.push({ field: 'name', code: 'too_long' });
 
-  const bank = text(raw.bank);
-  if (!bank) errors.push({ field: 'bank', code: 'required' });
-  else if (bank.length > 60) errors.push({ field: 'bank', code: 'too_long' });
+  // Sin `bankId` (clientes anteriores al catálogo) se deduce del nombre escrito.
+  const bankId = isBankId(raw.bankId) ? raw.bankId : text(raw.bank) ? bankIdFromText(text(raw.bank)) : null;
+  if (!bankId) errors.push({ field: 'bankId', code: 'required' });
+  // Del catálogo se toma su nombre; con "Otro" el usuario escribe el suyo.
+  const bank = bankId && bankId !== OTHER_BANK ? bankName(bankId)! : text(raw.bank);
+  if (bankId === OTHER_BANK) {
+    if (!bank) errors.push({ field: 'bank', code: 'required' });
+    else if (bank.length > 60) errors.push({ field: 'bank', code: 'too_long' });
+  }
 
   const customerId = text(raw.customerId);
   if (customerId.length > 40) errors.push({ field: 'customerId', code: 'too_long' });
 
-  if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, value: { name, bank, customerId: customerId || null } };
+  if (errors.length > 0 || !bankId) return { ok: false, errors };
+  return { ok: true, value: { name, bank, bankId, customerId: customerId || null } };
 }
 
 /**
