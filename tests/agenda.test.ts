@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { monthResult, monthResults, nextDueDate, projectRecurring, type Entry, type SeriesItem } from '../src/lib/agenda/compute';
+import { doneRequest, monthResult, monthResults, nextDueDate, projectRecurring, type Entry, type SeriesItem } from '../src/lib/agenda/compute';
 import { cardDuesInMonth } from '../src/lib/agenda/card-payments';
 import { validateBalance, validateItem } from '../src/lib/agenda/validation';
 import { realCuts, recordsByMonth, statementPeriod } from '../src/lib/spending/statement';
@@ -213,5 +213,22 @@ describe('validateBalance', () => {
     expect(validateBalance({ cardId: 'c1', amount: '0' }, ctx)).toEqual({ ok: true, value: { cardId: 'c1', label: null, amountMinor: 0 } });
     const r = validateBalance({ amount: '10' }, ctx);
     expect(r.ok ? [] : r.errors).toContainEqual({ field: 'label', code: 'required' });
+  });
+});
+
+describe('doneRequest', () => {
+  const suggestions = [{ key: 'card:c1:2026-11-20', cardId: 'c1', dueDate: '2026-11-20' }];
+  it('un registro se marca con su endpoint', () => {
+    expect(doneRequest(e('abc', 'receivable', 1_00, '2026-11-12'), suggestions)).toEqual({ url: '/api/agenda/items/abc/done', body: {} });
+  });
+  it('un pago de tarjeta sugerido se guarda con la acción done', () => {
+    expect(doneRequest(e('card:c1:2026-11-20', 'payable', 1_00, '2026-11-20', { suggested: true }), suggestions)).toEqual({
+      url: '/api/agenda/card-payments',
+      body: { cardId: 'c1', dueDate: '2026-11-20', action: 'done' },
+    });
+  });
+  it('proyectadas y no pendientes no tienen acción', () => {
+    expect(doneRequest(e('proj:abc:2026-11-27', 'payable', 1_00, '2026-11-27', { projected: true }), suggestions)).toBeNull();
+    expect(doneRequest(e('abc', 'payable', 1_00, '2026-11-02', { status: 'done' }), suggestions)).toBeNull();
   });
 });

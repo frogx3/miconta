@@ -7,7 +7,7 @@ import { getDb } from '../../lib/auth';
 import { formatDate, isoDate, todayISO } from '../../lib/date-format';
 import { currencyDigits, formatMinor, toInputString } from '../../lib/money-format';
 import { monthOf, shiftMonth } from '../../lib/spending/analysis';
-import type { Entry, MonthResult } from '../../lib/agenda/compute';
+import { doneRequest, type Entry, type MonthResult } from '../../lib/agenda/compute';
 import type { SuggestedCardPayment } from '../../lib/agenda/card-payments';
 import { loadAgendaMonth } from '../../lib/agenda/month';
 import { RECURRENCES } from '../../lib/agenda/validation';
@@ -218,7 +218,7 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
                 </div>
                 {canWrite && e.status === 'pending' && !e.projected && (
                   <div class="row-actions">
-                    <button type="button" class="btn btn-ghost btn-small agenda-done" data-action data-method="POST" data-url={cardBody ? '/api/agenda/card-payments' : `/api/agenda/items/${e.key}/done`} data-body={JSON.stringify(cardBody ? { ...cardBody, action: 'done' } : {})}>
+                    <button type="button" class="btn btn-ghost btn-small agenda-done" data-action data-method="POST" data-url={doneRequest(e, suggestions)!.url} data-body={JSON.stringify(doneRequest(e, suggestions)!.body)}>
                       <Icon name="check" size={16} />
                       {t(locale, e.kind === 'payable' ? 'agenda.action.paid' : 'agenda.action.received')}
                     </button>
