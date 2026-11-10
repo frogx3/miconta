@@ -73,7 +73,9 @@ describe('comparador de estados de cuenta', () => {
 
 describe('catálogo de bancos y niveles', () => {
   it('deduce el banco desde el nombre escrito', () => {
-    expect(['Mi Banorte', 'Citibanamex', 'BBVA Bancomer', 'Banjército', 'Plata'].map(bankIdFromText)).toEqual(['banorte', 'banamex', 'bbva', 'banjercito', 'other']);
+    expect(['Mi Banorte', 'Citibanamex', 'BBVA Bancomer', 'Banjército', 'Plata Card', 'American Express Gold', 'Mercado Pago', 'Banco Azteca', 'Nu'].map(bankIdFromText)).toEqual([
+      'banorte', 'banamex', 'bbva', 'banjercito', 'plata', 'amex', 'mercadopago', 'azteca', 'other',
+    ]);
   });
 
   it('la IA solo está en Premium; el MCP desde Profesional', () => {
