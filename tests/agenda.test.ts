@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { doneRequest, monthResult, monthResults, nextDueDate, projectRecurring, type Entry, type SeriesItem } from '../src/lib/agenda/compute';
 import { cardDuesInMonth } from '../src/lib/agenda/card-payments';
 import { validateBalance, validateItem } from '../src/lib/agenda/validation';
+import { dailyBalance } from '../src/lib/agenda/balance';
 import { realCuts, recordsByMonth, statementPeriod } from '../src/lib/spending/statement';
 
 const e = (key: string, kind: Entry['kind'], amountMinor: number, dueDate: string, extra: Partial<Entry> = {}): Entry => ({
@@ -194,7 +195,8 @@ describe('validateItem', () => {
     return r.ok ? [] : r.errors;
   };
   it('acepta un pago válido y lee el monto en es-MX', () => {
-    expect(validateItem(ok, ctx)).toEqual({ ok: true, value: { kind: 'payable', description: 'Renta', amountMinor: 123450, dueDate: '2026-11-15', recurrence: 'monthly' } });
+    expect(validateItem(ok, ctx)).toEqual({ ok: true, value: { kind: 'payable', description: 'Renta', amountMinor: 123450, dueDate: '2026-11-15', recurrence: 'monthly', done: false } });
+    expect(validateItem({ ...ok, done: 'on' }, ctx)).toMatchObject({ ok: true, value: { done: true } });
   });
   it('rechaza descripción vacía, monto cero, fecha inexistente y repetición desconocida', () => {
     expect(codes({ ...ok, description: '  ' })).toContainEqual({ field: 'description', code: 'required' });
@@ -208,11 +210,23 @@ describe('validateItem', () => {
 
 describe('validateBalance', () => {
   const ctx = { locale: 'es-MX', currency: 'MXN' };
-  it('permite saldo cero o negativo y pide etiqueta en renglones libres', () => {
-    expect(validateBalance({ label: 'Efectivo', amount: '-50' }, ctx)).toEqual({ ok: true, value: { cardId: null, label: 'Efectivo', amountMinor: -5000 } });
-    expect(validateBalance({ cardId: 'c1', amount: '0' }, ctx)).toEqual({ ok: true, value: { cardId: 'c1', label: null, amountMinor: 0 } });
-    const r = validateBalance({ amount: '10' }, ctx);
-    expect(r.ok ? [] : r.errors).toContainEqual({ field: 'label', code: 'required' });
+  it('permite saldo cero o negativo y exige monto', () => {
+    expect(validateBalance({ amount: '-50' }, ctx)).toEqual({ ok: true, value: { amountMinor: -5000 } });
+    expect(validateBalance({ amount: '0' }, ctx)).toEqual({ ok: true, value: { amountMinor: 0 } });
+    const r = validateBalance({}, ctx);
+    expect(r.ok ? [] : r.errors).toContainEqual({ field: 'amount', code: 'required' });
+  });
+});
+
+describe('dailyBalance', () => {
+  it('acumula el historial y deja un punto por día con el saldo al cierre', () => {
+    const m = (date: string, amountMinor: number) => ({ date, amountMinor });
+    expect(dailyBalance([m('2026-11-05', 33_161_74), m('2026-11-08', -750_00), m('2026-11-10', 2_320_00), m('2026-11-10', -100_00)])).toEqual([
+      { date: '2026-11-05', balanceMinor: 33_161_74 },
+      { date: '2026-11-08', balanceMinor: 32_411_74 },
+      { date: '2026-11-10', balanceMinor: 34_631_74 },
+    ]);
+    expect(dailyBalance([])).toEqual([]);
   });
 });
 

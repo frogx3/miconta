@@ -3498,3 +3498,13 @@ form + .row-actions {
 }
 .upcoming-pop h2 { margin: 0 0 0.5rem; font-size: 1rem; }
 .upcoming-pop .home-agenda-list { margin-bottom: 0.5rem; }
+
+/* Saldo global: total, gráfica escalonada e historial. */
+.agenda-balance-total { font-size: 1.5rem; }
+.balance-chart { margin: 1rem 0 0; }
+.balance-chart svg { display: block; width: 100%; height: 160px; }
+.balance-chart-line { fill: none; stroke: var(--ladder-fill); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.balance-chart-zero { stroke: var(--line); stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.balance-chart figcaption { margin-top: 0.25rem; font-size: 0.875rem; }
+.agenda-history { margin-top: 1rem; }
+.agenda-history summary { cursor: pointer; }

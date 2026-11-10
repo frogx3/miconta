@@ -587,6 +587,32 @@ export const agendaItems = sqliteTable(
   (t) => [uniqueIndex('agenda_items_card_due_uq').on(t.cardId, t.dueDate), index('agenda_items_ws_due_idx').on(t.workspaceId, t.dueDate)],
 );
 
+/**
+ * Historial del saldo global (por moneda): el saldo es la suma de sus movimientos. `opening` es la primera captura,
+ * `agenda` lo mueve un pago o cobro marcado como hecho (se borra al deshacerlo) y `adjustment` es la diferencia
+ * cuando la persona corrige el saldo a mano.
+ */
+export const balanceMovements = sqliteTable(
+  'balance_movements',
+  {
+    id: id(),
+    workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'restrict' }),
+    currency: text('currency').notNull(),
+    /** Con signo: + entra dinero, − sale. */
+    amountMinor: integer('amount_minor').notNull(),
+    kind: text('kind', { enum: ['opening', 'agenda', 'adjustment'] }).notNull(),
+    /** Día en que se movió el dinero (YYYY-MM-DD). */
+    date: text('date').notNull(),
+    description: text('description'),
+    agendaItemId: text('agenda_item_id').references(() => agendaItems.id, { onDelete: 'restrict' }),
+    createdByUserId: text('created_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('balance_movements_item_uq').on(t.agendaItemId), index('balance_movements_ws_date_idx').on(t.workspaceId, t.date)],
+);
+
+export type BalanceMovement = typeof balanceMovements.$inferSelect;
+
 /** Códigos de un solo uso para vincular WhatsApp. */
 export const whatsappLinkCodes = sqliteTable('whatsapp_link_codes', {
   code: text('code').primaryKey(),

@@ -3,6 +3,7 @@ import { getDb } from '../../../lib/auth';
 import { findCard, materializeCardPayment } from '../../../lib/agenda/repo';
 import { validateCardPayment } from '../../../lib/agenda/validation';
 import { json, requireWorkspaceWithBody, validationError } from '../../../lib/http';
+import { todayISO } from '../../../lib/date-format';
 
 /** Ajusta, paga o cancela un pago de tarjeta sugerido; la primera acción lo guarda como registro. */
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -17,6 +18,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const parsed = validateCardPayment(access.body, { locale: locals.locale, currency: card.currency });
   if (!parsed.ok) return validationError(parsed.errors);
 
-  const result = await materializeCardPayment(db, access.workspace.id, { cardId, ...parsed.value, by: { userId: access.userId, via: 'web' } });
+  const result = await materializeCardPayment(db, access.workspace.id, { cardId, ...parsed.value, by: { userId: access.userId, via: 'web', date: todayISO(locals.timeZone) } });
   return result ? json(200, result) : json(404, { code: 'NOT_FOUND' });
 };

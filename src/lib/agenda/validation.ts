@@ -44,8 +44,11 @@ export interface ItemValues {
   recurrence: (typeof RECURRENCES)[number];
 }
 
+/** Al crear, puede llegar ya pagado o cobrado (casilla del formulario). */
+export type NewItemValues = ItemValues & { done: boolean };
+
 /** Pago o cobro capturado a mano. Sin repetición indicada, es de una sola vez. */
-export function validateItem(raw: Record<string, unknown>, ctx: MoneyContext): { ok: true; value: ItemValues } | { ok: false; errors: AgendaFieldError[] } {
+export function validateItem(raw: Record<string, unknown>, ctx: MoneyContext): { ok: true; value: NewItemValues } | { ok: false; errors: AgendaFieldError[] } {
   const errors: AgendaFieldError[] = [];
   if (!oneOf(ITEM_KINDS, raw.kind)) errors.push({ field: 'kind', code: 'invalid' });
 
@@ -59,27 +62,14 @@ export function validateItem(raw: Record<string, unknown>, ctx: MoneyContext): {
   if (!oneOf(RECURRENCES, recurrence)) errors.push({ field: 'recurrence', code: 'invalid' });
 
   if (errors.length) return { ok: false, errors };
-  return { ok: true, value: { kind: raw.kind as ItemValues['kind'], description, amountMinor: amountMinor!, dueDate: dueDate!, recurrence: recurrence as ItemValues['recurrence'] } };
+  return { ok: true, value: { kind: raw.kind as ItemValues['kind'], description, amountMinor: amountMinor!, dueDate: dueDate!, recurrence: recurrence as ItemValues['recurrence'], done: raw.done === true || raw.done === 'on' || raw.done === 'true' } };
 }
 
-export interface BalanceValues {
-  cardId: string | null;
-  label: string | null;
-  /** Puede ser 0 o negativo (sobregiro). */
-  amountMinor: number;
-}
-
-/** Saldo de una tarjeta de débito (`cardId`) o renglón libre (`label`). */
-export function validateBalance(raw: Record<string, unknown>, ctx: MoneyContext): { ok: true; value: BalanceValues } | { ok: false; errors: AgendaFieldError[] } {
+/** Saldo global que la persona dice tener hoy; puede ser 0 o negativo (sobregiro). */
+export function validateBalance(raw: Record<string, unknown>, ctx: MoneyContext): { ok: true; value: { amountMinor: number } } | { ok: false; errors: AgendaFieldError[] } {
   const errors: AgendaFieldError[] = [];
-  const cardId = text(raw.cardId) || null;
-  const label = cardId ? null : text(raw.label).replace(/\s+/g, ' ');
-  if (label !== null) {
-    if (!label) errors.push({ field: 'label', code: 'required' });
-    else if (label.length > 60) errors.push({ field: 'label', code: 'too_long' });
-  }
   const amountMinor = amountField(raw.amount, ctx, errors, false);
-  return errors.length ? { ok: false, errors } : { ok: true, value: { cardId, label, amountMinor: amountMinor! } };
+  return errors.length ? { ok: false, errors } : { ok: true, value: { amountMinor: amountMinor! } };
 }
 
 export interface CardPaymentValues {

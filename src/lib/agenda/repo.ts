@@ -1,17 +1,22 @@
-import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
-import { agendaItems, cards, cashBalances, type AgendaItem, type CashBalance } from '../../db/schema';
+import { and, asc, eq, gte, inArray, lt, lte, or, sql } from 'drizzle-orm';
+import { agendaItems, balanceMovements, cards, type AgendaItem } from '../../db/schema';
 import type { Db } from '../auth/hooks';
 import { todayISO } from '../date-format';
 import { suggestedCardPayments } from './card-payments';
 import { nextDueDate } from './compute';
-import type { BalanceValues, ItemValues } from './validation';
+import type { ItemValues } from './validation';
 
 /** Todas las funciones reciben el `workspaceId` y lo aplican en cada consulta. */
 
 export interface DoneBy {
   userId: string;
   via: 'web' | 'whatsapp';
+  /** Día en que se movió el dinero; por omisión, hoy. */
+  date?: string;
 }
+
+/** Lo que un pago (−) o cobro (+) hecho mueve el saldo global. */
+const signed = (item: Pick<AgendaItem, 'kind' | 'amountMinor'>) => (item.kind === 'receivable' ? item.amountMinor : -item.amountMinor);
 
 /** Registros con fecha en [from, to] (de cualquier estado) más los pendientes vencidos antes de `from`. */
 export async function listAgenda(db: Db, workspaceId: string, range: { from: string; to: string }): Promise<AgendaItem[]> {
@@ -43,6 +48,13 @@ export async function updateItem(db: Db, workspaceId: string, id: string, value:
   if (!item) return false;
   const set = item.cardId ? { description: value.description, amountMinor: value.amountMinor } : value;
   await db.update(agendaItems).set(set).where(and(eq(agendaItems.id, id), eq(agendaItems.workspaceId, workspaceId)));
+  // Uno ya hecho mueve el saldo: si cambia el monto o el tipo, su movimiento también.
+  if (item.status === 'done') {
+    await db
+      .update(balanceMovements)
+      .set({ amountMinor: signed({ kind: 'kind' in set ? set.kind : item.kind, amountMinor: set.amountMinor }), description: set.description })
+      .where(and(eq(balanceMovements.agendaItemId, id), eq(balanceMovements.workspaceId, workspaceId)));
+  }
   return true;
 }
 
@@ -124,6 +136,9 @@ export async function markDone(db: Db, workspaceId: string, id: string, by: Done
     const current = await getItem(db, workspaceId, id);
     return current?.status === 'done' ? 'already' : 'not_found';
   }
+  await db.insert(balanceMovements).values({
+    workspaceId, currency: item.currency, amountMinor: signed(item), kind: 'agenda', date: by.date ?? todayISO(), description: item.description, agendaItemId: item.id, createdByUserId: by.userId,
+  });
   if (item.recurrence !== 'none') {
     const dueDate = nextDueDate(item.dueDate, item.recurrence, await anchorDay(db, workspaceId, item));
     // created_at = updated_at: así `undoDone` sabe que el hijo no se ha tocado.
@@ -150,6 +165,7 @@ export async function undoDone(db: Db, workspaceId: string, id: string): Promise
     .where(and(eq(agendaItems.id, id), eq(agendaItems.workspaceId, workspaceId), eq(agendaItems.status, 'done')))
     .returning({ id: agendaItems.id });
   if (rows.length === 0) return (await getItem(db, workspaceId, id)) ? 'not_done' : 'not_found';
+  await db.delete(balanceMovements).where(and(eq(balanceMovements.agendaItemId, id), eq(balanceMovements.workspaceId, workspaceId)));
   await db
     .delete(agendaItems)
     .where(
@@ -207,51 +223,4 @@ export async function findCard(db: Db, workspaceId: string, cardId: string) {
     .where(and(eq(cards.id, cardId), eq(cards.workspaceId, workspaceId)))
     .limit(1);
   return card ?? null;
-}
-
-export async function listBalances(db: Db, workspaceId: string): Promise<CashBalance[]> {
-  return db
-    .select()
-    .from(cashBalances)
-    .where(and(eq(cashBalances.workspaceId, workspaceId), isNull(cashBalances.archivedAt)))
-    .orderBy(asc(cashBalances.label));
-}
-
-/**
- * Guarda el saldo de una tarjeta de débito (no archivada, con su moneda) o de un renglón libre (moneda del espacio).
- * Con `id` de un renglón libre existente lo actualiza. Devuelve null si la tarjeta o el renglón no son del espacio.
- */
-export async function upsertBalance(db: Db, workspaceId: string, value: BalanceValues & { id?: string; workspaceCurrency: string }): Promise<string | null> {
-  if (value.cardId) {
-    const card = await findCard(db, workspaceId, value.cardId);
-    if (!card || card.kind !== 'debit' || card.archivedAt) return null;
-    const [row] = await db
-      .insert(cashBalances)
-      .values({ workspaceId, cardId: card.id, currency: card.currency, amountMinor: value.amountMinor })
-      .onConflictDoUpdate({ target: cashBalances.cardId, set: { amountMinor: value.amountMinor, currency: card.currency, archivedAt: null, updatedAt: new Date() } })
-      .returning({ id: cashBalances.id });
-    return row!.id;
-  }
-  if (value.id) {
-    const rows = await db
-      .update(cashBalances)
-      .set({ label: value.label, amountMinor: value.amountMinor })
-      .where(and(eq(cashBalances.id, value.id), eq(cashBalances.workspaceId, workspaceId), isNull(cashBalances.cardId), isNull(cashBalances.archivedAt)))
-      .returning({ id: cashBalances.id });
-    return rows[0]?.id ?? null;
-  }
-  const [row] = await db
-    .insert(cashBalances)
-    .values({ workspaceId, label: value.label, currency: value.workspaceCurrency, amountMinor: value.amountMinor })
-    .returning({ id: cashBalances.id });
-  return row!.id;
-}
-
-export async function archiveBalance(db: Db, workspaceId: string, id: string): Promise<boolean> {
-  const rows = await db
-    .update(cashBalances)
-    .set({ archivedAt: new Date() })
-    .where(and(eq(cashBalances.id, id), eq(cashBalances.workspaceId, workspaceId), isNull(cashBalances.archivedAt)))
-    .returning({ id: cashBalances.id });
-  return rows.length > 0;
 }

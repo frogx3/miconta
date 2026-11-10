@@ -1,9 +1,10 @@
 import type { Db } from '../auth/hooks';
-import { listAccounts } from '../accounts/repo';
 import { monthOf, shiftMonth } from '../spending/analysis';
 import { suggestedCardPayments, type SuggestedCardPayment } from './card-payments';
 import { monthResults, projectRecurring, type Entry } from './compute';
-import { anchorDays, idsWithChild, listAgenda, listBalances } from './repo';
+import { listAccounts } from '../accounts/repo';
+import { balanceTotals } from './balance';
+import { anchorDays, idsWithChild, listAgenda } from './repo';
 
 /**
  * Todo lo que la agenda calcula para un mes: registros, sugeridos de tarjeta, proyección de recurrentes y resultado por
@@ -18,7 +19,7 @@ export async function loadAgendaMonth(db: Db, workspaceId: string, month: string
   for (let m = firstMonth; m <= month; m = shiftMonth(m, 1)) months.push(m);
   const [items, balances, accounts, suggestionsByMonth] = await Promise.all([
     listAgenda(db, workspaceId, { from: `${firstMonth}-01`, to: `${month}-31` }),
-    listBalances(db, workspaceId),
+    balanceTotals(db, workspaceId),
     listAccounts(db, workspaceId),
     Promise.all(months.map((m) => suggestedCardPayments(db, workspaceId, m, today))),
   ]);
@@ -41,12 +42,10 @@ export async function loadAgendaMonth(db: Db, workspaceId: string, month: string
     ...suggestions.map((s) => ({ key: s.key, kind: 'payable' as const, description: s.description, amountMinor: s.amountMinor, currency: s.currency, dueDate: s.dueDate, status: 'pending' as const, suggested: true })),
   ];
 
-  const debitCards = accounts.flatMap((account) => account.cards.filter((card) => card.kind === 'debit' && !card.archivedAt).map((card) => ({ card, accountName: account.name })));
-  const activeDebit = new Set(debitCards.map(({ card }) => card.id));
-  const usedBalances = balances.filter((b) => b.cardId === null || activeDebit.has(b.cardId));
-  const results = monthResults({ month, todayISO: today, balances: usedBalances, entries });
+  // El disponible es el saldo global de hoy (suma de su historial), por moneda.
+  const results = monthResults({ month, todayISO: today, balances, entries });
 
-  return { isPast, items, balances, accounts, suggestions, entries, debitCards, results };
+  return { isPast, items, balances, accounts, suggestions, entries, results };
 }
 
 /** Pagos pendientes que tocan hoy o ya vencieron (lo que avisa la banda de la app). */

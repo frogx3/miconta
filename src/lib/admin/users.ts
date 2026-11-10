@@ -106,6 +106,7 @@ export async function wipeWorkspaceData(db: Db, workspaceIds: string[]): Promise
   const s = schema;
   const statements: BatchItem<'sqlite'>[] = [
     db.delete(s.agendaNotifications).where(inArray(s.agendaNotifications.workspaceId, workspaceIds)),
+    db.delete(s.balanceMovements).where(inArray(s.balanceMovements.workspaceId, workspaceIds)),
     db.delete(s.agendaItems).where(inArray(s.agendaItems.workspaceId, workspaceIds)),
     db.delete(s.cashBalances).where(inArray(s.cashBalances.workspaceId, workspaceIds)),
     db.delete(s.backupExports).where(inArray(s.backupExports.workspaceId, workspaceIds)),
