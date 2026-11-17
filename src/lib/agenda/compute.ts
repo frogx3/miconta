@@ -95,7 +95,8 @@ export function monthResult(input: { month: string; todayISO: string; availableM
   for (let n = 1; n <= daysInMonth(month); n++) {
     const date = `${month}-${String(n).padStart(2, '0')}`;
     if (date >= startDay) {
-      for (const e of counted) if (effective(e) === date) balance += e.kind === 'receivable' ? e.amountMinor : -e.amountMinor;
+      // Un cobro pendiente puede no llegar: solo mueve el saldo cuando se marca cobrado (entra al saldo global).
+      for (const e of counted) if (e.kind === 'payable' && effective(e) === date) balance -= e.amountMinor;
     }
     // Los vencidos se muestran en el día de hoy; los hechos/cancelados solo se muestran.
     const shown = mine.filter((e) => (e.status === 'pending' ? counted.includes(e) && effective(e) === date : e.dueDate === date));
@@ -130,7 +131,7 @@ export function monthResult(input: { month: string; todayISO: string; availableM
     strategy.unshift({ kind: 'ok', biggest: big ? { description: big.description, amountMinor: big.amountMinor, date: effective(big) } : null });
   }
 
-  return { currency, availableMinor, receivableMinor, payableMinor, resultMinor: availableMinor + receivableMinor - payableMinor, days, strategy };
+  return { currency, availableMinor, receivableMinor, payableMinor, resultMinor: availableMinor - payableMinor, days, strategy };
 }
 
 /**

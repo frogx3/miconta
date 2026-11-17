@@ -48,9 +48,16 @@ describe('projectRecurring', () => {
 describe('monthResult', () => {
   const entries = [e('cobro', 'receivable', 5_000_00, '2026-11-20'), e('renta', 'payable', 6_000_00, '2026-11-18'), e('luz', 'payable', 3_000_00, '2026-11-25')];
 
+  it('cobro pendiente no cuenta hasta cobrarse', () => {
+    const r = monthResult({ ...base, entries: [entries[0]!] });
+    expect(r.receivableMinor).toBe(5_000_00);
+    expect(r.resultMinor).toBe(8_000_00);
+    expect(day(r, '2026-11-30').balanceMinor).toBe(8_000_00);
+  });
+
   it('alcanza', () => {
-    const r = monthResult({ ...base, entries });
-    expect(r.resultMinor).toBe(4_000_00);
+    const r = monthResult({ ...base, entries: [entries[0]!, entries[1]!, e('luz', 'payable', 1_000_00, '2026-11-25')] });
+    expect(r.resultMinor).toBe(1_000_00);
     expect(day(r, '2026-11-18').balanceMinor).toBe(2_000_00);
     expect(day(r, '2026-11-05').balanceMinor).toBe(8_000_00);
     expect(r.days).toHaveLength(30);
@@ -62,7 +69,7 @@ describe('monthResult', () => {
   it('falta antes del cobro', () => {
     const r = monthResult({ ...base, entries: [entries[0]!, e('renta', 'payable', 9_000_00, '2026-11-18'), entries[2]!] });
     expect(day(r, '2026-11-18').balanceMinor).toBe(-1_000_00);
-    expect(r.resultMinor).toBe(1_000_00);
+    expect(r.resultMinor).toBe(-4_000_00);
     expect(r.strategy[0]).toMatchObject({ kind: 'short', date: '2026-11-18', shortMinor: 1_000_00, nextReceivable: { date: '2026-11-20' } });
   });
 
@@ -117,7 +124,7 @@ describe('monthResults', () => {
       entries: [e('renta', 'payable', 6_000_00, '2026-11-18'), e('cobro', 'receivable', 1_000_00, '2026-12-05')],
     });
     expect(r[0]!.availableMinor).toBe(2_000_00);
-    expect(r[0]!.resultMinor).toBe(3_000_00);
+    expect(r[0]!.resultMinor).toBe(2_000_00); // el cobro de diciembre cuenta hasta cobrarse
   });
 
   it('encadena 2+ meses futuros y con dos monedas a la vez', () => {
