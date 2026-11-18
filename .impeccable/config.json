@@ -26,6 +26,15 @@
         ],
         "createdAt": "2026-11-18T16:24:18.989Z",
         "reason": "Claude: falso positivo; el h1 (1.6–1.8rem) vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/agenda.src.html"
+        ],
+        "createdAt": "2026-11-18T16:28:05.232Z",
+        "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
       }
     ]
   }
