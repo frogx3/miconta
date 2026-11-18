@@ -53,6 +53,15 @@
         ],
         "createdAt": "2026-11-18T16:44:42.201Z",
         "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/cuenta.src.html"
+        ],
+        "createdAt": "2026-11-18T17:28:04.058Z",
+        "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
       }
     ]
   }

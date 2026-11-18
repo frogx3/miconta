@@ -61,7 +61,7 @@ header.top{background:#1d3557;color:#fff;position:sticky;top:0;z-index:10}
 h1{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin:0}
 .pagehead{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:28px 0 18px}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;font-size:.85rem;padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.btn{color:inherit;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;font-size:.85rem;padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
 .btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
 :root[data-theme="dark"] .btn.primary{background:var(--gold);color:#0e1a2c;border-color:var(--gold)}
 .link{font-size:.85rem;font-weight:600;color:var(--muted);text-underline-offset:3px}

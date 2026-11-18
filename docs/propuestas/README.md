@@ -9,6 +9,7 @@ Propuestas visuales antes de programar. Se abren directo en el navegador (archiv
 - `gastos.html` — gastos del corte por cuenta: reparto por categoría, día por día, presupuesto, hormiga, tendencia de 6 cortes y pestaña de movimientos para clasificar.
 - `metas.html` — metas con la mascota de la alcancía: frasco de ahorro, escalera con fecha meta, tope de hormiga por mes, liquidar un plan con abono extra, logradas y nueva meta.
 - `importar.html` — asistente en 4 pasos: archivo (cuenta, CSV y corte), columnas (solo la primera vez), revisar (mosaico del archivo, mensualidades, posibles planes, tarjeta nueva, errores) y listo.
+- `cuenta.html` — Tu cuenta: tarjeta de miembro, estatus y totales, personas e invitaciones, avisos, respaldo y zona de peligro.
 
 Se editan los `*.src.html` y `base.css` (tokens y encabezado comunes) y se regeneran con:
 

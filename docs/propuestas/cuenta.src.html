@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Don Bigo — Tu cuenta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..800&display=swap" rel="stylesheet">
+<style>
+{{BASE_CSS}}
+.small{font-size:.8rem}
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:36px;align-items:start}
+.side{position:sticky;top:84px;display:grid;gap:2px}
+.side a{text-decoration:none;font-weight:700;font-size:.88rem;color:var(--muted);padding:9px 12px;border-radius:10px;border-left:3px solid transparent}
+.side a:hover{background:var(--surface);color:var(--ink)}
+.side a[aria-current]{color:var(--ink);background:var(--surface);border-left-color:var(--gold)}
+.side a.danger{color:var(--warn)}
+section.block{scroll-margin-top:84px}
+section.block + section.block{margin-top:36px}
+.block > h2{font-size:1.15rem;margin-bottom:4px}
+.block > .lead{margin:0 0 16px;color:var(--muted);font-size:.9rem;max-width:62ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px 22px}
+
+/* Tarjeta de miembro: la pieza memorable */
+.member{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:28px;align-items:center}
+.mcard{aspect-ratio:1.586;border-radius:20px;background:#1d3557;color:#fff;padding:22px 24px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;container-type:inline-size}
+:root[data-theme="dark"] .mcard{outline:1px solid #344e73}
+.mcard .wm{position:absolute;right:-12%;bottom:-18%;width:62%;opacity:.12}
+.mcard .row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;position:relative}
+.mcard .brand2{display:flex;align-items:center;gap:8px;font-weight:800;font-size:clamp(1rem,5.5cqi,1.3rem);letter-spacing:-.02em}
+.mcard .brand2 img{width:clamp(28px,10cqi,40px)}
+.mcard .brand2 b{color:var(--gold)}
+.mcard .tier{font-size:clamp(.72rem,3.6cqi,.85rem);font-weight:800;border:1.5px solid var(--gold);color:var(--gold);padding:3px 10px;border-radius:999px}
+.mcard .who{position:relative}
+.mcard .who strong{display:block;font-size:clamp(1.05rem,6.4cqi,1.5rem);font-weight:800;letter-spacing:-.01em}
+.mcard .who span{font-size:clamp(.75rem,3.6cqi,.85rem);color:#c9d4e5}
+.mcard .bow{position:absolute;left:0;right:0;bottom:0;height:6px;background:var(--gold)}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;margin:0}
+.facts dt{font-size:.8rem;color:var(--muted);font-weight:600}
+.facts dd{margin:2px 0 0;font-weight:700;font-size:.95rem;overflow-wrap:anywhere}
+.facts .ok{color:var(--good)}
+.tally{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:20px}
+.tally div{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface)}
+.tally strong{display:block;font-size:1.35rem;font-weight:800}
+.tally span{font-size:.8rem;color:var(--muted);font-weight:600}
+.upsell{margin-top:16px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:14px 18px;border-radius:14px;background:var(--gold-soft);font-size:.88rem}
+
+/* Personas */
+.people{list-style:none;margin:0;padding:0}
+.person{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:2px 14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.person:first-child{border-top:0}
+.av{grid-row:span 2;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff}
+.person b{font-size:.92rem}
+.person small{grid-column:2;font-size:.8rem;color:var(--muted)}
+.role{grid-row:span 2;font-size:.8rem;font-weight:700;padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:inherit;font-family:inherit}
+.you{font-size:.75rem;font-weight:800;background:var(--sky-soft);padding:1px 7px;border-radius:5px;margin-left:6px}
+.invite{margin-top:14px;padding:14px;border-radius:14px;border:1px dashed var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center}
+.invite small{font-size:.8rem;color:var(--muted)}
+.invite code{font-family:inherit;font-weight:700;font-size:.82rem;background:var(--ivory);padding:4px 8px;border-radius:6px;overflow-wrap:anywhere}
+.roles-help{display:flex;gap:8px 18px;flex-wrap:wrap;margin-top:14px;font-size:.8rem;color:var(--muted)}
+.roles-help b{color:var(--ink)}
+
+/* Avisos */
+.toggles{display:grid}
+.tg{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 16px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.tg:first-child{border-top:0;padding-top:0}
+.tg b{font-size:.92rem}
+.tg span{font-size:.82rem;color:var(--muted);grid-column:1;line-height:1.4}
+.switch{all:unset;cursor:pointer;grid-row:span 2;width:48px;height:28px;border-radius:999px;background:var(--good);position:relative}
+.switch::after{content:"";position:absolute;top:3px;left:23px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s}
+.switch[aria-checked="false"]{background:var(--line)}
+.switch[aria-checked="false"]::after{left:3px}
+.switch:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.tz{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.tz .input{border:1px solid var(--field-line,var(--line));border-radius:12px;padding:10px 14px;font-weight:600;background:var(--surface)}
+
+/* Respaldo */
+.backup{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center}
+.files{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.file{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);text-decoration:none;font-weight:700;font-size:.86rem}
+.file i{width:30px;height:36px;border-radius:5px;background:var(--sky-soft);display:grid;place-items:center;font-style:normal;font-size:.75rem;font-weight:800}
+.file small{display:block;font-weight:600;color:var(--muted);font-size:.75rem}
+
+/* Peligro */
+.danger{border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+.danger details{border-top:1px solid var(--line);padding:14px 0}
+.danger details:first-of-type{border-top:0;padding-top:0}
+.danger summary{cursor:pointer;font-weight:700;color:var(--warn);list-style:none;display:flex;justify-content:space-between;gap:10px}
+.danger summary::-webkit-details-marker{display:none}
+.danger summary::after{content:"Ver";font-size:.8rem;color:var(--muted)}
+.danger details[open] summary::after{content:"Ocultar"}
+.danger p{font-size:.86rem;line-height:1.5;margin:10px 0}
+.confirm{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.confirm .input{flex:1 1 220px;border:1px solid var(--field-line,var(--line));border-radius:12px;padding:10px 14px;color:var(--muted)}
+.btn.bad{background:transparent;color:var(--warn);border-color:var(--warn);opacity:.55;cursor:not-allowed}
+
+@media (max-width:980px){
+  .layout{grid-template-columns:1fr}
+  .side{position:sticky;top:64px;z-index:5;display:flex;overflow-x:auto;gap:4px;background:var(--bg);padding:8px 0;margin:0 -4px}
+  .side a{white-space:nowrap;border-left:0;border-bottom:3px solid transparent;border-radius:8px 8px 0 0}
+  .side a[aria-current]{border-bottom-color:var(--gold)}
+  .member{grid-template-columns:1fr}
+  .mcard{max-width:420px}
+  .tally{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .wrap{padding:0 16px}
+  .panel{padding:18px}
+  .backup{grid-template-columns:1fr}
+  .invite{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="{{LOGO}}" alt="">Don <b>Bigo</b></a>
+    <div class="period" aria-label="Periodo">
+      <button aria-label="Corte anterior">‹</button>
+      <span><span class="long">Corte del </span>5 nov – 4 dic</span>
+      <button aria-label="Corte siguiente">›</button>
+    </div>
+    <button class="iconbtn" id="theme" aria-label="Cambiar tema" title="Cambiar tema">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <button class="iconbtn" aria-label="Menú">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="pagehead"><h1>Tu cuenta</h1></div>
+  <div class="layout">
+    <nav class="side" aria-label="Secciones">
+      <a href="#estatus" aria-current="true">Estatus</a>
+      <a href="#personas">Personas</a>
+      <a href="#avisos">Avisos</a>
+      <a href="#respaldo">Respaldo</a>
+      <a href="#peligro" class="danger">Zona de peligro</a>
+    </nav>
+
+    <div>
+      <section class="block" id="estatus" aria-labelledby="st-t">
+        <h2 id="st-t" class="sr" style="position:absolute;left:-9999px">Estatus</h2>
+        <div class="member">
+          <div class="mcard" role="img" aria-label="Tarjeta de miembro de Jorge Aldana, plan Gratis, desde octubre 2025">
+            <img class="wm" src="{{LOGO}}" alt="">
+            <div class="row"><span class="brand2"><img src="{{LOGO}}" alt="">Don <b>Bigo</b></span><span class="tier">Gratis</span></div>
+            <div class="who"><strong>Jorge Aldana</strong><span>Miembro desde octubre 2025</span></div>
+            <span class="bow"></span>
+          </div>
+          <dl class="facts">
+            <div><dt>Plan</dt><dd>Gratis</dd></div>
+            <div><dt>Estado</dt><dd class="ok">Activa</dd></div>
+            <div><dt>Correo</dt><dd>jorge@ejemplo.mx</dd></div>
+            <div><dt>Espacio</dt><dd>Casa Aldana · Dueño</dd></div>
+            <div><dt>Moneda</dt><dd>Peso mexicano (MXN)</dd></div>
+            <div><dt>Cliente desde</dt><dd>9 oct 2025</dd></div>
+          </dl>
+        </div>
+        <div class="tally" aria-label="Lo que llevas en Don Bigo">
+          <div><strong>3</strong><span>cuentas</span></div>
+          <div><strong>11</strong><span>planes activos</span></div>
+          <div><strong>1,240</strong><span>movimientos</span></div>
+          <div><strong>2</strong><span>metas logradas</span></div>
+        </div>
+        <div class="upsell"><span>Muy pronto: planes con más funciones, como leer tu estado de cuenta en PDF.</span><a class="link" href="#">Avísame</a></div>
+      </section>
+
+      <section class="block" id="personas" aria-labelledby="pe-t">
+        <h2 id="pe-t">Personas de tu espacio</h2>
+        <p class="lead">Comparte tus cuentas con tu familia. Cada quien entra con su correo.</p>
+        <div class="panel">
+          <ul class="people">
+            <li class="person"><span class="av" style="background:#1d3557">JA</span><b>Jorge Aldana<span class="you">Tú</span></b><span class="role" style="border:0;padding:7px 0">Dueño</span><small>jorge@ejemplo.mx</small></li>
+            <li class="person"><span class="av" style="background:#5f8a72">MR</span><b>Mariana Ruiz</b><select class="role" aria-label="Rol de Mariana"><option>Puede editar</option><option>Solo ver</option><option>Administra</option></select><small>Entró el 2 nov 2026</small></li>
+          </ul>
+          <div class="invite">
+            <span><b>Invitación pendiente</b> · Solo ver<br><small>Vence el 20 nov · para mamá</small></span>
+            <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn">Copiar enlace</button><button class="btn" style="color:var(--warn)">Cancelar</button></span>
+          </div>
+          <div class="bar" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px">
+            <div class="roles-help"><span><b>Administra:</b> todo, menos borrar el espacio</span><span><b>Puede editar:</b> carga y marca pagos</span><span><b>Solo ver:</b> consulta</span></div>
+            <a class="btn primary" href="#">+ Invitar a alguien</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" id="avisos" aria-labelledby="av-t">
+        <h2 id="av-t">Avisos</h2>
+        <p class="lead">Te recordamos tus pagos 7 y 2 días antes, y el mismo día.</p>
+        <div class="panel">
+          <div class="toggles">
+            <div class="tg"><b>Dentro de Don Bigo</b><button class="switch" role="switch" aria-checked="true" aria-label="Avisos dentro de Don Bigo"></button><span>Al entrar te avisamos si hoy toca pagar, si hay pagos vencidos o si tu respaldo está listo.</span></div>
+            <div class="tg"><b>En este teléfono</b><button class="switch" role="switch" aria-checked="true" aria-label="Notificaciones en este teléfono"></button><span>Notificaciones aunque no tengas la app abierta.</span></div>
+            <div class="tg"><b>WhatsApp</b><button class="switch" role="switch" aria-checked="false" aria-label="Avisos por WhatsApp"></button><span>Vincula tu número y marca pagos respondiendo «pagado».</span></div>
+          </div>
+          <div class="tz"><b style="font-size:.92rem">Zona horaria</b><span class="input">Ciudad de México (GMT−6)</span><span class="muted small">Define qué día es «hoy» en tus pagos y metas.</span></div>
+        </div>
+      </section>
+
+      <section class="block" id="respaldo" aria-labelledby="re-t">
+        <h2 id="re-t">Respaldo</h2>
+        <p class="lead">Descarga todos tus gastos y pagos en dos archivos CSV. Te avisamos cuando estén listos.</p>
+        <div class="panel backup">
+          <div>
+            <b>Tu último respaldo está listo</b><br><span class="muted small">Generado el 15 nov · disponible hasta el 22 nov</span>
+            <div class="files">
+              <a class="file" href="#"><i>CSV</i><span>Gastos<small>1,240 movimientos</small></span></a>
+              <a class="file" href="#"><i>CSV</i><span>Pagos<small>86 de la agenda</small></span></a>
+            </div>
+          </div>
+          <button class="btn">Generar uno nuevo</button>
+        </div>
+      </section>
+
+      <section class="block" id="peligro" aria-labelledby="pd-t">
+        <h2 id="pd-t">Zona de peligro</h2>
+        <p class="lead">Estas acciones no se pueden deshacer. Descarga un respaldo antes.</p>
+        <div class="panel danger">
+          <details>
+            <summary>Borrar toda la información</summary>
+            <p>Borra cuentas, tarjetas, planes, movimientos, agenda, metas y categorías de este espacio. Tu cuenta y las personas se conservan.</p>
+            <div class="confirm"><span class="input">Escribe tu correo para confirmar</span><button class="btn bad" disabled>Borrar la información</button></div>
+          </details>
+          <details>
+            <summary>Borrar mi cuenta</summary>
+            <p>Pierdes el acceso de inmediato y tu cuenta se elimina en 30 días. Antes, quita a las demás personas de tu espacio.</p>
+            <div class="confirm"><span class="input">Escribe tu correo para confirmar</span><button class="btn bad" disabled>Borrar mi cuenta</button></div>
+          </details>
+        </div>
+      </section>
+      <p class="note">Maqueta con datos de ejemplo.</p>
+    </div>
+  </div>
+</main>
+<footer><div class="wrap">Don Bigo te ayuda a organizarte; no es asesoría financiera.</div></footer>
+
+<script>
+const $=s=>document.querySelector(s);
+document.querySelectorAll('.switch').forEach(s=>s.onclick=()=>s.setAttribute('aria-checked',s.getAttribute('aria-checked')!=='true'));
+const links=[...document.querySelectorAll('.side a')];
+const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)links.forEach(a=>a.toggleAttribute('aria-current',a.getAttribute('href')==='#'+e.target.id))}),{rootMargin:'-30% 0px -60% 0px'});
+document.querySelectorAll('section.block').forEach(s=>obs.observe(s));
+$('#theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>
