@@ -3508,3 +3508,12 @@ form + .row-actions {
 .balance-chart figcaption { margin-top: 0.25rem; font-size: 0.875rem; }
 .agenda-history { margin-top: 1rem; }
 .agenda-history summary { cursor: pointer; }
+
+/* Comparar estado de cuenta (PDF): tablas elegidas, renglones a completar y diferencias. */
+.statement-table.is-chosen { outline: 2px solid var(--step); outline-offset: -2px; }
+.statement-table .form-grid { margin-top: 1rem; }
+.statement-fill { border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem 1rem; margin: 0.75rem 0; }
+.statement-fill legend { padding: 0 0.25rem; font-size: 0.875rem; }
+.statement-diff { list-style: none; padding: 0; margin: 0 0 1rem; }
+.statement-diff li { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
+.statement-diff .num { margin-left: auto; font-variant-numeric: tabular-nums; }

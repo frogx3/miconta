@@ -1,5 +1,5 @@
 import type { BankId } from '../banks';
-import { daysBetween } from '../import/dates';
+import { addMonthsISO, daysBetween } from '../import/dates';
 import { normalizeDescription } from '../import/text';
 import { matchBankPlans, type BalanceMatch, type BankPlanRow, type MatchablePlan } from '../plans/bank-balances';
 
@@ -52,6 +52,8 @@ export interface PlanDifference {
   row: BankPlanRow;
   /** Pagos que Don Bigo tiene registrados; el banco dice `row.current`. */
   paidInstallments: number;
+  /** Mensualidad en Don Bigo; la del banco es `row.paymentMinor - row.interestMinor`. */
+  installmentAmountMinor: number;
 }
 
 export interface StatementComparison {
@@ -113,7 +115,9 @@ export function compareStatement(
   const sum = (key: 'chargeMinor' | 'creditMinor') => statement.movements.reduce((total, movement) => total + movement[key], 0);
   const totalsOk = statement.totals ? sum('chargeMinor') === statement.totals.chargesMinor && sum('creditMinor') === statement.totals.creditsMinor : null;
 
-  const exact = pairUp(statement.movements, current.movements, (s, e) =>
+  // Un renglón en $0.00 (reversa de bonificación) no mueve nada y el CSV no lo trae: no se compara.
+  const statementMovements = statement.movements.filter((m) => m.chargeMinor !== 0 || m.creditMinor !== 0);
+  const exact = pairUp(statementMovements, current.movements, (s, e) =>
     s.chargeMinor === e.chargeMinor && s.creditMinor === e.creditMinor && sameCard(s.last4, e.last4) && Math.abs(daysBetween(s.date, e.date)) <= DATE_TOLERANCE_DAYS,
   );
   // Lo que sobra de ambos lados: mismo día, misma tarjeta y descripción parecida = mismo movimiento con otro monto.
@@ -122,23 +126,31 @@ export function compareStatement(
   );
 
   const planMatch = matchBankPlans(statement.plans, current.plans);
-  const matchedIds = new Set(planMatch.matches.map((match) => match.planId));
+  const matched = [...planMatch.matches];
+  const matchedIds = new Set(matched.map((match) => match.planId));
   const differs: PlanDifference[] = [];
   const missing: BankPlanRow[] = [];
-  // También las filas ya liquidadas en el banco: si Don Bigo aún tiene ese plan abierto, es una diferencia.
+  // Lo que no emparejó exacto: mismo plazo y fecha de compra cercana = mismo plan (de preferencia con la misma
+  // mensualidad). Incluye filas ya liquidadas en el banco: si Don Bigo lo tiene igual (terminado), coincide.
   for (const row of [...planMatch.unmatched, ...planMatch.closed]) {
-    // Mismo plan con otro número de pago: misma compra, mismo plazo y misma mensualidad.
-    const plan = current.plans.find(
-      (candidate) =>
-        !matchedIds.has(candidate.id) &&
-        candidate.totalInstallments === row.total &&
-        Math.abs(candidate.installmentAmountMinor - (row.paymentMinor - row.interestMinor)) <= CENT_TOLERANCE &&
-        Math.abs(daysBetween(candidate.firstChargeDate, row.date)) <= PLAN_DATE_TOLERANCE_DAYS,
+    const installment = row.paymentMinor - row.interestMinor;
+    const sameAmount = (plan: MatchablePlan) => Math.abs(plan.installmentAmountMinor - installment) <= CENT_TOLERANCE;
+    const candidates = current.plans.filter(
+      (plan) =>
+        !matchedIds.has(plan.id) &&
+        plan.totalInstallments === row.total &&
+        // Banorte pone la fecha de compra; Banamex, la del cargo de este mes (pago número `row.current`).
+        [plan.firstChargeDate, addMonthsISO(plan.firstChargeDate, row.current - 1)].some((date) => Math.abs(daysBetween(date, row.date)) <= PLAN_DATE_TOLERANCE_DAYS),
     );
-    if (plan) {
-      matchedIds.add(plan.id);
-      differs.push({ planId: plan.id, planName: plan.name, row, paidInstallments: plan.paidInstallments });
-    } else if (row.pendingMinor !== 0) missing.push(row);
+    const plan = candidates.find(sameAmount) ?? candidates[0];
+    if (!plan) {
+      if (row.pendingMinor !== 0) missing.push(row);
+      continue;
+    }
+    matchedIds.add(plan.id);
+    // Ya liquidado en el banco con los mismos pagos: el último cargo suele traer el ajuste de redondeo.
+    if (plan.paidInstallments === row.current && (sameAmount(plan) || row.pendingMinor === 0)) matched.push({ planId: plan.id, planName: plan.name, row });
+    else differs.push({ planId: plan.id, planName: plan.name, row, paidInstallments: plan.paidInstallments, installmentAmountMinor: plan.installmentAmountMinor });
   }
 
   return {
@@ -147,7 +159,7 @@ export function compareStatement(
     changed: loose.pairs,
     missing: loose.restS,
     extra: loose.restE,
-    plans: { matched: planMatch.matches, differs, missing },
+    plans: { matched, differs, missing },
     cutoffDiffers: current.cutoff
       ? current.cutoff.date !== statement.period.cutoff || (statement.period.dueDate !== null && current.cutoff.dueDate !== statement.period.dueDate)
       : null,

@@ -160,3 +160,14 @@ export function tableToMarkdown(table: DetectedTable): string {
   const header = table.header.some(Boolean) ? table.header : table.header.map((_, i) => `Columna ${i + 1}`);
   return [header, header.map(() => '---'), ...table.rows].map((row) => `| ${row.map(escape).join(' | ')} |`).join('\n');
 }
+
+/** Fecha escrita junto a una etiqueta ("Fecha de corte: 04-NOV-2026"), tal cual aparece; null si no está como texto. */
+export function labeledDate(items: readonly PdfText[], label: RegExp): string | null {
+  for (const line of toLines(items)) {
+    const text = lineText(line);
+    if (!label.test(text)) continue;
+    const date = line.cells.map((c) => /\d{1,2}[-/ .]([A-Za-z]{3,4}|\d{1,2})[-/ .]\d{2,4}/.exec(c.text)?.[0]).find(Boolean);
+    if (date) return date;
+  }
+  return null;
+}

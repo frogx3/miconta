@@ -1,0 +1,76 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import Icon from '../../../components/Icon.astro';
+import { messagesFor, t } from '../../../i18n/messages';
+import { getDb } from '../../../lib/auth';
+import { listAccounts } from '../../../lib/accounts/repo';
+
+const { workspace, locale } = Astro.locals;
+if (!workspace) return Astro.redirect('/login');
+
+const accounts = (await listAccounts(getDb(), workspace.id)).map((account) => ({
+  id: account.id,
+  name: account.name,
+  currency: account.cards.find((card) => card.kind === 'credit')?.currency ?? workspace.defaultCurrency,
+}));
+const requested = Astro.url.searchParams.get('cuenta');
+const initialAccount = accounts.find((account) => account.id === requested)?.id ?? accounts[0]?.id ?? '';
+const config = { locale, accounts, messages: messagesFor(locale, ['statement.', 'common.']) };
+---
+
+<AppLayout title={t(locale, 'statement.title')} active="import">
+  <Breadcrumb items={[{ label: t(locale, 'import.title'), href: '/app/importar' }, { label: t(locale, 'statement.title') }]} />
+  <h1>{t(locale, 'statement.title')}</h1>
+  <p class="hint">{t(locale, 'statement.intro')}</p>
+
+  {
+    accounts.length === 0 ? (
+      <section class="card">
+        <p class="empty">{t(locale, 'import.noAccounts')}</p>
+      </section>
+    ) : (
+      <div id="statement-app" data-config={JSON.stringify(config)}>
+        <section class="card">
+          <div id="statement-error" class="alert" role="alert" hidden></div>
+          <form id="statement-upload" class="form-grid" novalidate>
+            <div class="field">
+              <label for="statement-account">{t(locale, 'import.account')}</label>
+              <select id="statement-account">
+                {accounts.map((account) => (
+                  <option value={account.id} selected={account.id === initialAccount}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div class="field">
+              <label for="statement-file">{t(locale, 'statement.file')}</label>
+              <div class="file-pick">
+                <input id="statement-file" class="file-input" type="file" accept=".pdf,application/pdf" required />
+                <label class="btn btn-ghost btn-auto" for="statement-file"><Icon name="upload" size={18} /> {t(locale, 'import.file.choose')}</label>
+                <span class="muted" id="statement-file-name">{t(locale, 'import.file.none')}</span>
+              </div>
+            </div>
+            <div class="field narrow" id="statement-password-field" hidden>
+              <label for="statement-password">{t(locale, 'statement.password')}</label>
+              <input id="statement-password" type="password" autocomplete="off" />
+            </div>
+            <p class="hint">{t(locale, 'statement.privacy')}</p>
+            <div class="form-actions">
+              <button class="btn" type="submit">{t(locale, 'statement.read')}</button>
+            </div>
+          </form>
+        </section>
+
+        <div id="statement-tables" hidden></div>
+        <div id="statement-review" hidden></div>
+        <div id="statement-result" hidden></div>
+      </div>
+    )
+  }
+</AppLayout>
+
+<script>
+  import '../../../scripts/statement-pdf';
+</script>
