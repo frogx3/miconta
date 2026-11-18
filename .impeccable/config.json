@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "montserrat",
+        "createdAt": "2026-11-18T15:58:10.422Z",
+        "reason": "Marca de Don Bigo: Montserrat es tipografía obligatoria de la marca (DESIGN.md, global.css), elegida por el usuario"
+      }
+    ]
+  }
+}

@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Don Bigo — Cuentas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..800&display=swap" rel="stylesheet">
+<style>
+{{BASE_CSS}}
+/* Cambiador de la maqueta (no es parte del diseño) */
+.mock{display:flex;gap:6px;justify-content:center;padding:10px;background:var(--ivory);border-bottom:1px solid var(--line);font-size:.8rem}
+.mock button{all:unset;cursor:pointer;padding:6px 14px;border-radius:999px;font-weight:600;border:1px solid var(--line)}
+.mock button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+[hidden]{display:none!important}
+
+h1{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin:0}
+.pagehead{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:28px 0 18px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;font-size:.85rem;padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+:root[data-theme="dark"] .btn.primary{background:var(--gold);color:#0e1a2c;border-color:var(--gold)}
+.link{font-size:.85rem;font-weight:600;color:var(--muted);text-underline-offset:3px}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:14px}
+.head a{font-size:.8rem;font-weight:600;color:var(--muted);text-underline-offset:3px}
+
+/* Calendario de cortes: la pieza memorable */
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 24px 18px}
+.cal-top{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:18px}
+.cal-stats{display:flex;gap:28px;flex-wrap:wrap}
+.cal-stats div{display:flex;flex-direction:column}
+.cal-stats span{font-size:.8rem;color:var(--muted);font-weight:600}
+.cal-stats strong{font-size:1.15rem;font-weight:800}
+.ribbon{position:relative;display:grid;grid-template-columns:repeat(30,1fr);border-top:1px solid var(--line);padding-top:8px}
+.ribbon .d{position:relative;height:84px;border-left:1px solid transparent;text-align:center}
+.ribbon .d span{font-size:.75rem;font-weight:600;color:var(--muted)}
+.ribbon .d.wk span{opacity:.55}
+.ribbon .d.today{background:var(--sky-soft);border-radius:8px}
+.ribbon .d.today span{color:var(--ink);font-weight:800}
+.mk{position:absolute;left:50%;transform:translateX(-50%);width:14px;height:14px}
+.mk.cut{border-radius:3px;transform:translateX(-50%) rotate(45deg);width:11px;height:11px}
+.mk.pay{border-radius:50%}
+.mk.pay.past{opacity:.35}
+.mk-l{position:absolute;left:50%;transform:translateX(-50%);font-size:.75rem;font-weight:700;white-space:nowrap}
+.cal-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:.8rem;color:var(--muted);font-weight:600}
+.cal-legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.sw.dia{transform:rotate(45deg);width:9px;height:9px;border-radius:2px;background:var(--muted)}
+.sw.cir{border-radius:50%;background:var(--muted)}
+
+/* Cuentas */
+.accounts{list-style:none;margin:28px 0 0;padding:0;display:grid;gap:16px}
+.acct{background:var(--surface);border:1px solid var(--line);border-radius:16px;display:grid;grid-template-columns:minmax(0,1fr) 300px}
+.acct-main{padding:20px 24px;display:grid;gap:16px}
+.acct-name{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.acct-name a{font-size:1.15rem;font-weight:800;text-decoration:none;letter-spacing:-.01em}
+.acct-name a:hover{text-decoration:underline;text-underline-offset:4px}
+.acct-side{border-left:1px solid var(--line);padding:20px 24px;display:flex;flex-direction:column;gap:12px;background:var(--ivory);border-radius:0 16px 16px 0}
+.acct-side .due strong{font-size:1.35rem;font-weight:800;display:block}
+.fresh{display:flex;gap:8px;align-items:flex-start;font-size:.82rem;line-height:1.35}
+.fresh i{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none}
+.fresh.ok i{background:var(--good)} .fresh.late i{background:var(--warn)}
+.fresh.late b{color:var(--warn)}
+.acct-side .btn{align-self:flex-start;margin-top:auto}
+
+/* Plásticos: cada tarjeta lleva su tono en toda la app */
+.plastics{display:flex;gap:14px;flex-wrap:wrap}
+.plastic{width:200px;aspect-ratio:1.586;border-radius:12px;padding:12px 14px;color:#fff;display:flex;flex-direction:column;justify-content:space-between;position:relative;text-decoration:none}
+.plastic.digital{background:transparent!important;color:var(--ink);border:2px dashed var(--tone)}
+.plastic .k{font-size:.8rem;font-weight:700;opacity:.9}
+.plastic .n{font-size:1.05rem;font-weight:700;letter-spacing:.08em}
+.plastic .chip{width:26px;height:19px;border-radius:4px;background:linear-gradient(135deg,#e7d39a,#b8913a)}
+.plastic.digital .chip{display:none}
+.plastic .tag{position:absolute;top:10px;right:12px;font-size:.75rem;font-weight:700;background:var(--tone);color:#fff;padding:2px 8px;border-radius:999px}
+.plastic .use{height:4px;border-radius:2px;background:rgb(255 255 255 / .25);overflow:hidden}
+.plastic.digital .use{background:var(--sky-soft)}
+.plastic .use i{display:block;height:100%;background:var(--gold)}
+.plastic-facts{font-size:.8rem;color:var(--muted);margin-top:6px;width:200px}
+
+/* Detalle */
+.crumb{font-size:.82rem;color:var(--muted);padding-top:20px}
+.crumb a{text-underline-offset:3px}
+.acct-hero{background:var(--hero-bg);color:var(--hero-ink);border-radius:20px;padding:24px 28px;margin-top:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px 32px;align-items:end}
+:root[data-theme="dark"] .acct-hero{border:1px solid var(--hero-line)}
+.acct-hero h1{font-size:1.8rem}
+.acct-hero .sub{color:var(--hero-muted);font-size:.88rem;margin-top:4px}
+.hero-stats{grid-column:1/-1;display:flex;gap:36px;flex-wrap:wrap;border-top:1px solid var(--hero-line);padding-top:16px}
+.hero-stats div{display:flex;flex-direction:column}
+.hero-stats span{font-size:.8rem;color:var(--hero-muted);font-weight:600}
+.hero-stats strong{font-size:1.25rem;font-weight:800}
+.hero-stats .gold{color:var(--gold)}
+.hero-stats .warn{font-size:.8rem;font-weight:700;color:#f0b49f}
+.acct-hero .actions .btn{background:transparent;color:var(--hero-ink);border-color:var(--hero-line)}
+.acct-hero .actions .btn.primary{background:var(--gold);color:#0e1a2c;border-color:var(--gold)}
+.section{margin-top:32px}
+.cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.cardbox{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:12px}
+.cardbox .plastic{width:100%}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:0;font-size:.85rem}
+.facts dt{color:var(--muted);font-size:.8rem;font-weight:600}
+.facts dd{margin:0;font-weight:700}
+.meter{height:8px;border-radius:4px;background:var(--sky-soft);overflow:hidden;display:flex}
+.meter i{display:block}
+.cardbox .foot{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted)}
+.addcard{border:2px dashed var(--line);border-radius:16px;display:grid;place-items:center;min-height:200px;color:var(--muted);font-weight:700;text-decoration:none;font-size:.9rem}
+.addcard:hover{border-color:var(--gold);color:var(--ink)}
+
+.two{display:grid;grid-template-columns:7fr 5fr;gap:28px}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+caption{text-align:left}
+th{font-size:.8rem;color:var(--muted);font-weight:600;text-align:right;padding:0 0 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{padding:11px 0;border-bottom:1px solid var(--line);text-align:right;font-weight:600}
+td .cb{display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:6px;width:100%;background:var(--sky-soft)}
+td .cb i{display:block}
+.st{font-size:.8rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.st.paid{background:color-mix(in srgb,var(--good) 15%,transparent);color:var(--good)}
+.st.open{background:var(--gold-soft);color:var(--ink)}
+.st.due{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+.plans{list-style:none;margin:0;padding:0}
+.plans li{padding:12px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:.86rem}
+.plans .pr{grid-column:1/-1;display:flex;gap:2px}
+.plans .pr i{flex:1;height:6px;border-radius:2px;background:var(--sky-soft)}
+.plans .pr i.on{background:var(--bar-a)}
+.plans small{color:var(--muted);font-size:.8rem}
+.log{list-style:none;margin:0;padding:0;font-size:.86rem}
+.log li{display:grid;grid-template-columns:110px 1fr auto;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.log .src{font-size:.8rem;font-weight:700;color:var(--muted)}
+.quiet{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+footer{margin:48px 0 0;padding:22px 0;background:#1d3557;color:#b9c5d8;font-size:.8rem}
+:root[data-theme="dark"] footer{background:#1b1917}
+.note{font-size:.8rem;color:var(--muted);text-align:right;margin-top:16px}
+
+@media (max-width:900px){
+  .acct{grid-template-columns:1fr}
+  .acct-side{border-left:0;border-top:1px solid var(--line);border-radius:0 0 16px 16px}
+  .two{grid-template-columns:1fr}
+  .ribbon .d{height:72px}
+  .mk-l{display:none}
+}
+@media (max-width:640px){
+  .wrap{padding:0 16px}
+  .period span.long{display:none}
+  .ribbon{grid-template-columns:repeat(15,1fr);row-gap:6px}
+  .plastic,.plastic-facts{width:calc(50% - 7px)}
+  .acct-hero{grid-template-columns:1fr;padding:20px}
+  .log li{grid-template-columns:1fr auto}
+  .log .src{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<div class="mock" role="group" aria-label="Pantalla de la maqueta">
+  <button aria-pressed="true" data-v="list">Lista de cuentas</button>
+  <button aria-pressed="false" data-v="detail">Detalle de una cuenta</button>
+</div>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="{{LOGO}}" alt="">Don <b>Bigo</b></a>
+    <div class="period" aria-label="Periodo">
+      <button aria-label="Corte anterior">‹</button>
+      <span><span class="long">Corte del </span>5 nov – 4 dic</span>
+      <button aria-label="Corte siguiente">›</button>
+    </div>
+    <button class="iconbtn" id="theme" aria-label="Cambiar tema" title="Cambiar tema">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <button class="iconbtn" aria-label="Menú">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ============ LISTA ============ -->
+<main id="v-list" class="wrap">
+  <div class="pagehead">
+    <h1>Tus cuentas</h1>
+    <div class="actions">
+      <a class="link" href="#">Ver archivadas</a>
+      <a class="btn primary" href="#">+ Agregar cuenta</a>
+    </div>
+  </div>
+
+  <section class="cal" aria-labelledby="cal-t">
+    <div class="cal-top">
+      <div>
+        <h2 id="cal-t">Cortes y pagos de noviembre</h2>
+        <p class="muted small" style="margin:4px 0 0">Cada color es una tarjeta. El rombo es el corte; el círculo, la fecha límite de pago.</p>
+      </div>
+      <div class="cal-stats">
+        <div><span>Pagas este mes</span><strong>$21,660</strong></div>
+        <div><span>Línea total</span><strong>$150,000</strong></div>
+        <div><span>Disponible</span><strong>$87,700</strong></div>
+      </div>
+    </div>
+    <div class="ribbon" id="ribbon" role="img" aria-label="Noviembre: Banorte corta el 4 y paga el 24; BBVA corta el 10 y paga el 1 de diciembre; Nu corta el 15 y paga el 6 de diciembre"></div>
+    <div class="cal-legend" id="cal-legend"></div>
+  </section>
+
+  <ul class="accounts" id="accounts"></ul>
+  <p class="note">Maqueta con datos de ejemplo.</p>
+</main>
+
+<!-- ============ DETALLE ============ -->
+<main id="v-detail" class="wrap" hidden>
+  <nav class="crumb" aria-label="Migas de pan"><a href="#" data-go="list">Cuentas</a> / Banorte</nav>
+  <section class="acct-hero" aria-labelledby="acct-t">
+    <div>
+      <h1 id="acct-t">Banorte</h1>
+      <p class="sub">Banorte · Cliente 40218876 · 3 tarjetas</p>
+    </div>
+    <div class="actions">
+      <a class="btn primary" href="#">Importar movimientos</a>
+      <a class="btn" href="#">Agregar movimiento</a>
+    </div>
+    <div class="hero-stats">
+      <div><span>Pagas de este corte</span><strong>$12,480</strong><span class="warn">Vence el 24 nov, en 6 días</span></div>
+      <div><span>Saldo por liquidar</span><strong>$98,400</strong></div>
+      <div><span>Planes activos</span><strong>6</strong></div>
+      <div><span>Libre de mensualidades</span><strong class="gold">marzo 2028</strong></div>
+      <div><span>Última carga</span><strong>4 nov</strong><span style="font-size:.8rem;color:var(--hero-muted)">Al día con tu corte</span></div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="cards-t">
+    <div class="head"><h2 id="cards-t">Tarjetas</h2></div>
+    <div class="cardgrid" id="cardgrid"></div>
+  </section>
+
+  <div class="two section">
+    <section aria-labelledby="cuts-t">
+      <div class="head"><h2 id="cuts-t">Tus cortes</h2><a href="#">Ver gastos de la cuenta</a></div>
+      <table>
+        <thead><tr><th scope="col">Corte</th><th scope="col">Para no pagar intereses</th><th scope="col">Estado</th></tr></thead>
+        <tbody id="cuts"></tbody>
+      </table>
+      <div class="cal-legend"><span><i class="sw" style="background:var(--bar-a)"></i>Mensualidades</span><span><i class="sw" style="background:var(--sky)"></i>Compras del corte</span></div>
+    </section>
+    <section aria-labelledby="plans-t">
+      <div class="head"><h2 id="plans-t">Planes de esta cuenta</h2><a href="#">Ver los 6</a></div>
+      <ul class="plans" id="plans"></ul>
+    </section>
+  </div>
+
+  <section class="section" aria-labelledby="log-t">
+    <div class="head"><h2 id="log-t">Cargas recientes</h2><a href="#">Historial de cargas</a></div>
+    <ul class="log">
+      <li><span>4 nov 2026</span><span>Estado de cuenta noviembre.csv<br><span class="muted small">84 movimientos nuevos · 5 mensualidades confirmadas</span></span><span class="src">CSV</span></li>
+      <li><span>12 oct 2026</span><span>Gasolina Pemex $850<br><span class="muted small">Agregado a mano</span></span><span class="src">A mano</span></li>
+      <li><span>2 oct 2026</span><span>Estado de cuenta octubre.csv<br><span class="muted small">71 movimientos nuevos · 1 plan creado</span></span><span class="src">CSV</span></li>
+    </ul>
+  </section>
+
+  <div class="quiet">
+    <span>Cuenta creada el 9 oct 2025. Si ya no la usas, archívala: conservamos su historial.</span>
+    <span><a class="link" href="#">Editar datos</a> &nbsp; <a class="link" href="#">Archivar cuenta</a></span>
+  </div>
+</main>
+<footer><div class="wrap">Don Bigo te ayuda a organizarte; no es asesoría financiera.</div></footer>
+
+<script>
+const $=s=>document.querySelector(s), fmt=n=>'$'+n.toLocaleString('es-MX');
+const T={navy:'#1d3557',sage:'#5f8a72',gold:'#c5a047',terra:'#b5654a',graphite:'#4a4640'};
+
+/* Datos de ejemplo */
+const accounts=[
+ {id:'banorte',name:'Banorte',bank:'Banorte',client:'40218876',pay:12480,due:'24 nov',soon:true,plans:6,fresh:['ok','Última carga 4 nov, al día con tu corte'],
+  cards:[{kind:'Crédito',n:'4821',tone:T.navy,use:.38,facts:'Corte día 4 · Pago día 24'},{kind:'Crédito digital',n:'9932',tone:T.navy,digital:true,use:.38,facts:'Comparte línea'},{kind:'Débito',n:'1150',tone:T.graphite,facts:'Sin corte'}]},
+ {id:'bbva',name:'BBVA Azul',bank:'BBVA',client:null,pay:6240,due:'1 dic',plans:3,fresh:['late','<b>Falta el corte del 10 nov.</b> Tu última carga es del 10 oct.'],
+  cards:[{kind:'Crédito',n:'0193',tone:T.sage,use:.62,facts:'Corte día 10 · Pago día 1'}]},
+ {id:'nu',name:'Nu',bank:'Nu',client:null,pay:2940,due:'6 dic',plans:2,fresh:['ok','Última carga 15 nov, al día'],
+  cards:[{kind:'Crédito digital',n:'7710',tone:T.gold,digital:true,use:.2,facts:'Corte día 15 · Pago día 6'}]},
+];
+const marks=[{tone:T.navy,name:'Banorte ••4821',cut:4,pay:24},{tone:T.sage,name:'BBVA ••0193',cut:10,pay:1},{tone:T.gold,name:'Nu ••7710',cut:15,pay:6}];
+const TODAY=18;
+
+function plasticHTML(c){
+  const style=`--tone:${c.tone};${c.digital?'':`background:${c.tone}`}`;
+  return `<a class="plastic ${c.digital?'digital':''}" style="${style}" href="#" aria-label="${c.kind} terminación ${c.n}">
+    ${c.digital?'<span class="tag">Digital</span>':''}<span class="k">${c.kind}</span><span class="chip"></span>
+    <span class="n">•••• ${c.n}</span>${c.use!=null?`<span class="use"><i style="width:${c.use*100}%"></i></span>`:''}</a>`;
+}
+
+function list(){
+  const dow=['dom','lun','mar','mié','jue','vie','sáb'];
+  let h='';
+  for(let d=1;d<=30;d++){
+    const wd=new Date(2026,10,d).getDay();
+    let m='';
+    marks.forEach((k,i)=>{
+      if(k.cut===d)m+=`<i class="mk cut" style="background:${k.tone};top:${30+i*16}px" title="Corte ${k.name}"></i>`;
+      if(k.pay===d)m+=`<i class="mk pay ${d<TODAY?'past':''}" style="background:${k.tone};top:${30+i*16}px" title="Pago ${k.name}"></i>`;
+    });
+    h+=`<div class="d ${d===TODAY?'today':''} ${wd===0||wd===6?'wk':''}"><span>${d}</span>${m}${d===TODAY?'<span class="mk-l" style="bottom:4px">hoy</span>':''}</div>`;
+  }
+  $('#ribbon').innerHTML=h;
+  $('#cal-legend').innerHTML=marks.map(k=>`<span><i class="sw" style="background:${k.tone}"></i>${k.name}</span>`).join('')+'<span><i class="sw dia"></i>Corte</span><span><i class="sw cir"></i>Pago</span>';
+  $('#accounts').innerHTML=accounts.map(a=>`<li class="acct">
+    <div class="acct-main">
+      <div class="acct-name"><a href="#" data-go="detail">${a.name}</a><span class="muted small">${a.bank}${a.client?' · Cliente '+a.client:''} · ${a.cards.length} ${a.cards.length===1?'tarjeta':'tarjetas'}</span></div>
+      <div class="plastics">${a.cards.map(c=>`<div>${plasticHTML(c)}<div class="plastic-facts">${c.facts}</div></div>`).join('')}</div>
+    </div>
+    <div class="acct-side">
+      <div class="due"><span class="muted small">Pagas de este corte</span><strong>${fmt(a.pay)}</strong><span class="small ${a.soon?'up':'muted'}" style="font-weight:700">Vence el ${a.due}${a.soon?', en 6 días':''}</span></div>
+      <div class="small muted">${a.plans} planes activos</div>
+      <div class="fresh ${a.fresh[0]}"><i></i><span>${a.fresh[1]}</span></div>
+      <a class="btn" href="#">Importar movimientos</a>
+    </div></li>`).join('');
+}
+
+function detail(){
+  const cards=[
+    {kind:'Crédito',n:'4821',tone:T.navy,use:.38,lim:85000,plan:28900,buy:3560,cut:'Día 4',pay:'Día 24',cur:'MXN'},
+    {kind:'Crédito digital',n:'9932',tone:T.navy,digital:true,use:.38,lim:null,cut:'Día 4',pay:'Día 24',cur:'MXN'},
+    {kind:'Débito',n:'1150',tone:T.graphite,cur:'MXN'}];
+  $('#cardgrid').innerHTML=cards.map(c=>`<div class="cardbox">${plasticHTML(c)}
+    <dl class="facts">
+      ${c.cut?`<div><dt>Corte</dt><dd>${c.cut}</dd></div><div><dt>Pago</dt><dd>${c.pay}</dd></div>`:'<div><dt>Tipo</dt><dd>Débito</dd></div>'}
+      <div><dt>Moneda</dt><dd>${c.cur}</dd></div>
+      ${c.cut?`<div><dt>Límite</dt><dd>${c.lim?fmt(c.lim):"Comparte con ••4821"}</dd></div>`:""}
+    </dl>
+    ${c.lim?`<div class="meter"><i style="width:${c.plan/c.lim*100}%;background:var(--bar-a)"></i><i style="width:${c.buy/c.lim*100}%;background:var(--sky)"></i></div><div class="foot"><span>38% usado</span><span>Disponible ${fmt(c.lim-c.plan-c.buy)}</span></div>`:''}
+    <div class="foot"><a class="link" href="#">Movimientos</a><a class="link" href="#">Editar</a></div></div>`).join('')+'<a class="addcard" href="#">+ Agregar tarjeta</a>';
+  const cuts=[['4 nov',12480,8920,'due','Vence 24 nov'],['4 oct',13110,9480,'paid','Pagado'],['4 sep',11950,9480,'paid','Pagado'],['4 ago',14200,10350,'paid','Pagado'],['4 jul',12760,10350,'paid','Pagado']];
+  const max=15000;
+  $('#cuts').innerHTML=cuts.map(([d,t,i,s,l])=>`<tr><th scope="row" style="text-align:left;color:var(--ink);font-weight:700;border-bottom:1px solid var(--line);padding:11px 0">${d}</th><td>${fmt(t)}<span class="cb" style="width:${t/max*100}%;margin-left:auto"><i style="flex:${i};background:var(--bar-a)"></i><i style="flex:${t-i};background:var(--sky)"></i></span></td><td><span class="st ${s}">${l}</span></td></tr>`).join('');
+  const plans=[['Refrigerador Liverpool','MSI',7,12,1250],['Laptop','MSI',3,18,2100],['Seguro auto','Fijo',10,12,1980],['Boletos de avión','MSI',5,6,890]];
+  $('#plans').innerHTML=plans.map(([n,t,p,tot,m])=>`<li><span><b>${n}</b> <small>${t}</small></span><span><b>${fmt(m)}</b><small>/mes</small></span><span class="pr" aria-label="${p} de ${tot} pagos">${Array.from({length:tot},(_,k)=>`<i class="${k<p?'on':''}"></i>`).join('')}</span><small style="grid-column:1/-1">Pago ${p} de ${tot}${tot-p===1?' · el último es en diciembre':''}</small></li>`).join('');
+}
+
+list();detail();
+function show(v){$('#v-list').hidden=v!=='list';$('#v-detail').hidden=v!=='detail';document.querySelectorAll('.mock button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v));scrollTo(0,0)}
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go],[data-v]');if(g){e.preventDefault();show(g.dataset.go||g.dataset.v)}});
+$('#theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
+if(location.hash==='#detalle')show('detail');
+</script>
+</body>
+</html>
