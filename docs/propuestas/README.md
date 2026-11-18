@@ -8,6 +8,7 @@ Propuestas visuales antes de programar. Se abren directo en el navegador (archiv
 - `agenda.html` — agenda del mes: veredicto, curva del saldo día a día con días en negativo, calendario, lo que sigue, movimientos del saldo y avisos.
 - `gastos.html` — gastos del corte por cuenta: reparto por categoría, día por día, presupuesto, hormiga, tendencia de 6 cortes y pestaña de movimientos para clasificar.
 - `metas.html` — metas con la mascota de la alcancía: frasco de ahorro, escalera con fecha meta, tope de hormiga por mes, liquidar un plan con abono extra, logradas y nueva meta.
+- `importar.html` — asistente en 4 pasos: archivo (cuenta, CSV y corte), columnas (solo la primera vez), revisar (mosaico del archivo, mensualidades, posibles planes, tarjeta nueva, errores) y listo.
 
 Se editan los `*.src.html` y `base.css` (tokens y encabezado comunes) y se regeneran con:
 
