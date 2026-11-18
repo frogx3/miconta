@@ -8,6 +8,24 @@
         "value": "montserrat",
         "createdAt": "2026-11-18T15:58:10.422Z",
         "reason": "Marca de Don Bigo: Montserrat es tipografía obligatoria de la marca (DESIGN.md, global.css), elegida por el usuario"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/cuentas.src.html"
+        ],
+        "createdAt": "2026-11-18T16:24:18.957Z",
+        "reason": "Claude: falso positivo; el h1 (1.6–1.8rem) vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/planes.src.html"
+        ],
+        "createdAt": "2026-11-18T16:24:18.989Z",
+        "reason": "Claude: falso positivo; el h1 (1.6–1.8rem) vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
       }
     ]
   }
