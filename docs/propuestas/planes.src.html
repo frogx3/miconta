@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Don Bigo — Planes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..800&display=swap" rel="stylesheet">
+<style>
+{{BASE_CSS}}
+.small{font-size:.8rem}
+.tabs{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px}
+.tabs a{text-decoration:none;font-weight:700;font-size:.85rem;padding:8px 14px;border-radius:999px;color:var(--muted)}
+.tabs a[aria-current]{background:var(--ink);color:var(--bg)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{font-size:.8rem;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);text-decoration:none}
+.chip[aria-pressed="true"]{border-color:var(--gold);background:var(--gold-soft)}
+.toolbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+
+/* Escalera con liberaciones: la pieza memorable */
+.free{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 24px;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:28px}
+.free svg{width:100%;height:auto;display:block;overflow:visible}
+.free-side{border-left:1px solid var(--line);padding-left:24px;display:flex;flex-direction:column;gap:14px}
+.kv{display:flex;flex-direction:column}
+.kv span{font-size:.8rem;color:var(--muted);font-weight:600}
+.kv strong{font-size:1.3rem;font-weight:800}
+.kv strong.gold{color:var(--gold)}
+:root:not([data-theme="dark"]) .kv strong.gold{color:var(--ink);background:var(--gold-soft);align-self:flex-start;padding:0 8px;border-radius:6px}
+.alert{display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--warn) 10%,transparent);font-size:.85rem;line-height:1.4}
+.alert b{color:var(--warn)}
+
+.freelist{list-style:none;margin:12px 0 0;padding:0;display:flex;gap:8px 20px;flex-wrap:wrap;font-size:.82rem}
+.freelist li{display:flex;align-items:center;gap:6px}
+.freelist i{width:9px;height:9px;border-radius:50%;background:var(--gold)}
+.freelist b{font-weight:800;white-space:nowrap}
+/* Lista agrupada por tarjeta */
+.group{margin-top:28px}
+.group-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.group-head .dot{width:12px;height:12px;border-radius:4px}
+.group-head h2{font-size:1rem}
+.group-head .muted{font-size:.85rem}
+.group-head .sum{margin-left:auto;font-weight:700;font-size:.9rem}
+.plans{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.plan{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,2fr) repeat(3,minmax(90px,.8fr));gap:6px 20px;align-items:center;padding:14px 20px;border-top:1px solid var(--line);text-decoration:none}
+.plan:first-child{border-top:0}
+.plan:hover{background:var(--ivory)}
+.plan .nm{display:flex;flex-direction:column;gap:4px;min-width:0}
+.plan .nm b{font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.type{font-size:.75rem;font-weight:800;padding:2px 7px;border-radius:5px;background:var(--sky-soft);color:var(--ink)}
+.tag{font-size:.75rem;font-weight:600;color:var(--muted)}
+.state{font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.state.late{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+.state.review{background:var(--gold-soft);color:var(--ink)}
+.prog{display:flex;flex-direction:column;gap:5px}
+.segs{display:flex;gap:2px}
+.segs i{flex:1;height:8px;border-radius:2px;background:var(--sky-soft)}
+.segs i.on{background:var(--bar-a)}
+.segs i.late{background:var(--warn)}
+.segs i.last{background:var(--gold)}
+.prog small{font-size:.8rem;color:var(--muted)}
+.num{text-align:right;display:flex;flex-direction:column}
+.num small{display:none;font-size:.75rem;color:var(--muted);font-weight:600}
+.num b{font-size:.92rem}
+.cols{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,2fr) repeat(3,minmax(90px,.8fr));gap:20px;padding:0 20px 8px;font-size:.8rem;color:var(--muted);font-weight:600}
+.cols span:nth-child(n+3){text-align:right}
+
+/* Detalle */
+.phero{background:var(--hero-bg);color:var(--hero-ink);border-radius:20px;padding:24px 28px;margin-top:12px;display:grid;gap:18px}
+:root[data-theme="dark"] .phero{border:1px solid var(--hero-line)}
+.phero-top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.phero h1{font-size:1.8rem}
+.phero .sub{color:var(--hero-muted);font-size:.88rem;margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.phero .sub i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.phero .type{background:rgb(255 255 255 / .14);color:var(--hero-ink)}
+.bigsegs{display:flex;gap:6px}
+.bigsegs i{flex:1;height:36px;border-radius:8px;background:rgb(255 255 255 / .12);display:grid;place-items:center;font-style:normal;font-size:.8rem;font-weight:700;color:var(--hero-muted)}
+.bigsegs i.on{background:rgb(255 255 255 / .9);color:#1d3557}
+:root[data-theme="dark"] .bigsegs i.on{background:#9db8dc;color:#12100f}
+.bigsegs i.now{outline:2px solid var(--gold);outline-offset:2px;color:var(--hero-ink)}
+.bigsegs i.end{background:var(--gold);color:#0e1a2c}
+.phero-stats{display:flex;gap:36px;flex-wrap:wrap;border-top:1px solid var(--hero-line);padding-top:16px}
+.phero-stats div{display:flex;flex-direction:column}
+.phero-stats span{font-size:.8rem;color:var(--hero-muted);font-weight:600}
+.phero-stats strong{font-size:1.25rem;font-weight:800}
+.phero-stats .gold{color:var(--gold)}
+.phero .actions .btn{background:transparent;color:var(--hero-ink);border-color:var(--hero-line)}
+.layout{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,4fr);gap:28px;margin-top:32px}
+.sched{list-style:none;margin:0;padding:0;position:relative}
+.sched li{display:grid;grid-template-columns:28px 90px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.sched .no{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:800;background:var(--sky-soft)}
+.sched li.paid .no{background:var(--bar-a);color:#fff}
+:root[data-theme="dark"] .sched li.paid .no{color:#12100f}
+.sched li.late .no{background:var(--warn);color:#fff}
+.sched li.last .no{background:var(--gold);color:#0e1a2c}
+.sched .d{font-weight:700}
+.sched .what{color:var(--muted);font-size:.82rem;min-width:0}
+.sched .what a{color:var(--ink);font-weight:600;text-underline-offset:3px}
+.sched .amt{font-weight:700;text-align:right}
+.sched li.future{color:var(--muted)}
+.sched li.late .what{color:var(--warn);font-weight:700}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.panel + .panel{margin-top:16px}
+.panel h2{font-size:.95rem;margin-bottom:10px}
+.cmp{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:.88rem}
+.cmp b{text-align:right}
+.cmp .diff{grid-column:1/-1;padding-top:8px;border-top:1px solid var(--line);font-size:.82rem;color:var(--good);font-weight:700}
+.taglist{display:flex;gap:8px;flex-wrap:wrap}
+.taglist span{font-size:.8rem;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--sky-soft)}
+.taglist button{all:unset;cursor:pointer;font-size:.8rem;font-weight:700;padding:5px 10px;border-radius:999px;border:1px dashed var(--line);color:var(--muted)}
+.acts{display:grid;gap:8px}
+.acts .btn{justify-content:center}
+.acts .btn.danger{color:var(--warn)}
+.hist{list-style:none;margin:0;padding:0;font-size:.85rem}
+.hist li{padding:10px 0;border-bottom:1px solid var(--line);display:grid;gap:2px}
+.hist small{color:var(--muted);font-size:.8rem}
+.hist q{font-style:italic;color:var(--muted)}
+
+@media (max-width:1000px){
+  .free{grid-template-columns:1fr}
+  .free-side{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:16px;flex-direction:row;flex-wrap:wrap;gap:20px 32px}
+  .cols{display:none}
+  .num small{display:block}
+  .plan{grid-template-columns:minmax(0,1fr) auto;gap:10px 16px}
+  .plan .prog{grid-column:1/-1;order:3}
+  .plan .num.inst{order:2}
+  .plan .num.rest,.plan .num.end{display:none}
+  .layout{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .wrap{padding:0 16px}
+  .free{padding:18px}
+  .phero{padding:20px}
+  .bigsegs{gap:3px}
+  .bigsegs i{height:26px;font-size:0}
+  .sched li{grid-template-columns:28px minmax(0,1fr) auto}
+  .sched .d{grid-column:2}
+  .sched .what{grid-column:2;grid-row:2}
+  .sched .amt{grid-row:1/3;grid-column:3}
+  .sched .no{grid-row:1/3}
+}
+</style>
+</head>
+<body>
+<div class="mock" role="group" aria-label="Pantalla de la maqueta">
+  <button aria-pressed="true" data-v="list">Lista de planes</button>
+  <button aria-pressed="false" data-v="detail">Detalle de un plan</button>
+</div>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="{{LOGO}}" alt="">Don <b>Bigo</b></a>
+    <div class="period" aria-label="Periodo">
+      <button aria-label="Corte anterior">‹</button>
+      <span><span class="long">Corte del </span>5 nov – 4 dic</span>
+      <button aria-label="Corte siguiente">›</button>
+    </div>
+    <button class="iconbtn" id="theme" aria-label="Cambiar tema" title="Cambiar tema">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <button class="iconbtn" aria-label="Menú">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ============ LISTA ============ -->
+<main id="v-list" class="wrap">
+  <div class="pagehead">
+    <h1>Tus planes</h1>
+    <div class="actions">
+      <nav class="tabs" aria-label="Estado"><a href="#" aria-current="page">Activos (11)</a><a href="#">Terminados (8)</a></nav>
+      <a class="btn primary" href="#">Importar movimientos</a>
+    </div>
+  </div>
+
+  <section class="free" aria-labelledby="free-t">
+    <div>
+      <div class="head"><h2 id="free-t">Cuándo se libera tu dinero</h2><span class="muted small">Cada punto dorado es un plan que termina</span></div>
+      <svg id="free" viewBox="0 0 720 260" role="img" aria-label="Mensualidades mes a mes. En diciembre termina Boletos de avión y se liberan 890 pesos; en febrero, Seguro de auto con 1,980; en abril, Refrigerador con 1,250."></svg>
+      <ul class="freelist" id="freelist"></ul>
+    </div>
+    <div class="free-side">
+      <div class="kv"><span>Pagas este mes</span><strong>$14,820</strong></div>
+      <div class="kv"><span>Saldo por liquidar</span><strong>$168,930</strong></div>
+      <div class="kv"><span>Libre de mensualidades</span><strong class="gold">mayo 2028</strong></div>
+      <div class="alert" role="note"><span><b>1 pago por registrar.</b> La mensualidad 4 de «Pantalla Samsung» debió cargarse el 6 nov. Importa tu corte o regístrala a mano.</span></div>
+    </div>
+  </section>
+
+  <div class="toolbar" style="margin-top:28px">
+    <div class="chips" role="group" aria-label="Filtrar por etiqueta">
+      <button class="chip" aria-pressed="true">Todas</button><button class="chip" aria-pressed="false">Casa</button><button class="chip" aria-pressed="false">Viajes</button><button class="chip" aria-pressed="false">Auto</button><button class="chip" aria-pressed="false">Trabajo</button>
+    </div>
+    <span class="muted small">Ordenados por fecha de término</span>
+  </div>
+
+  <div class="cols" aria-hidden="true"><span>Plan</span><span>Avance</span><span>Mensualidad</span><span>Por pagar</span><span>Termina</span></div>
+  <div id="groups"></div>
+  <p class="note">Maqueta con datos de ejemplo.</p>
+</main>
+
+<!-- ============ DETALLE ============ -->
+<main id="v-detail" class="wrap" hidden>
+  <nav class="crumb" aria-label="Migas de pan"><a href="#" data-go="list">Planes</a> / Refrigerador Liverpool</nav>
+  <section class="phero" aria-labelledby="p-t">
+    <div class="phero-top">
+      <div>
+        <h1 id="p-t">Refrigerador Liverpool</h1>
+        <p class="sub"><span class="type">MSI</span><i style="background:#9db8dc"></i>Banorte Crédito •••• 4821 · Casa</p>
+      </div>
+      <div class="actions"><a class="btn" href="#">Editar</a><a class="btn" href="#">Ver cargos</a></div>
+    </div>
+    <div class="bigsegs" id="bigsegs" role="img" aria-label="Pago 7 de 12; faltan 5"></div>
+    <div class="phero-stats">
+      <div><span>Mensualidad</span><strong>$1,250</strong></div>
+      <div><span>Pagado</span><strong>$8,750</strong></div>
+      <div><span>Por pagar</span><strong>$6,250</strong></div>
+      <div><span>Total</span><strong>$15,000</strong></div>
+      <div><span>Último pago</span><strong class="gold">abril 2027</strong></div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <section aria-labelledby="s-t">
+      <div class="head"><h2 id="s-t">Calendario de pagos</h2><span class="muted small">Primer cargo 6 may 2026</span></div>
+      <ol class="sched" id="sched"></ol>
+    </section>
+    <aside>
+      <div class="panel">
+        <h2>Tu banco dice</h2>
+        <div class="cmp">
+          <span>Saldo en tu estado de cuenta (4 nov)</span><b>$6,250</b>
+          <span>Saldo en Don Bigo</span><b>$6,250</b>
+          <span class="diff">Coinciden. Vas al día con este plan.</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Etiquetas</h2>
+        <div class="taglist"><span>Casa</span><span>Electrodomésticos</span><button>+ Agregar etiqueta</button></div>
+      </div>
+      <div class="panel">
+        <h2>¿Algo cambió?</h2>
+        <div class="acts">
+          <a class="btn" href="#">Marcar por revisar</a>
+          <a class="btn danger" href="#">Liquidar antes de tiempo</a>
+        </div>
+        <p class="muted small" style="margin:10px 0 0">Liquidar pide un comentario y queda en el historial. Puedes reabrir el plan después.</p>
+      </div>
+      <div class="panel">
+        <h2>Historial</h2>
+        <ul class="hist">
+          <li><b>Pago 7 confirmado</b><small>4 nov 2026 · Carga del corte · Jorge</small></li>
+          <li><b>Mensualidad ajustada de $1,249 a $1,250</b><small>12 jun 2026 · A mano · Jorge</small><q>El banco redondeó en el segundo corte.</q></li>
+          <li><b>Plan creado desde la carga</b><small>2 jun 2026 · Jorge</small></li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+  <p class="note">Maqueta con datos de ejemplo.</p>
+</main>
+<footer><div class="wrap">Don Bigo te ayuda a organizarte; no es asesoría financiera.</div></footer>
+
+<script>
+const $=s=>document.querySelector(s), fmt=n=>'$'+n.toLocaleString('es-MX');
+const ns='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(ns,tag);for(const k in attrs){if(k==='fill'||k==='stroke')e.style[k]=attrs[k];else e.setAttribute(k,attrs[k])}parent&&parent.appendChild(e);return e}
+
+/* Escalera con liberaciones */
+const months=['dic','ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic','ene','feb','mar','abr','may'];
+const steps=[14820,13930,13930,11950,11950,10700,9480,8100,8100,6350,6350,4900,3200,3200,2100,2100,1250,0];
+const freed={1:['Boletos de avión',890],3:['Seguro de auto',1980],5:['Refrigerador',1250],12:['Celular',1650]};
+function free(){
+  const svg=$('#free');const W=720,H=170,top=56,max=16000,bw=W/steps.length;
+  // línea escalonada
+  let d=`M0 ${top+H-(steps[0]/max)*H}`;
+  steps.forEach((v,i)=>{const y=top+H-(v/max)*H;d+=` H${i*bw} V${y} H${(i+1)*bw}`});
+  el('path',{d:d+` V${top+H} H0Z`,fill:'var(--sky-soft)'},svg);
+  el('path',{d,fill:'none',stroke:'var(--bar-a)','stroke-width':2.5},svg);
+  el('line',{x1:0,x2:W,y1:top+H,y2:top+H,stroke:'var(--line)'},svg);
+  months.forEach((m,i)=>{const t=el('text',{x:i*bw+bw/2,y:top+H+16,'text-anchor':'middle','font-size':11,'font-weight':i===0?800:600,fill:i===0?'var(--ink)':'var(--muted)'},svg);t.textContent=m;
+    if(i===0||i===1||i===13){const y=el('text',{x:i*bw+bw/2,y:top+H+29,'text-anchor':'middle','font-size':10,fill:'var(--muted)'},svg);y.textContent=i===0?"'26":i===1?"'27":"'28"}});
+  Object.entries(freed).forEach(([i,[n,v]],k)=>{i=+i;const x=i*bw,y=top+H-(steps[i]/max)*H;
+    el('circle',{cx:x,cy:y,r:6,fill:'var(--gold)',stroke:'var(--surface)','stroke-width':2},svg);
+    const ly=y-24-(k%2)*22;
+    el('line',{x1:x,x2:x,y1:y-7,y2:ly+4,stroke:'var(--gold)','stroke-width':1.5},svg);
+    const t=el('text',{x:x,'text-anchor':'middle',y:ly-2,'font-size':11,'font-weight':700,fill:'var(--ink)'},svg);t.textContent=`−${fmt(v)}`});
+  $('#freelist').innerHTML=Object.entries(freed).map(([i,[n,v]])=>`<li><i></i><span>desde <b>${months[i]}</b> ya no pagas ${n}: <b>−${fmt(v)}</b> al mes</span></li>`).join('');
+  const fx=(steps.length-1)*bw+bw/2;
+  el('line',{x1:fx,x2:fx,y1:top+H,y2:top+H-56,stroke:'var(--gold)','stroke-width':2},svg);
+  el('path',{d:`M${fx} ${top+H-56} l-30 8 l30 8z`,fill:'var(--gold)'},svg);
+}
+
+/* Planes por tarjeta */
+const groups=[
+ {card:'Banorte Crédito •••• 4821',tone:'#1d3557',sum:8920,plans:[
+   ['Boletos de avión','MSI',['Viajes'],5,6,890,890,'dic 2026',null],
+   ['Seguro de auto','Fijo',['Auto'],10,12,1980,3960,'feb 2027',null],
+   ['Refrigerador Liverpool','MSI',['Casa'],7,12,1250,6250,'abr 2027',null],
+   ['Laptop','MSI',['Trabajo'],3,18,2100,31500,'may 2028',null],
+   ['Colchón','MCI',['Casa'],9,24,700,10500,'nov 2027','review']]},
+ {card:'BBVA Crédito •••• 0193',tone:'#5f8a72',sum:3100,plans:[
+   ['Pantalla Samsung','MSI',['Casa'],3,12,1400,12600,'oct 2027','late'],
+   ['Llantas','MSI',['Auto'],4,9,1700,8500,'abr 2027',null]]},
+ {card:'Nu Crédito •••• 7710',tone:'#c5a047',sum:2800,plans:[
+   ['Celular','MSI',['Trabajo'],11,24,1650,21450,'nov 2027',null],
+   ['Curso de inglés','MSI',[],2,6,1150,4600,'mar 2027',null]]},
+];
+function list(){
+  $('#groups').innerHTML=groups.map(g=>`<section class="group" aria-label="${g.card}">
+    <div class="group-head"><i class="dot" style="background:${g.tone}"></i><h2>${g.card}</h2><span class="muted">${g.plans.length} planes</span><span class="sum">${fmt(g.sum)} al mes</span></div>
+    <ul class="plans">${g.plans.map(([n,t,tags,p,tot,m,rest,end,st])=>{
+      const segs=Array.from({length:tot},(_,k)=>`<i class="${k<p?'on':st==='late'&&k===p?'late':k===tot-1?'last':''}"></i>`).join('');
+      const left=tot-p;
+      return `<li><a class="plan" href="#" data-go="detail">
+        <span class="nm"><b>${n}</b><span class="meta"><span class="type">${t}</span>${tags.map(x=>`<span class="tag">${x}</span>`).join('')}${st==='late'?'<span class="state late">Pago por registrar</span>':st==='review'?'<span class="state review">Por revisar</span>':''}</span></span>
+        <span class="prog"><span class="segs" aria-hidden="true">${segs}</span><small>Pago ${p} de ${tot}${left===1?' · falta el último':` · faltan ${left}`}</small></span>
+        <span class="num inst"><small>Mensualidad</small><b>${fmt(m)}</b></span>
+        <span class="num rest"><small>Por pagar</small><b>${fmt(rest)}</b></span>
+        <span class="num end"><small>Termina</small><b>${end}</b></span></a></li>`}).join('')}</ul></section>`).join('');
+}
+
+function detail(){
+  const tot=12,p=7;
+  $('#bigsegs').innerHTML=Array.from({length:tot},(_,k)=>`<i class="${k<p?'on':''} ${k===p?'now':''} ${k===tot-1?'end':''}">${k+1}</i>`).join('');
+  const ms=['6 may 26','6 jun 26','6 jul 26','6 ago 26','6 sep 26','6 oct 26','6 nov 26','6 dic 26','6 ene 27','6 feb 27','6 mar 27','6 abr 27'];
+  $('#sched').innerHTML=ms.map((d,k)=>{const cls=k<p?'paid':k===tot-1?'last future':'future';
+    const what=k<p?`<a href="#">Cargo del ${d}</a> · confirmado`:k===p?'Próximo cargo · llega en tu corte del 4 ene':k===tot-1?'Último pago · se liberan $1,250 al mes':'Pendiente';
+    return `<li class="${cls}"><span class="no">${k+1}</span><span class="d">${d}</span><span class="what">${what}</span><span class="amt">${fmt(1250)}</span></li>`}).join('');
+}
+
+free();list();detail();
+function show(v){$('#v-list').hidden=v!=='list';$('#v-detail').hidden=v!=='detail';document.querySelectorAll('.mock button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v));scrollTo(0,0)}
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go],[data-v]');if(g){e.preventDefault();show(g.dataset.go||g.dataset.v)}});
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>document.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',x===c)));
+$('#theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>

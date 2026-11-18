@@ -8,21 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..800&display=swap" rel="stylesheet">
 <style>
 {{BASE_CSS}}
-/* Cambiador de la maqueta (no es parte del diseño) */
-.mock{display:flex;gap:6px;justify-content:center;padding:10px;background:var(--ivory);border-bottom:1px solid var(--line);font-size:.8rem}
-.mock button{all:unset;cursor:pointer;padding:6px 14px;border-radius:999px;font-weight:600;border:1px solid var(--line)}
-.mock button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-[hidden]{display:none!important}
 
-h1{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin:0}
-.pagehead{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:28px 0 18px}
-.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;font-size:.85rem;padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
-.btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
-:root[data-theme="dark"] .btn.primary{background:var(--gold);color:#0e1a2c;border-color:var(--gold)}
-.link{font-size:.85rem;font-weight:600;color:var(--muted);text-underline-offset:3px}
-.head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:14px}
-.head a{font-size:.8rem;font-weight:600;color:var(--muted);text-underline-offset:3px}
 
 /* Calendario de cortes: la pieza memorable */
 .cal{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 24px 18px}
@@ -82,8 +68,6 @@ h1{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin:0}
 .plastic-facts{font-size:.8rem;color:var(--muted);margin-top:6px}
 
 /* Detalle */
-.crumb{font-size:.82rem;color:var(--muted);padding-top:20px}
-.crumb a{text-underline-offset:3px}
 .acct-hero{background:var(--hero-bg);color:var(--hero-ink);border-radius:20px;padding:24px 28px;margin-top:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px 32px;align-items:end}
 :root[data-theme="dark"] .acct-hero{border:1px solid var(--hero-line)}
 .acct-hero h1{font-size:1.8rem}
@@ -131,9 +115,6 @@ td .cb i{display:block}
 .log li{display:grid;grid-template-columns:110px 1fr auto;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
 .log .src{font-size:.8rem;font-weight:700;color:var(--muted)}
 .quiet{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
-footer{margin:48px 0 0;padding:22px 0;background:#1d3557;color:#b9c5d8;font-size:.8rem}
-:root[data-theme="dark"] footer{background:#1b1917}
-.note{font-size:.8rem;color:var(--muted);text-align:right;margin-top:16px}
 
 @media (max-width:900px){
   .acct{grid-template-columns:1fr}
