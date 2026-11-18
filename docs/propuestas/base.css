@@ -42,3 +42,12 @@ header.top{background:#1d3557;color:#fff;position:sticky;top:0;z-index:10}
 .iconbtn{all:unset;cursor:pointer;width:40px;height:40px;display:grid;place-items:center;border-radius:10px}
 .iconbtn:hover{background:rgb(255 255 255 / .12)}
 .iconbtn:focus-visible,.period button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (max-width:640px){.period span.long{display:none}}
+@media (max-width:420px){
+  .top .wrap{gap:6px}
+  .brand{font-size:1.1rem;gap:6px}
+  .brand img{width:32px;height:32px}
+  .period{padding:4px 2px 4px 8px;gap:0;white-space:nowrap}
+  .iconbtn{width:36px}
+}
+@media (max-width:360px){#theme{display:none}.top .wrap{padding:0 12px;gap:4px}.brand{font-size:1rem}} /* el tema también está en el menú */
