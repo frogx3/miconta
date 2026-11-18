@@ -8,6 +8,8 @@ Para ver las miniaturas del índice sírvelas por HTTP (con `file://` el navegad
 python3 -m http.server 4399 --directory docs/propuestas
 ```
 
+- `landing.html` — página pública: beta que será premium, avisos, pagos y cobros, beneficios, invitación por correo y contacto.
+- `login.html` — entrar y primer acceso con código (botones arriba para cambiar de estado).
 - `portada-dashboard.html` — portada tipo dashboard: «¿Me alcanza?» + escalera de mensualidades.
 - `cuentas.html` — lista de cuentas (calendario de cortes y pagos) y detalle de una cuenta (botones arriba para cambiar).
 - `planes.html` — lista de planes (cuándo se libera tu dinero, planes por tarjeta) y detalle de un plan (calendario de pagos, saldo del banco, historial).
@@ -24,3 +26,5 @@ python3 docs/propuestas/build.py
 ```
 
 Mascota y hoja de marca originales en `docs/brand/mascota/`.
+
+Poses nuevas de la mascota (Gemini) en `docs/brand/mascota/donbigo-poses-gemini.jpg`, recortadas en `assets/mascota-{saluda,telefono,lista,sobre}.jpg`.

@@ -89,6 +89,24 @@
         ],
         "createdAt": "2026-11-18T17:32:09.376Z",
         "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/landing.src.html"
+        ],
+        "createdAt": "2026-11-18T17:50:24.685Z",
+        "reason": "Claude: falso positivo; base.css se inyecta al generar"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/login.src.html"
+        ],
+        "createdAt": "2026-11-18T17:50:24.707Z",
+        "reason": "Claude: falso positivo; base.css se inyecta al generar"
       }
     ]
   }

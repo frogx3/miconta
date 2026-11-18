@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Don Bigo — Entrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..800&display=swap" rel="stylesheet">
+<style>
+{{BASE_CSS}}
+body{font-size:16px;min-height:100vh;display:flex;flex-direction:column}
+.split{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:calc(100vh - 44px)}
+.side{background:var(--navy);color:#fff;padding:40px 48px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+:root[data-theme="dark"] .side{background:#1b1917;border-right:1px solid #373430}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:800;font-size:1.4rem;letter-spacing:-.02em;color:#fff}
+.logo img{width:42px;height:42px}
+.logo b{color:var(--gold)}
+.hello{position:relative;z-index:1;max-width:460px}
+.hello h1{font-size:clamp(1.9rem,3.4vw,2.8rem);line-height:1.08;letter-spacing:-.03em;font-weight:800;margin:0}
+.hello p{color:#c9d4e5;font-size:1.02rem;line-height:1.55;margin:14px 0 0}
+:root[data-theme="dark"] .hello p{color:var(--muted)}
+.pupwrap{position:relative;align-self:center;width:min(360px,80%);aspect-ratio:1;margin:20px 0}
+.pupwrap .disc{position:absolute;inset:0;border-radius:50%;background:#f3e8c8}
+.pupwrap img{position:absolute;left:12%;width:76%;bottom:0;mix-blend-mode:multiply;filter:brightness(1.07) contrast(1.04);-webkit-mask-image:radial-gradient(ellipse 72% 70% at 50% 50%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 72% 70% at 50% 50%,#000 62%,transparent 100%)}
+.bubble{position:absolute;right:-6%;top:12%;background:#fff;color:#14202f;border-radius:16px 16px 16px 4px;padding:10px 14px;font-size:.86rem;font-weight:700;box-shadow:0 10px 24px -16px rgb(0 0 0 / .6);max-width:190px}
+.bubble span{display:block;font-weight:500;color:#665f55;font-size:.8rem}
+.beta{display:inline-flex;gap:8px;align-items:center;font-size:.84rem;color:#c9d4e5}
+.beta b{white-space:nowrap;background:var(--gold);color:#0e1a2c;padding:2px 9px;border-radius:999px;font-size:.78rem}
+
+.main{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:40px 24px;background:var(--bg)}
+.top{display:none}
+.card{width:100%;max-width:420px}
+.card h2{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:0}
+.card .lead{color:var(--muted);margin:8px 0 26px;line-height:1.5}
+form{display:grid;gap:16px}
+.field{display:grid;gap:6px}
+.field label{font-size:.88rem;font-weight:700;display:flex;justify-content:space-between;gap:10px}
+.field label a{font-weight:600;color:var(--muted);text-underline-offset:3px}
+.input{display:flex;align-items:center;border:1px solid var(--field-line,var(--line));border-radius:12px;background:var(--surface)}
+.input:focus-within{outline:2px solid var(--gold);outline-offset:1px}
+.input input{all:unset;flex:1;min-width:0;padding:13px 14px;font-size:1rem;color:var(--ink)}
+.input button{all:unset;cursor:pointer;font-size:.82rem;font-weight:700;color:var(--muted);padding:0 14px;height:100%}
+.input button:focus-visible{outline:2px solid var(--gold)}
+.field small{font-size:.8rem;color:var(--muted)}
+.error{display:none;gap:10px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--warn) 10%,transparent);color:var(--warn);font-size:.88rem;font-weight:600;line-height:1.4}
+.show-error .error{display:flex}
+.show-error .input.bad{border-color:var(--warn)}
+.btn-main{all:unset;cursor:pointer;box-sizing:border-box;text-align:center;width:100%;padding:14px;border-radius:999px;background:var(--navy);color:#fff;font-weight:800;font-size:1rem}
+:root[data-theme="dark"] .btn-main{background:var(--gold);color:#0e1a2c}
+.btn-main:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.82rem;margin:22px 0}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.alt{display:grid;gap:10px}
+.alt a{display:flex;justify-content:space-between;align-items:center;gap:12px;text-decoration:none;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);font-size:.92rem}
+.alt a:hover{border-color:var(--gold)}
+.alt a b{display:block}
+.alt a span{font-size:.82rem;color:var(--muted)}
+.alt a::after{content:"›";font-size:1.4rem;color:var(--muted)}
+.code{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.code input{all:unset;box-sizing:border-box;text-align:center;font-size:1.3rem;font-weight:800;padding:12px 0;border:1px solid var(--field-line,var(--line));border-radius:12px;background:var(--surface);color:var(--ink);text-transform:uppercase;min-width:0}
+.code input:focus{outline:2px solid var(--gold);outline-offset:1px}
+.help{margin-top:28px;font-size:.84rem;color:var(--muted);line-height:1.6;text-align:center}
+.help a{color:var(--ink);font-weight:700;text-underline-offset:3px}
+.mock{border-bottom:1px solid var(--line)}
+
+@media (max-width:360px){.code{gap:4px}.code input{font-size:1.1rem}}
+@media (max-width:900px){
+  .split{grid-template-columns:minmax(0,1fr)}
+  .side{padding:22px 20px 0;flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:12px}
+  .hello{order:2;flex:1 1 200px;padding-bottom:22px}
+  .hello h1{font-size:1.6rem}
+  .hello p{font-size:.92rem}
+  .logo{order:0;width:100%}
+  .pupwrap{order:3;width:130px;margin:0}
+  .bubble,.beta{display:none}
+  .main{padding:28px 20px 40px;justify-content:flex-start}
+}
+</style>
+</head>
+<body>
+<div class="mock" role="group" aria-label="Pantalla de la maqueta">
+  <button aria-pressed="true" data-v="login">Entrar</button>
+  <button aria-pressed="false" data-v="error">Con error</button>
+  <button aria-pressed="false" data-v="code">Primer acceso</button>
+</div>
+<div class="split">
+  <aside class="side">
+    <a class="logo" href="landing.html"><img src="{{IMG:miconta-icon-white-120.png}}" alt="">Don <b>Bigo</b></a>
+    <div class="pupwrap" aria-hidden="true">
+      <div class="disc"></div>
+      <img src="{{IMG:mascota-saluda.jpg}}" alt="">
+      <div class="bubble">¡Qué gusto verte!<span>Tienes 2 pagos esta semana.</span></div>
+    </div>
+    <div class="hello">
+      <h1 id="hello-t">Qué gusto verte de nuevo.</h1>
+      <p>Entra para ver qué pagas, qué cobras y cómo vas este mes.</p>
+      <p class="beta"><b>Beta pública</b> Gracias por ayudarnos a mejorar.</p>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- Entrar -->
+    <section class="card" id="v-login" aria-labelledby="l-t">
+      <h2 id="l-t">Entrar a Don Bigo</h2>
+      <p class="lead">Usa el correo con el que recibiste tu invitación.</p>
+      <form onsubmit="event.preventDefault()" id="f-login">
+        <div class="error" role="alert">El correo o la contraseña no coinciden. Revísalos e inténtalo otra vez.</div>
+        <div class="field"><label for="e">Correo</label><div class="input bad"><input id="e" type="email" autocomplete="email" value="tucorreo@ejemplo.com"></div></div>
+        <div class="field"><label for="p">Contraseña <a href="#">¿La olvidaste?</a></label><div class="input bad"><input id="p" type="password" autocomplete="current-password" value="contraseña"><button type="button" id="show">Mostrar</button></div></div>
+        <button class="btn-main" type="submit">Entrar</button>
+      </form>
+      <div class="or">o también</div>
+      <div class="alt">
+        <a href="#" data-v="code"><span><b>¿Te llegó un código de acceso?</b><span>Elige tu contraseña y entra por primera vez.</span></span></a>
+        <a href="landing.html#invitacion"><span><b>¿Aún no tienes cuenta?</b><span>Pide tu invitación a la beta.</span></span></a>
+      </div>
+      <p class="help">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@donbigo.com">hola@donbigo.com</a> o por <a href="https://wa.me/525571204433">WhatsApp</a>.</p>
+    </section>
+
+    <!-- Primer acceso -->
+    <section class="card" id="v-code" aria-labelledby="c-t" hidden>
+      <h2 id="c-t">Bienvenido a Don Bigo</h2>
+      <p class="lead">Escribe el código que te llegó por correo y elige tu contraseña. El código vence en 48 horas.</p>
+      <form onsubmit="event.preventDefault()">
+        <div class="field"><label for="ce">Correo</label><div class="input"><input id="ce" type="email" autocomplete="email" value="tucorreo@ejemplo.com"></div></div>
+        <div class="field"><label id="code-l">Código de acceso</label><div class="code" role="group" aria-labelledby="code-l"><input maxlength="1" value="K" aria-label="Carácter 1"><input maxlength="1" value="7" aria-label="Carácter 2"><input maxlength="1" value="M" aria-label="Carácter 3"><input maxlength="1" aria-label="Carácter 4"><input maxlength="1" aria-label="Carácter 5"><input maxlength="1" aria-label="Carácter 6"></div><small>Puedes pegarlo completo.</small></div>
+        <div class="field"><label for="np">Tu nueva contraseña</label><div class="input"><input id="np" type="password" autocomplete="new-password"><button type="button">Mostrar</button></div><small>Al menos 8 caracteres.</small></div>
+        <div class="field"><label for="np2">Repítela</label><div class="input"><input id="np2" type="password" autocomplete="new-password"></div></div>
+        <button class="btn-main" type="submit">Guardar contraseña y entrar</button>
+      </form>
+      <p class="help">¿No te llegó el correo? Revisa tu carpeta de spam o <a href="#">pide un código nuevo</a>.<br><a href="#" data-v="login">Ya tengo contraseña</a></p>
+    </section>
+  </main>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+function show(v){$('#v-login').hidden=v==='code';$('#v-code').hidden=v!=='code';$('#f-login').classList.toggle('show-error',v==='error');
+  $('#hello-t').textContent=v==='code'?'Ya casi estás dentro.':'Qué gusto verte de nuevo.';
+  $('.hello p').textContent=v==='code'?'Elige tu contraseña y te mostramos cómo empezar en un par de minutos.':'Entra para ver qué pagas, qué cobras y cómo vas este mes.';
+  $('.bubble').innerHTML=v==='code'?'¡Bienvenido!<span>Te acompaño en tu primera carga.</span>':'¡Qué gusto verte!<span>Tienes 2 pagos esta semana.</span>';
+  document.querySelectorAll('.mock button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v))}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b){e.preventDefault();show(b.dataset.v)}});
+$('#show').onclick=()=>{const p=$('#p');p.type=p.type==='password'?'text':'password';$('#show').textContent=p.type==='password'?'Mostrar':'Ocultar'};
+</script>
+</body>
+</html>
