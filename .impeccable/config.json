@@ -35,6 +35,15 @@
         ],
         "createdAt": "2026-11-18T16:28:05.232Z",
         "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/metas.src.html"
+        ],
+        "createdAt": "2026-11-18T16:39:00.435Z",
+        "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
       }
     ]
   }
