@@ -191,7 +191,7 @@ details.done .item{opacity:.7}
   .ledger .bal{display:none}
 }
 </style>
-</head>
+<script>if(!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.dataset.theme='dark'</script></head>
 <body>
 <header class="top">
   <div class="wrap">
@@ -251,7 +251,7 @@ details.done .item{opacity:.7}
     <section class="next" aria-labelledby="next-t">
       <div class="head" style="margin-bottom:0"><h2 id="next-t">Lo que sigue</h2><a href="#">Ver todo</a></div>
       <div class="bucket"><h3>Hoy, 18 nov</h3><ul class="items" id="b-today"></ul></div>
-      <div class="bucket"><h3>Esta semana</h3><ul class="items" id="b-week"></ul></div>
+      <div class="bucket"><h3>Próximos 7 días</h3><ul class="items" id="b-week"></ul></div>
       <div class="bucket"><h3>Más adelante</h3><ul class="items" id="b-later"></ul></div>
       <details class="done"><summary>Ya hecho este mes (4)</summary><ul class="items" id="b-done"></ul></details>
     </section>

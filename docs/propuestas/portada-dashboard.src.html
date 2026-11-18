@@ -24,6 +24,9 @@
 .equation strong{font-size:1.15rem;font-weight:700}
 .equation .op{font-size:1.1rem;color:var(--hero-muted);align-self:end;padding-bottom:2px}
 .equation .result strong{color:var(--gold)}
+.equation .result.short strong{color:#f0b49f}
+.cobro{margin:12px 0 0;font-size:.88rem;color:var(--hero-muted);line-height:1.45}
+.cobro b{color:var(--hero-ink)}
 .equation .eq{display:flex;flex-direction:row;align-items:flex-end;gap:12px;flex-wrap:wrap;grid-column:1/-1}
 .hero-links{grid-column:1/-1;display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
 .pill{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:600;font-size:.85rem;padding:10px 16px;border-radius:999px;border:1px solid var(--hero-line)}
@@ -163,18 +166,17 @@ footer{margin:40px 0 0;padding:22px 0;background:#1d3557;color:#b9c5d8;font-size
   <div class="wrap">
     <section class="answer" aria-labelledby="verdict">
       <div class="mascot"><img src="{{MASCOT}}" alt="Don Bigo, la mascota"></div>
-      <p class="hello">Hola, Jorge. Hice las cuentas de este corte:</p>
-      <p class="verdict" id="verdict">Te alcanza, y te sobran $3,240.</p>
+      <p class="hello">Hola, Jorge. Hice las cuentas de noviembre:</p>
+      <p class="verdict" id="verdict">Este mes te faltan $3,740.</p>
       <div class="equation">
         <div class="eq">
-          <div><span>Tienes</span><strong>$18,400</strong></div>
-          <span class="op">+</span>
-          <div><span>Te deben</span><strong>$6,500</strong></div>
+          <div><span>Tienes hoy</span><strong>$18,400</strong></div>
           <span class="op">−</span>
-          <div><span>Debes pagar</span><strong>$21,660</strong></div>
+          <div><span>Por pagar</span><strong>$22,140</strong></div>
           <span class="op">=</span>
-          <div class="result"><span>Libre</span><strong>$3,240</strong></div>
+          <div class="result short"><span>Te faltan</span><strong>$3,740</strong></div>
         </div>
+        <p class="cobro">Con tu cobro del 28 nov (<b>$6,500</b>) te sobrarían <b>$2,760</b>. Un cobro cuenta hasta que lo marcas como cobrado.</p>
       </div>
       <div class="hero-links">
         <a class="pill primary" href="#">Ver agenda del mes</a>
@@ -217,11 +219,11 @@ footer{margin:40px 0 0;padding:22px 0;background:#1d3557;color:#b9c5d8;font-size
         <div class="head"><h2 id="up-t">Próximos 14 días</h2><a href="#">Agenda</a></div>
         <ol class="timeline">
           <li class="today"><div class="day"><b>18</b><small>hoy</small></div><div class="what">Spotify<span>Cargo fijo · Nu</span></div><div class="money">$129</div></li>
-          <li><div class="day"><b>22</b><small>sáb</small></div><div class="what">Renta<span>Pago</span></div><div class="money">$12,000</div></li>
-          <li><div class="day"><b>24</b><small>lun</small></div><div class="what">Banorte Oro<span>Fecha límite de pago</span></div><div class="money">$12,480</div></li>
-          <li><div class="day"><b>28</b><small>vie</small></div><div class="what">Factura de diseño<span>Cobro</span></div><div class="money in">+$6,500</div></li>
-          <li><div class="day"><b>1</b><small>dic</small></div><div class="what">BBVA Azul<span>Fecha límite de pago</span></div><div class="money">$6,240</div></li>
-        </ol>
+          <li><div class="day"><b>20</b><small>vie</small></div><div class="what">Luz CFE<span>Pago · bimestral</span></div><div class="money">$640</div></li>
+          <li><div class="day"><b>22</b><small>dom</small></div><div class="what">Renta<span>Pago mensual</span></div><div class="money">$8,500</div></li>
+          <li><div class="day"><b>24</b><small>mar</small></div><div class="what">Banorte Oro<span>Fecha límite de pago</span></div><div class="money">$12,480</div></li>
+          <li><div class="day"><b>28</b><small>sáb</small></div><div class="what">Factura de diseño<span>Cobro</span></div><div class="money in">+$6,500</div></li>
+                  </ol>
       </section>
     </div>
 
@@ -330,7 +332,7 @@ function linesUI(){$('#lines').innerHTML=lines.map(([n,lim,plan,buy])=>{const p=
   return `<div class="line"><span><b>${n}</b></span><span class="${p>=60?'up':''}" style="font-weight:700">${p}% usado</span><div class="meter"><i style="width:${plan/lim*100}%;background:var(--bar-a)"></i><i style="width:${buy/lim*100}%;background:var(--sky)"></i></div><div class="meta"><span>${fmt(plan+buy)} de ${fmt(lim)}</span><span>Disponible ${fmt(lim-plan-buy)}</span></div></div>`}).join('')}
 
 /* Metas */
-const goals=[['Fondo de emergencia',.46,'$18,500 de $40,000','Vas a tiempo','good'],['Sin mensualidades en 2028',.62,'Faltan 18 meses','Vas a tiempo','good'],['Hormiga bajo $1,500',1.43,'$2,140 este corte','Te pasaste $640','up']];
+const goals=[['Fondo de emergencia',.46,'$18,500 de $40,000','Vas a tiempo','good'],['Sin mensualidades antes de mi cumpleaños',.62,'Libre en may 2028, 214 días antes','Vas a tiempo','good'],['Hormiga bajo $1,500',1.43,'$2,140 este corte','Te pasaste $640','up']];
 function goalsUI(){$('#goals').innerHTML=goals.map(([n,p,s,st,tone])=>{const r=26,c=2*Math.PI*r,v=Math.min(p,1);
   return `<div class="goal"><svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--sky-soft)" stroke-width="7"/><circle cx="32" cy="32" r="${r}" fill="none" stroke="${tone==='up'?'var(--terra)':'var(--gold)'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c*v} ${c}" transform="rotate(-90 32 32)"/><text x="32" y="37" text-anchor="middle" font-size="13" font-weight="800" fill="var(--ink)" font-family="Montserrat">${Math.round(p*100)}%</text></svg><div><strong>${n}</strong><div class="muted small">${s}</div><div class="state ${tone==='up'?'up':'down'}">${st}</div></div></div>`}).join('')}
 

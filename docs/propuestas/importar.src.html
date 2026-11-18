@@ -272,7 +272,7 @@ const kinds=[...Array(62).fill('new'),...Array(12).fill('dup'),...Array(5).fill(
 let seed=3;const rnd=()=>((seed=(seed*9301+49297)%233280)/233280);
 for(let i=kinds.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[kinds[i],kinds[j]]=[kinds[j],kinds[i]]}
 $('#mosaic').innerHTML=kinds.map(k=>`<i class="k-${k}"></i>`).join('');
-const m=[['Refrigerador Liverpool',7,12,1250],['Laptop',4,18,2100],['Seguro de auto',11,12,1980],['Boletos de avión',6,6,890],['Colchón',10,24,700]];
+const m=[['Refrigerador Liverpool',7,12,1250],['Laptop',3,18,2100],['Seguro de auto',10,12,1980],['Boletos de avión',5,6,890],['Colchón',9,24,700]];
 $('#matches').innerHTML=m.map(([n,p,t,a])=>`<li class="match"><input type="checkbox" checked aria-label="Confirmar ${n}"><b>${n}${p===t?'<span class="final">Último pago</span>':''}</b><span class="amt">${fmt(a)}</span><small>Pago ${p} de ${t}</small><span class="step" aria-hidden="true">${Array.from({length:t},(_,k)=>`<i class="${k<p-1?'on':k===p-1?'new':''}"></i>`).join('')}</span></li>`).join('');
 function go(s){for(let i=1;i<=4;i++)$('#s'+i).hidden=i!=s;document.querySelectorAll('.steps button').forEach(b=>{const n=+b.dataset.s;b.toggleAttribute('aria-current',n===s);if(n===s)b.setAttribute('aria-current','step');b.classList.toggle('done',n<s&&!(n===2&&s>2&&skip))});scrollTo(0,0)}
 let skip=true;

@@ -144,13 +144,13 @@ footer{margin:48px 0 0;padding:22px 0;background:#1d3557;color:#b9c5d8;font-size
 .months i.now{outline:2px dashed var(--warn);outline-offset:-2px;background:transparent}
 
 /* Liquidar un plan */
-.payoff{display:grid;gap:10px}
+.payoff{display:grid;gap:26px;padding-top:18px}
 .lane{position:relative;height:44px;border-radius:12px;background:var(--sky-soft)}
 .lane .paid{position:absolute;inset:0 auto 0 0;border-radius:12px 0 0 12px;background:var(--bar-a)}
 .lane .extra{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,var(--gold) 0 6px,color-mix(in srgb,var(--gold) 55%,transparent) 6px 12px)}
 .lane .flag{position:absolute;top:-8px;bottom:-8px;width:3px;background:var(--ink);border-radius:2px}
 .lane .flag span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.75rem;font-weight:800;white-space:nowrap;padding-bottom:2px}
-.lane .flag.end span{left:auto;right:0;transform:none}
+.lane .flag.end span{left:auto;right:0;transform:none;bottom:auto;top:100%;padding:2px 0 0}
 .lane-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);font-weight:600}
 .lane-legend span{display:inline-flex;gap:6px;align-items:center}
 .lane-legend i{width:12px;height:10px;border-radius:3px}
@@ -188,7 +188,7 @@ footer{margin:48px 0 0;padding:22px 0;background:#1d3557;color:#b9c5d8;font-size
   .types{grid-template-columns:1fr}
 }
 </style>
-</head>
+<script>if(!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.dataset.theme='dark'</script></head>
 <body>
 <header class="top">
   <div class="wrap">

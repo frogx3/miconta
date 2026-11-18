@@ -1,6 +1,12 @@
 # Maquetas del rediseño
 
-Propuestas visuales antes de programar. Se abren directo en el navegador (archivos autocontenidos, datos de ejemplo).
+Propuestas visuales antes de programar. Empieza por `index.html`: muestra las ocho pantallas y las reglas del conjunto. Cada archivo es autocontenido y usa datos de ejemplo que cuadran entre pantallas.
+
+Para ver las miniaturas del índice sírvelas por HTTP (con `file://` el navegador bloquea los iframes):
+
+```
+python3 -m http.server 4399 --directory docs/propuestas
+```
 
 - `portada-dashboard.html` — portada tipo dashboard: «¿Me alcanza?» + escalera de mensualidades.
 - `cuentas.html` — lista de cuentas (calendario de cortes y pagos) y detalle de una cuenta (botones arriba para cambiar).
