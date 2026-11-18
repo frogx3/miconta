@@ -5,6 +5,7 @@ Propuestas visuales antes de programar. Se abren directo en el navegador (archiv
 - `portada-dashboard.html` — portada tipo dashboard: «¿Me alcanza?» + escalera de mensualidades.
 - `cuentas.html` — lista de cuentas (calendario de cortes y pagos) y detalle de una cuenta (botones arriba para cambiar).
 - `planes.html` — lista de planes (cuándo se libera tu dinero, planes por tarjeta) y detalle de un plan (calendario de pagos, saldo del banco, historial).
+- `agenda.html` — agenda del mes: veredicto, curva del saldo día a día con días en negativo, calendario, lo que sigue, movimientos del saldo y avisos.
 
 Se editan los `*.src.html` y `base.css` (tokens y encabezado comunes) y se regeneran con:
 
