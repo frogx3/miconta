@@ -9,7 +9,7 @@ import { isSupportedLocale, resolveLocale } from './lib/locale';
 const isArea = (pathname: string, area: string) => pathname === area || pathname.startsWith(`${area}/`);
 const GUEST_ONLY = ['/login', '/registro', '/acceso'];
 /** APIs de datos de usuario: necesitan el espacio activo. */
-const WORKSPACE_APIS = ['/api/accounts', '/api/import', '/api/plans', '/api/categories', '/api/category-rules', '/api/movements', '/api/workspace', '/api/statement-cutoffs', '/api/members', '/api/goals', '/api/email-messages', '/api/agenda', '/api/me'];
+const WORKSPACE_APIS = ['/api/accounts', '/api/import', '/api/plans', '/api/categories', '/api/category-rules', '/api/movements', '/api/workspace', '/api/statement-cutoffs', '/api/members', '/api/goals', '/api/email-messages', '/api/agenda', '/api/me', '/api/statements'];
 
 /**
  * Cabeceras de seguridad. La CSP solo se aplica en el build de producción: en desarrollo, Vite necesita websockets

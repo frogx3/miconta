@@ -64,6 +64,24 @@ describe('comparador de estados de cuenta', () => {
     expect(result.plans.missing.map((r) => r.date)).toEqual(['2026-09-08']);
   });
 
+  it('planes: fecha del cargo del mes (Banamex), mensualidad distinta y redondeo del último pago', () => {
+    const plan = (id: string, firstChargeDate: string, total: number, paid: number, amount: number, status = 'active'): MatchablePlan => ({
+      id, name: id, status, totalInstallments: total, paidInstallments: paid, installmentAmountMinor: amount, firstChargeDate,
+    });
+    const row = (date: string, total: number, current: number, payment: number, pending: number, interest = 0) => ({ date, description: 'X', originalMinor: 0, pendingMinor: pending, interestMinor: interest, paymentMinor: payment, current, total });
+    const result = compareStatement(
+      statement([], { plans: [row('2026-10-08', 18, 10, 30_550, 244_400), row('2026-07-03', 9, 4, 54_500, 254_273, 6_359), row('2026-10-08', 24, 24, 29_151, 0)] }),
+      { ...none, plans: [plan('apple', '2026-01-08', 18, 10, 30_550), plan('autozone', '2026-07-03', 9, 4, 54_982), plan('amazon', '2024-11-08', 24, 24, 29_163, 'completed_natural')] },
+    );
+    expect(result.plans.matched.map((m) => m.planId).sort()).toEqual(['amazon', 'apple']);
+    expect(result.plans.differs).toMatchObject([{ planId: 'autozone', paidInstallments: 4, installmentAmountMinor: 54_982 }]);
+    expect(result.plans.missing).toEqual([]);
+  });
+
+  it('ignora renglones en $0.00 del estado de cuenta', () => {
+    expect(compareStatement(statement([mov('2026-10-05', 'REV. BONIFICACION', 0)]), none).missing).toEqual([]);
+  });
+
   it('avisa si el corte o la fecha límite no coinciden con los capturados', () => {
     expect(compareStatement(statement([]), { ...none, cutoff: { date: '2026-11-04', dueDate: '2026-11-24' } }).cutoffDiffers).toBe(false);
     expect(compareStatement(statement([]), { ...none, cutoff: { date: '2026-11-04', dueDate: '2026-11-22' } }).cutoffDiffers).toBe(true);
