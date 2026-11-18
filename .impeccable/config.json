@@ -62,6 +62,24 @@
         ],
         "createdAt": "2026-11-18T17:28:04.058Z",
         "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "docs/propuestas/cuenta.src.html"
+        ],
+        "createdAt": "2026-11-18T17:28:35.981Z",
+        "reason": "Claude: marca de agua intencional del logo al 12% en la tarjeta de miembro; se ve en las capturas"
+      },
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "docs/propuestas/cuenta.html"
+        ],
+        "createdAt": "2026-11-18T17:28:36.003Z",
+        "reason": "Claude: marca de agua intencional del logo al 12% en la tarjeta de miembro; se ve en las capturas"
       }
     ]
   }
