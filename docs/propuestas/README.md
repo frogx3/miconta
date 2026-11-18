@@ -27,4 +27,4 @@ python3 docs/propuestas/build.py
 
 Mascota y hoja de marca originales en `docs/brand/mascota/`.
 
-Poses nuevas de la mascota (Gemini) en `docs/brand/mascota/donbigo-poses-gemini.jpg`, recortadas en `assets/mascota-{saluda,telefono,lista,sobre}.jpg`.
+Poses nuevas de la mascota (Gemini) en `docs/brand/mascota/donbigo-poses-gemini.jpg`, y su versión sin fondo `docs/brand/mascota/donbigo-poses-sin-fondo.webp`, recortada en `assets/mascota-{saluda,telefono,lista,sobre}.png`.

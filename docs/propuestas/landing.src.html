@@ -12,10 +12,9 @@ html{scroll-behavior:smooth}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 body{font-size:16px}
 .wrap{max-width:1180px}
-img.pup{display:block;mix-blend-mode:multiply;filter:brightness(1.07) contrast(1.04);-webkit-mask-image:radial-gradient(ellipse 72% 70% at 50% 50%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 72% 70% at 50% 50%,#000 62%,transparent 100%)}
-:root[data-theme="dark"] img.pup{mix-blend-mode:normal;filter:none}
-:root[data-theme="dark"] .stage img.pup{mix-blend-mode:multiply;filter:brightness(1.07) contrast(1.04)}
-:root[data-theme="dark"] .stage .disc{background:#f3e8c8}
+img.pup{display:block}
+img.pup.flat{mix-blend-mode:multiply}
+:root[data-theme="dark"] img.pup.flat{mix-blend-mode:normal;border-radius:12px}
 
 /* Beta */
 .beta{background:var(--navy);color:#fff;font-size:.86rem;text-align:center;padding:9px 16px}
@@ -254,7 +253,7 @@ main{overflow-x:clip}
       </div>
       <div class="stage" aria-hidden="true">
         <div class="disc"></div>
-        <img class="pup" src="{{IMG:mascota-saluda.jpg}}" alt="">
+        <img class="pup" src="{{IMG:mascota-saluda.png}}" alt="">
         <p class="ping n1"><i class="i-pay">−</i><b>En 2 días vence tu tarjeta</b><span>Banorte Oro · $12,480</span></p>
         <p class="ping n2"><i class="i-get">+</i><b>Hoy te pagan una factura</b><span>¿Ya te llegó? Márcala cobrada</span></p>
         <p class="ping n3"><i class="i-free">★</i><b>Libre de mensualidades</b><span>En mayo de 2028, si sigues así</span></p>
@@ -294,7 +293,7 @@ main{overflow-x:clip}
         <div class="when"><span>Hoy</span><div class="bubble today"><b>Hoy vence Banorte Oro · $12,480</b>Cuando lo pagues, márcalo como pagado.</div></div>
         <div class="when"><span>WhatsApp</span><div class="bubble wa">Don Bigo: Hoy vence Banorte Oro por $12,480. Responde «pagado» cuando lo pagues.</div></div>
         <div class="reply">pagado ✓</div>
-        <img class="pup" src="{{IMG:mascota-telefono.jpg}}" alt="Don Bigo mostrando un aviso en su teléfono">
+        <img class="pup" src="{{IMG:mascota-telefono.png}}" alt="Don Bigo mostrando un aviso en su teléfono">
       </div>
     </div>
   </section>
@@ -312,7 +311,7 @@ main{overflow-x:clip}
         </ul>
       </div>
       <div class="agenda" aria-label="Ejemplo de agenda del mes">
-        <img class="pup" src="{{IMG:mascota-lista.jpg}}" alt="Don Bigo con su lista de pagos">
+        <img class="pup" src="{{IMG:mascota-lista.png}}" alt="Don Bigo con su lista de pagos">
         <div class="verdict"><strong>Este mes te faltan $3,740</strong><span>Con tu cobro del 28 te sobrarían $2,760.</span></div>
         <ul>
           <li><i class="i-pay">−</i><b>Renta</b><span class="a">$8,500</span><small>22 nov · cada mes</small></li>
@@ -330,7 +329,7 @@ main{overflow-x:clip}
       <div class="more">
         <div class="card"><div class="viz stairs" aria-hidden="true"><i style="height:100%"></i><i style="height:84%"></i><i style="height:70%"></i><i style="height:52%"></i><i style="height:36%"></i><i style="height:20%"></i><i style="height:8%"></i></div><b>Meses sin intereses</b><span>Ve cuánto pagarás cada mes y cuándo terminas.</span></div>
         <div class="card"><div class="viz ants" aria-hidden="true"><i></i><i></i><i class="big"></i><i></i><i></i><i></i><i class="big"></i><i></i><i></i><i></i><i></i><i class="big"></i><i></i><i></i><i></i><i></i><i></i><i class="big"></i><i></i><i></i></div><b>Gastos hormiga</b><span>Descubre cuánto suman al año los cafés y las tienditas.</span></div>
-        <div class="card"><div class="viz" aria-hidden="true"><img class="pup" src="{{IMG:mascota-alcancia.jpg}}" alt=""></div><b>Metas</b><span>Ahorra para algo, quédate sin deudas o ponle tope a un gasto.</span></div>
+        <div class="card"><div class="viz" aria-hidden="true"><img class="pup flat" src="{{IMG:mascota-alcancia.jpg}}" alt=""></div><b>Metas</b><span>Ahorra para algo, quédate sin deudas o ponle tope a un gasto.</span></div>
         <div class="card"><div class="viz fam" aria-hidden="true"><i style="background:#1d3557">JA</i><i style="background:#5f8a72">MR</i><i style="background:#c5a047;color:#0e1a2c">+</i></div><b>En familia</b><span>Invita a quien comparte gastos contigo; cada quien con su acceso.</span></div>
       </div>
     </div>
@@ -366,7 +365,7 @@ main{overflow-x:clip}
           <p style="font-size:.86rem;opacity:.8;margin:6px 0 0">Te contaremos el beneficio antes que a nadie, por correo.</p>
         </div>
         <form class="form" id="form" onsubmit="event.preventDefault();this.classList.add('done')">
-          <img class="pup" src="{{IMG:mascota-sobre.jpg}}" alt="">
+          <img class="pup" src="{{IMG:mascota-sobre.png}}" alt="">
           <h3>Pide tu invitación</h3>
           <p>Te llegará un correo con tu código de acceso para entrar a Don Bigo.</p>
           <div class="field"><label for="n">Tu nombre</label><input id="n" autocomplete="name" placeholder="¿Cómo te llamamos?"></div>
@@ -375,7 +374,7 @@ main{overflow-x:clip}
           <label class="consent"><input type="checkbox"> <span>Acepto el <a href="#">aviso de privacidad</a> y recibir correos sobre mi acceso a la beta.</span></label>
           <button class="cta" type="submit">Quiero mi invitación</button>
           <div class="sent" role="status">
-            <img class="pup" src="{{IMG:mascota-sobre.jpg}}" alt="" style="position:static;width:150px">
+            <img class="pup" src="{{IMG:mascota-sobre.png}}" alt="" style="position:static;width:150px">
             <b>¡Listo! Ya estás en la lista.</b>
             <p>Cuando tu acceso esté listo te llegará un correo con tu código. Revisa también tu carpeta de spam.</p>
           </div>

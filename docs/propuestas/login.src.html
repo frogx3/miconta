@@ -21,7 +21,7 @@ body{font-size:16px;min-height:100vh;display:flex;flex-direction:column}
 :root[data-theme="dark"] .hello p{color:var(--muted)}
 .pupwrap{position:relative;align-self:center;width:min(360px,80%);aspect-ratio:1;margin:20px 0}
 .pupwrap .disc{position:absolute;inset:0;border-radius:50%;background:#f3e8c8}
-.pupwrap img{position:absolute;left:12%;width:76%;bottom:0;mix-blend-mode:multiply;filter:brightness(1.07) contrast(1.04);-webkit-mask-image:radial-gradient(ellipse 72% 70% at 50% 50%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 72% 70% at 50% 50%,#000 62%,transparent 100%)}
+.pupwrap img{position:absolute;left:12%;width:76%;bottom:0}
 .bubble{position:absolute;right:-6%;top:12%;background:#fff;color:#14202f;border-radius:16px 16px 16px 4px;padding:10px 14px;font-size:.86rem;font-weight:700;box-shadow:0 10px 24px -16px rgb(0 0 0 / .6);max-width:190px}
 .bubble span{display:block;font-weight:500;color:#665f55;font-size:.8rem}
 .beta{display:inline-flex;gap:8px;align-items:center;font-size:.84rem;color:#c9d4e5}
@@ -88,7 +88,7 @@ form{display:grid;gap:16px}
     <a class="logo" href="landing.html"><img src="{{IMG:miconta-icon-white-120.png}}" alt="">Don <b>Bigo</b></a>
     <div class="pupwrap" aria-hidden="true">
       <div class="disc"></div>
-      <img src="{{IMG:mascota-saluda.jpg}}" alt="">
+      <img src="{{IMG:mascota-saluda.png}}" alt="">
       <div class="bubble">¡Qué gusto verte!<span>Tienes 2 pagos esta semana.</span></div>
     </div>
     <div class="hello">
