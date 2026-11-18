@@ -1,0 +1,113 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "montserrat",
+        "createdAt": "2026-11-18T15:58:10.422Z",
+        "reason": "Marca de Don Bigo: Montserrat es tipografía obligatoria de la marca (DESIGN.md, global.css), elegida por el usuario"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/cuentas.src.html"
+        ],
+        "createdAt": "2026-11-18T16:24:18.957Z",
+        "reason": "Claude: falso positivo; el h1 (1.6–1.8rem) vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/planes.src.html"
+        ],
+        "createdAt": "2026-11-18T16:24:18.989Z",
+        "reason": "Claude: falso positivo; el h1 (1.6–1.8rem) vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/agenda.src.html"
+        ],
+        "createdAt": "2026-11-18T16:28:05.232Z",
+        "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/metas.src.html"
+        ],
+        "createdAt": "2026-11-18T16:39:00.435Z",
+        "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/importar.src.html"
+        ],
+        "createdAt": "2026-11-18T16:44:42.201Z",
+        "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/cuenta.src.html"
+        ],
+        "createdAt": "2026-11-18T17:28:04.058Z",
+        "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "docs/propuestas/cuenta.src.html"
+        ],
+        "createdAt": "2026-11-18T17:28:35.981Z",
+        "reason": "Claude: marca de agua intencional del logo al 12% en la tarjeta de miembro; se ve en las capturas"
+      },
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "docs/propuestas/cuenta.html"
+        ],
+        "createdAt": "2026-11-18T17:28:36.003Z",
+        "reason": "Claude: marca de agua intencional del logo al 12% en la tarjeta de miembro; se ve en las capturas"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/index.src.html"
+        ],
+        "createdAt": "2026-11-18T17:32:09.376Z",
+        "reason": "Claude: falso positivo; el h1 vive en base.css, que se inyecta al generar; el .html armado no tiene el aviso"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/landing.src.html"
+        ],
+        "createdAt": "2026-11-18T17:50:24.685Z",
+        "reason": "Claude: falso positivo; base.css se inyecta al generar"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/propuestas/login.src.html"
+        ],
+        "createdAt": "2026-11-18T17:50:24.707Z",
+        "reason": "Claude: falso positivo; base.css se inyecta al generar"
+      }
+    ]
+  }
+}
