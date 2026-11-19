@@ -1477,8 +1477,13 @@ textarea {
   margin-top: 0;
 }
 
-.modal::backdrop {
-  background: color-mix(in srgb, var(--scrim) 55%, transparent);
+/* Capa bajo modales, menú y avisos: oscurece y desenfoca lo de atrás para que no compita con lo que está al frente. */
+.modal::backdrop,
+.menu-drawer::backdrop,
+.upcoming-pop::backdrop {
+  background: color-mix(in srgb, var(--scrim) 60%, transparent);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 .menu-drawer {
@@ -1508,7 +1513,6 @@ textarea {
 }
 
 .menu-drawer::backdrop {
-  background: color-mix(in srgb, var(--scrim) 55%, transparent);
   opacity: 0;
   transition: opacity 0.18s ease;
 }
