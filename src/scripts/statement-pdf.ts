@@ -327,14 +327,11 @@ function start(root: HTMLElement) {
     const totals = typed.chargesMinor !== null && typed.creditsMinor !== null ? typed : null;
     button.disabled = true;
     try {
-      const response = await fetch('/api/statements/compare', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ accountId: account().id, period: { ...state.period, dueDate: state.period.dueDate || null }, totals, movements: rows.map((d) => d.draft.value), plans: state.plans }),
-      });
+      sent = { accountId: account().id, period: { ...state.period, dueDate: state.period.dueDate || null }, totals, movements: rows.map((d) => d.draft.value), plans: state.plans };
+      const response = await fetch('/api/statements/compare', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sent) });
       if (!response.ok) return showError(msg('common.error'));
-      const { comparison, currency } = (await response.json()) as { comparison: StatementComparison; currency: string };
-      renderResult(comparison, currency);
+      const { comparison, currency, missingIndexes } = (await response.json()) as { comparison: StatementComparison; currency: string; missingIndexes: number[] };
+      renderResult(comparison, currency, missingIndexes);
     } catch {
       showError(msg('common.error'));
     } finally {
@@ -342,7 +339,10 @@ function start(root: HTMLElement) {
     }
   });
 
-  function renderResult(c: StatementComparison, currency: string) {
+  /** Lo último que se comparó: el guardado manda exactamente lo mismo y el servidor vuelve a comparar. */
+  let sent: Record<string, unknown> | null = null;
+
+  function renderResult(c: StatementComparison, currency: string, missingIndexes: number[]) {
     const box = $('#statement-result');
     box.hidden = false;
     const amount = (m: { chargeMinor: number; creditMinor: number }) => (m.creditMinor ? `−${formatMinor(m.creditMinor, currency, config.locale)}` : formatMinor(m.chargeMinor, currency, config.locale));
@@ -355,7 +355,7 @@ function start(root: HTMLElement) {
         ${c.totalsOk === false ? `<p class="alert">${esc(msg('statement.result.totalsOff'))}</p>` : c.totalsOk ? `<p class="alert ok">${esc(msg('statement.result.totalsOk'))}</p>` : ''}
         ${c.cutoffDiffers ? `<p class="alert">${esc(msg('statement.result.cutoffDiffers'))}</p>` : ''}
         <p>${esc(msg('statement.result.summary', { matched: c.matched.length, plans: c.plans.matched.length, differences }))}</p>
-        ${list(msg('statement.result.missing'), c.missing.map((m) => row(m.date, m.description, amount(m))))}
+        ${list(msg('statement.result.missing'), c.missing.map((m, i) => `<label class="check"><input type="checkbox" data-pick="${missingIndexes[i]}" checked /><span class="sr-only">${esc(msg('statement.save.pick'))}</span></label>${row(m.date, m.description, amount(m))}`))}
         ${list(msg('statement.result.changed'), c.changed.map((p) => row(p.statement.date, p.statement.description, msg('statement.result.changedAmount', { bank: amount(p.statement), app: amount(p.existing) }))))}
         ${list(msg('statement.result.extra'), c.extra.map((m) => row(m.date, m.description, amount(m))))}
         ${list(msg('statement.result.plansDiffer'), c.plans.differs.map((d) => {
@@ -368,8 +368,61 @@ function start(root: HTMLElement) {
         }))}
         ${list(msg('statement.result.plansMissing'), c.plans.missing.map((r) => row(r.date, r.description, `${r.current}/${r.total} · ${formatMinor(r.pendingMinor, currency, config.locale)}`)))}
         ${differences === 0 ? `<p class="alert ok">${esc(msg('statement.result.none'))}</p>` : ''}
-        <p class="hint">${esc(msg('statement.result.nothingSaved'))}</p>
-      </section>`;
+      </section>
+      ${saveCard(c)}`;
     box.scrollIntoView({ block: 'start' });
   }
+
+  // ── 5. Guardar lo aprobado: faltantes, corte y saldos de planes ──────────────────────────────
+  function saveCard(c: StatementComparison): string {
+    const plans = c.plans.matched.length + c.plans.differs.length;
+    if (c.missing.length === 0 && plans === 0 && c.cutoffDiffers === false) return '';
+    return `
+      <section class="card" id="statement-save-card">
+        <h2>${esc(msg('statement.save.title'))}</h2>
+        <p class="hint">${esc(msg('statement.save.hint'))}</p>
+        ${c.missing.length ? `<p>${esc(msg('statement.save.movements', { n: c.missing.length }))}</p>` : ''}
+        ${c.cutoffDiffers !== false ? `<label class="check"><input type="checkbox" id="statement-save-cutoff" checked />${esc(msg('statement.save.cutoff'))}</label>` : ''}
+        ${plans ? `<label class="check"><input type="checkbox" id="statement-save-plans" checked />${esc(msg('statement.save.plans', { n: plans }))}</label>` : ''}
+        ${c.changed.length + c.extra.length + c.plans.missing.length ? `<p class="hint">${esc(msg('statement.save.manual'))}</p>` : ''}
+        <div class="form-actions"><button type="button" class="btn" id="statement-save">${esc(msg('statement.save.button'))}</button></div>
+      </section>`;
+  }
+
+  $('#statement-result').addEventListener('click', async (event) => {
+    const button = event.target as HTMLButtonElement;
+    if (button.id !== 'statement-save' || !sent) return;
+    showError(null);
+    const checked = (selector: string) => root.querySelector<HTMLInputElement>(selector)?.checked === true;
+    const picks = [...root.querySelectorAll<HTMLInputElement>('[data-pick]')].filter((box) => box.checked).map((box) => Number(box.dataset.pick));
+    const apply = { movements: picks, cutoff: checked('#statement-save-cutoff'), planBalances: checked('#statement-save-plans') };
+    if (!picks.length && !apply.cutoff && !apply.planBalances) return showError(msg('statement.save.nothing'));
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/statements/apply', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...sent, fileName: fileInput.files?.[0]?.name ?? '', apply }),
+      });
+      const data = (await response.json().catch(() => null)) as { code?: string; movements?: number; categorized?: number; cutoff?: boolean; planBalances?: number } | null;
+      if (!response.ok) {
+        button.disabled = false;
+        return showError(msg(data?.code === 'NOT_MISSING' ? 'statement.save.stale' : 'common.error'));
+      }
+      root.querySelectorAll<HTMLInputElement>('#statement-result input').forEach((input) => (input.disabled = true));
+      $('#statement-save-card').innerHTML = `
+        <h2>${esc(msg('statement.save.done'))}</h2>
+        <p class="alert ok">${esc(
+          [
+            data!.movements ? msg('statement.save.doneMovements', { n: data!.movements, categorized: data!.categorized ?? 0 }) : '',
+            data!.cutoff ? msg('statement.save.doneCutoff') : '',
+            data!.planBalances ? msg('statement.save.donePlans', { n: data!.planBalances }) : '',
+          ].filter(Boolean).join(' '),
+        )}</p>
+        ${data!.movements ? `<p><a class="touch-link" href="/app/importar/historial">${esc(msg('statement.save.history'))}</a></p>` : ''}`;
+    } catch {
+      button.disabled = false;
+      showError(msg('common.error'));
+    }
+  });
 }

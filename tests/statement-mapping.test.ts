@@ -57,3 +57,15 @@ describe('validación de lo que manda el navegador', () => {
     expect(validateStatementInput({ ...ok, movements: [] })).toEqual({ ok: false, field: 'rows' });
   });
 });
+
+describe('llaves de los movimientos guardados desde el PDF', () => {
+  it('son propias del PDF, estables y distinguen renglones idénticos', async () => {
+    const { statementKeys } = await import('../src/lib/statements/apply');
+    const m = { date: '2026-10-05', postedDate: null, description: 'OXXO', chargeMinor: 100, creditMinor: 0, last4: '4172' };
+    const [a, b, c] = await statementKeys([m, { ...m }, { ...m, chargeMinor: 200 }]);
+    expect(a).toMatch(/^pdf:[0-9a-f]{64}#1$/);
+    expect(b).toBe(a!.replace('#1', '#2'));
+    expect(c!.endsWith('#1')).toBe(true);
+    expect((await statementKeys([m]))[0]).toBe(a);
+  });
+});
