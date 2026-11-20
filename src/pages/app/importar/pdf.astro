@@ -19,9 +19,9 @@ const initialAccount = accounts.find((account) => account.id === requested)?.id 
 const config = { locale, accounts, messages: messagesFor(locale, ['statement.', 'common.']) };
 ---
 
-<AppLayout title={t(locale, 'statement.title')} active="import">
-  <Breadcrumb items={[{ label: t(locale, 'import.title'), href: '/app/importar' }, { label: t(locale, 'statement.title') }]} />
-  <h1>{t(locale, 'statement.title')}</h1>
+<AppLayout title={t(locale, 'statement.pdfTitle')} active="import">
+  <Breadcrumb items={[{ label: t(locale, 'import.title'), href: '/app/importar' }, { label: t(locale, 'statement.pdfTitle') }]} />
+  <h1>{t(locale, 'statement.pdfTitle')}</h1>
   <p class="hint">{t(locale, 'statement.intro')}</p>
 
   {
