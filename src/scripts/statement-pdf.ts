@@ -421,7 +421,10 @@ function start(root: HTMLElement) {
         button.disabled = false;
         return showError(msg(data?.code === 'NOT_MISSING' ? 'statement.save.stale' : 'common.error'));
       }
-      root.querySelectorAll<HTMLInputElement>('#statement-result input').forEach((input) => (input.disabled = true));
+      // Ya guardado: las tablas y la comparación dejan de ser editables, así que se ocultan y solo queda el resultado.
+      $('#statement-tables').hidden = true;
+      $('#statement-review').hidden = true;
+      $('#statement-result > section:first-child').hidden = true;
       $('#statement-save-card').innerHTML = `
         <h2>${esc(msg('statement.save.done'))}</h2>
         <p class="alert ok">${esc(
@@ -431,7 +434,11 @@ function start(root: HTMLElement) {
             data!.planBalances ? msg('statement.save.donePlans', { n: data!.planBalances }) : '',
           ].filter(Boolean).join(' '),
         )}</p>
-        ${data!.movements ? `<p><a class="touch-link" href="/app/importar/historial">${esc(msg('statement.save.history'))}</a></p>` : ''}`;
+        <div class="form-actions">
+          ${data!.movements ? `<a class="btn" href="/app/importar/historial">${esc(msg('statement.save.history'))}</a>` : ''}
+          <a class="btn btn-ghost" href="/app/importar/pdf?cuenta=${encodeURIComponent(account().id)}">${esc(msg('statement.save.again'))}</a>
+        </div>`;
+      $('#statement-save-card').scrollIntoView({ block: 'start' });
     } catch {
       button.disabled = false;
       showError(msg('common.error'));
