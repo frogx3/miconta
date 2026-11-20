@@ -153,7 +153,6 @@ function start(root: HTMLElement) {
 
   function tableCard(table: DetectedTable, index: number): string {
     const choice = state.choices.get(index);
-    const sample = table.rows.slice(0, 5);
     const fields = choice?.kind === 'plans' ? PLAN_FIELDS : MOVEMENT_FIELDS;
     const columns = (choice?.kind === 'plans' ? choice.planColumns : choice?.movementColumns) as Record<string, number> | undefined;
     return `
@@ -163,9 +162,8 @@ function start(root: HTMLElement) {
         <p class="muted">${esc([table.subtitle, msg('statement.tables.meta', { pages: table.pages.join(', '), rows: table.rows.length })].filter(Boolean).join(' · '))}</p>
         <div class="table-scroll"><table class="import-table">
           <thead><tr>${table.header.map((_, i) => `<th>${esc(table.header[i] || msg('statement.column', { n: i + 1 }))}</th>`).join('')}</tr></thead>
-          <tbody>${sample.map((row) => `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+          <tbody>${table.rows.map((row) => `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
         </table></div>
-        ${table.rows.length > sample.length ? `<p class="muted">${esc(msg('statement.tables.more', { n: table.rows.length - sample.length }))}</p>` : ''}
         ${
           choice && columns
             ? `<div class="form-grid">
@@ -345,9 +343,23 @@ function start(root: HTMLElement) {
   function renderResult(c: StatementComparison, currency: string, missingIndexes: number[]) {
     const box = $('#statement-result');
     box.hidden = false;
-    const amount = (m: { chargeMinor: number; creditMinor: number }) => (m.creditMinor ? `−${formatMinor(m.creditMinor, currency, config.locale)}` : formatMinor(m.chargeMinor, currency, config.locale));
-    const list = (title: string, items: string[]) => (items.length ? `<h3>${esc(title)} (${items.length})</h3><ul class="statement-diff">${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : '');
-    const row = (date: string, description: string, value: string) => `<span>${esc(date)}</span> <strong>${esc(description)}</strong> <span class="num">${esc(value)}</span>`;
+    const fmt = (minor: number) => formatMinor(minor, currency, config.locale);
+    const amount = (m: { chargeMinor: number; creditMinor: number }) => (m.creditMinor ? `−${fmt(m.creditMinor)}` : fmt(m.chargeMinor));
+    const kind = (m: { creditMinor: number }) => `<span class="badge ${m.creditMinor ? 'badge-good' : 'badge-muted'}">${esc(msg(m.creditMinor ? 'statement.fill.credit' : 'statement.fill.charge'))}</span>`;
+    /** Cuántos cargos y abonos hay en un grupo y cuánto suman, para leer la diferencia de un vistazo. */
+    const tally = (items: { chargeMinor: number; creditMinor: number }[]) => {
+      const charges = items.filter((m) => !m.creditMinor);
+      const credits = items.filter((m) => m.creditMinor);
+      return msg('statement.result.tally', { charges: charges.length, chargesAmount: fmt(charges.reduce((t, m) => t + m.chargeMinor, 0)), credits: credits.length, creditsAmount: fmt(credits.reduce((t, m) => t + m.creditMinor, 0)) });
+    };
+    const list = (title: string, items: string[], head: string[], note = '') =>
+      items.length
+        ? `<h3>${esc(title)} (${items.length})</h3>${note ? `<p class="hint">${esc(note)}</p>` : ''}
+          <div class="table-scroll"><table class="import-table statement-diff"><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${items.map((i) => `<tr>${i}</tr>`).join('')}</tbody></table></div>`
+        : '';
+    const cells = (...values: string[]) => values.map((v) => `<td>${v}</td>`).join('');
+    const movementHead = [msg('statement.field.date'), msg('statement.field.description'), msg('statement.fill.kind'), msg('statement.field.amount')];
+    const movementCells = (m: { date: string; description: string; chargeMinor: number; creditMinor: number }) => cells(esc(m.date), `<strong>${esc(m.description)}</strong>`, kind(m), `<span class="num">${esc(amount(m))}</span>`);
     const differences = c.missing.length + c.changed.length + c.extra.length + c.plans.differs.length + c.plans.missing.length;
     box.innerHTML = `
       <section class="card">
@@ -355,18 +367,18 @@ function start(root: HTMLElement) {
         ${c.totalsOk === false ? `<p class="alert">${esc(msg('statement.result.totalsOff'))}</p>` : c.totalsOk ? `<p class="alert ok">${esc(msg('statement.result.totalsOk'))}</p>` : ''}
         ${c.cutoffDiffers ? `<p class="alert">${esc(msg('statement.result.cutoffDiffers'))}</p>` : ''}
         <p>${esc(msg('statement.result.summary', { matched: c.matched.length, plans: c.plans.matched.length, differences }))}</p>
-        ${list(msg('statement.result.missing'), c.missing.map((m, i) => `<label class="check"><input type="checkbox" data-pick="${missingIndexes[i]}" checked /><span class="sr-only">${esc(msg('statement.save.pick'))}</span></label>${row(m.date, m.description, amount(m))}`))}
-        ${list(msg('statement.result.changed'), c.changed.map((p) => row(p.statement.date, p.statement.description, msg('statement.result.changedAmount', { bank: amount(p.statement), app: amount(p.existing) }))))}
-        ${list(msg('statement.result.extra'), c.extra.map((m) => row(m.date, m.description, amount(m))))}
+        ${list(msg('statement.result.missing'), c.missing.map((m, i) => cells(`<label class="check"><input type="checkbox" data-pick="${missingIndexes[i]}" checked /><span class="sr-only">${esc(msg('statement.save.pick'))}</span></label>`) + movementCells(m)), [msg('statement.result.add'), ...movementHead], `${msg('statement.result.missingHint')} ${tally(c.missing)}`)}
+        ${list(msg('statement.result.changed'), c.changed.map((p) => cells(esc(p.statement.date), `<strong>${esc(p.statement.description)}</strong>`, kind(p.statement), `<span class="num">${esc(amount(p.statement))}</span>`, `<span class="num">${esc(amount(p.existing))}</span>`)), [msg('statement.field.date'), msg('statement.field.description'), msg('statement.fill.kind'), msg('statement.result.bank'), msg('statement.result.app')])}
+        ${list(msg('statement.result.extra'), c.extra.map((m) => movementCells(m) + cells(esc(m.last4 ? `···· ${m.last4}` : '—'))), [...movementHead, msg('statement.result.card')], `${msg('statement.result.extraHint')} ${tally(c.extra)}`)}
         ${list(msg('statement.result.plansDiffer'), c.plans.differs.map((d) => {
           const bankAmount = d.row.paymentMinor - d.row.interestMinor;
           const parts = [
             d.paidInstallments !== d.row.current ? msg('statement.result.planNumbers', { bank: `${d.row.current}/${d.row.total}`, app: `${d.paidInstallments}/${d.row.total}` }) : '',
             Math.abs(d.installmentAmountMinor - bankAmount) > 2 ? msg('statement.result.planAmounts', { bank: formatMinor(bankAmount, currency, config.locale), app: formatMinor(d.installmentAmountMinor, currency, config.locale) }) : '',
           ];
-          return row(d.row.date, d.planName, parts.filter(Boolean).join(' · '));
-        }))}
-        ${list(msg('statement.result.plansMissing'), c.plans.missing.map((r) => row(r.date, r.description, `${r.current}/${r.total} · ${formatMinor(r.pendingMinor, currency, config.locale)}`)))}
+          return cells(esc(d.row.date), `<strong>${esc(d.planName)}</strong>`, esc(parts.filter(Boolean).join(' · ')));
+        }), [msg('statement.field.date'), msg('statement.result.plan'), msg('statement.result.detail')])}
+        ${list(msg('statement.result.plansMissing'), c.plans.missing.map((r) => cells(esc(r.date), `<strong>${esc(r.description)}</strong>`, esc(`${r.current}/${r.total}`), `<span class="num">${esc(fmt(r.pendingMinor))}</span>`)), [msg('statement.field.date'), msg('statement.field.description'), msg('statement.result.payment'), msg('statement.result.pending')], msg('statement.result.plansMissingHint'))}
         ${differences === 0 ? `<p class="alert ok">${esc(msg('statement.result.none'))}</p>` : ''}
       </section>
       ${saveCard(c)}`;

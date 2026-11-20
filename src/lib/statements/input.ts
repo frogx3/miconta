@@ -57,7 +57,7 @@ export function validateStatementInput(raw: unknown): { ok: true; value: Stateme
     const p = record(item);
     if (!p || !isDate(p.date) || ![p.originalMinor, p.pendingMinor, p.interestMinor, p.paymentMinor].every(isMinor)) return { ok: false, field: 'plans' };
     const { current, total } = p;
-    if (!Number.isSafeInteger(current) || !Number.isSafeInteger(total) || (current as number) < 1 || (current as number) > (total as number) || (total as number) > 120) return { ok: false, field: 'plans' };
+    if (!Number.isSafeInteger(current) || !Number.isSafeInteger(total) || (current as number) < 0 || (current as number) > (total as number) || (total as number) > 120) return { ok: false, field: 'plans' };
     plans.push({
       date: p.date, description: text(p.description, 200), originalMinor: p.originalMinor as number, pendingMinor: p.pendingMinor as number,
       interestMinor: p.interestMinor as number, paymentMinor: p.paymentMinor as number, current: current as number, total: total as number,
