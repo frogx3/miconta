@@ -256,3 +256,12 @@ describe('pistas para el asistente de primera carga', () => {
     expect(hints.has(interest.uniqueKey)).toBe(false);
   });
 });
+
+describe('plantilla CSV pública', () => {
+  it('se detecta sola: columnas y fecha DD/MM/YYYY', () => {
+    const { profile, unmappedRequired, ambiguousDateFormats } = detectProfile(readFileSync('public/plantillas/movimientos.csv', 'utf8'));
+    expect(unmappedRequired).toEqual([]);
+    expect(profile.dateFormat).toBe('DD/MM/YYYY');
+    expect(ambiguousDateFormats).toEqual([]);
+  });
+});

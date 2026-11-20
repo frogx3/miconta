@@ -2,6 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import Help from '../../components/Help.astro';
 import Icon from '../../components/Icon.astro';
+import Breadcrumb from '../../components/Breadcrumb.astro';
 import { messagesFor, t } from '../../i18n/messages';
 import { getDb } from '../../lib/auth';
 import { listAccounts } from '../../lib/accounts/repo';
@@ -17,6 +18,9 @@ const accounts = (await listAccounts(getDb(), workspace.id)).map((account) => {
 });
 const requested = Astro.url.searchParams.get('cuenta');
 const initialAccount = accounts.find((account) => account.id === requested)?.id ?? accounts[0]?.id ?? null;
+// Primero se elige el formato; el CSV sigue aquí y el PDF en su propia página.
+const csv = Astro.url.searchParams.get('formato') === 'csv';
+const withAccount = (path: string) => (requested ? `${path}${path.includes('?') ? '&' : '?'}cuenta=${encodeURIComponent(requested)}` : path);
 
 const config = {
   locale,
@@ -27,13 +31,28 @@ const config = {
 ---
 
 <AppLayout title={t(locale, 'import.title')} active="import">
-  <h1>{t(locale, 'import.title')}<Help topic="import.title" /></h1>
-  <p class="hint">{t(locale, 'import.intro')}</p>
+  {csv && <Breadcrumb items={[{ label: t(locale, 'import.title'), href: withAccount('/app/importar') }, { label: t(locale, 'import.option.csv') }]} />}
+  <h1>{t(locale, csv ? 'import.option.csv' : 'import.title')}<Help topic="import.title" /></h1>
+  <p class="hint">{t(locale, csv ? 'import.intro' : 'import.choose.intro')}</p>
   <p><a class="touch-link" href="/app/importar/historial">{t(locale, 'import.history')}</a></p>
-  <p><a class="touch-link" href="/app/importar/pdf">{t(locale, 'statement.link')}</a></p>
 
   {
-    accounts.length === 0 ? (
+    !csv ? (
+      <ul class="cards-grid" aria-label={t(locale, 'import.choose')}>
+        <li>
+          <a class="card-item" href={withAccount('/app/importar?formato=csv')}>
+            <strong><Icon name="upload" size={18} /> {t(locale, 'import.option.csv')}</strong>
+            <span class="muted">{t(locale, 'import.option.csv.hint')}</span>
+          </a>
+        </li>
+        <li>
+          <a class="card-item" href={withAccount('/app/importar/pdf')}>
+            <strong><Icon name="upload" size={18} /> {t(locale, 'import.option.pdf')}</strong>
+            <span class="muted">{t(locale, 'import.option.pdf.hint')}</span>
+          </a>
+        </li>
+      </ul>
+    ) : accounts.length === 0 ? (
       <section class="card">
         <p class="empty">{t(locale, 'import.noAccounts')}</p>
         <a class="btn btn-link" href="/app/cuentas/nueva?next=importar">
@@ -43,6 +62,10 @@ const config = {
     ) : (
       <div id="import-app" data-config={JSON.stringify(config)}>
         <section class="card" id="step-upload">
+          <p class="hint">
+            {t(locale, 'import.template.hint')}{' '}
+            <a class="touch-link" href="/plantillas/movimientos.csv" download="plantilla-don-bigo.csv"><Icon name="download" size={18} /> {t(locale, 'import.template')}</a>
+          </p>
           <div id="upload-error" class="alert" role="alert" hidden></div>
           <form id="upload-form" class="form-grid" novalidate>
             <div class="field">

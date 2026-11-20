@@ -69,3 +69,30 @@ describe('llaves de los movimientos guardados desde el PDF', () => {
     expect((await statementKeys([m]))[0]).toBe(a);
   });
 });
+
+describe('Plata: menos tipográfico y tabla de MSI con título en el subtítulo', () => {
+  it('"−" (U+2212) en la columna de signo es abono', () => {
+    const t = table(
+      ['Fecha de la operación', 'Fecha de cargo', 'Descripción del movimiento', '', 'Monto', 'Moneda', 'Tipo de cambio', '', 'Monto en MXN'],
+      [
+        ['20-oct-2026', '20-oct-2026', '1145 CHED MERIDA PRIME', '+', '530.00', 'MXN', '1.00', '+', '$530.00'],
+        ['01-nov-2026', '01-nov-2026', 'Cashback', '−', '38.27', 'MXN', '1.00', '−', '$38.27'],
+        ['12-nov-2026', '12-nov-2026', 'Pago – SPEI', '−', '5,654.65', 'MXN', '1.00', '−', '$5,654.65'],
+      ],
+    );
+    const columns = guessColumns(t, 'movements');
+    const format = guessDateFormat(t.rows.map((r) => r[0]!));
+    expect(t.rows.map((r) => draftMovement(r, columns, format, null).value).map((m) => [m?.description, m?.chargeMinor, m?.creditMinor])).toEqual([
+      ['1145 CHED MERIDA PRIME', 53_000, 0],
+      ['Cashback', 0, 3_827],
+      ['Pago – SPEI', 0, 565_465],
+    ]);
+  });
+
+  it('MSI con "0 de 12": se reconoce como planes y el renglón se lee', () => {
+    const t = { ...table(['Fecha de la operación', 'Descripción', 'Monto original', 'Saldo pendiente', 'Pago requerido', 'Núm. de pago', 'Tasa de interés aplicable'], [['14-nov-2026', 'SAMS VENTA EN LINEA', '$6,545.15', '$6,545.15', '$545.43', '0 de 12', '0%']]), subtitle: 'Compras y cargos diferidos a meses sin intereses Tarjeta titular [528043XXXXXX2791]' };
+    expect(guessKind(t)).toBe('plans');
+    const row = planRow(t.rows[0]!, guessColumns(t, 'plans'), guessDateFormat(['14-nov-2026']));
+    expect(row).toMatchObject({ date: '2026-11-14', originalMinor: 654_515, pendingMinor: 654_515, paymentMinor: 54_543, current: 0, total: 12 });
+  });
+});

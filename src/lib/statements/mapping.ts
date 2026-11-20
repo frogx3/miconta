@@ -34,9 +34,16 @@ export const DATE_FORMATS: readonly { format: string; locale: DateLocale }[] = [
 
 const MONEY = { decimalSeparator: '.', thousandsSeparator: ',', minorDigits: 2 } as const;
 const money = (raw: string | undefined) => (raw ? parseMoney(raw.replace(/\bCR\b/i, ''), MONEY) : null);
-const looksMoney = (raw: string) => /^[+-]?\s*\$?\s*[+-]?[\d,]+\.\d{2}(\s*CR)?$/i.test(raw.trim());
-const looksInstallment = (raw: string) => parseInstallment(raw) !== null;
-const looksSign = (raw: string) => /^[+-]$/.test(raw.trim());
+/** Algunos PDF (Plata) escriben el menos tipográfico (−, U+2212) o un guion largo en vez de "-". */
+const plainMinus = (raw: string) => raw.replace(/[\u2212\u2013\u2014]/g, '-');
+const looksMoney = (raw: string) => /^[+-]?\s*\$?\s*[+-]?[\d,]+\.\d{2}(\s*CR)?$/i.test(plainMinus(raw).trim());
+/** "n de m"; Plata pone "0 de 12" a una compra cuyo primer pago aún no se registra. */
+const installmentOf = (raw: string) => {
+  const match = /^\s*0\s*(?:\/|de|of)\s*(\d+)\s*$/i.exec(raw);
+  return match && Number(match[1]) >= 1 ? { current: 0, total: Number(match[1]) } : parseInstallment(raw);
+};
+const looksInstallment = (raw: string) => installmentOf(raw) !== null;
+const looksSign = (raw: string) => /^[+-]$/.test(plainMinus(raw).trim());
 
 /** Formato de fecha que lee más celdas de la columna de fecha. */
 export function guessDateFormat(values: readonly string[]): number {
@@ -57,7 +64,8 @@ const columnIndexes = (table: DetectedTable) => [...Array(table.header.length).k
 
 /** Planes si el título habla de meses (y no de "no a meses") o si hay columna de "n de m" con varios montos. */
 export function guessKind(table: DetectedTable): TableKind {
-  const title = normalizeHeader(`${table.title ?? ''} ${table.header.join(' ')}`);
+  // El título a veces queda como subtítulo (Plata: "Compras y cargos diferidos a meses sin intereses").
+  const title = normalizeHeader(`${table.title ?? ''} ${table.subtitle ?? ''} ${table.header.join(' ')}`);
   if (/\bmeses\b/.test(title) && !/no a meses/.test(title)) return 'plans';
   const moneyColumns = columnIndexes(table).filter((i) => share(table, i, looksMoney) > 0.6).length;
   return moneyColumns >= 3 && columnIndexes(table).some((i) => share(table, i, looksInstallment) > 0.6) ? 'plans' : 'movements';
@@ -118,7 +126,8 @@ export interface MovementDraft {
 }
 
 export function draftMovement(cells: readonly string[], columns: Columns<MovementField>, dateFormat: number, last4: string | null): MovementDraft {
-  const cell = (field: MovementField) => (columns[field] >= 0 ? (cells[columns[field]] ?? '').trim() : '');
+  const raw = (field: MovementField) => (columns[field] >= 0 ? (cells[columns[field]] ?? '').trim() : '');
+  const cell = (field: MovementField) => (field === 'date' || field === 'postedDate' || field === 'description' ? raw(field) : plainMinus(raw(field)));
   const { format, locale } = DATE_FORMATS[dateFormat]!;
   let amount = '';
   let isCredit = false;
@@ -149,7 +158,7 @@ export function planRow(cells: readonly string[], columns: Columns<PlanField>, d
   const { format, locale } = DATE_FORMATS[dateFormat]!;
   const date = parseDate(cell('date'), format, locale);
   const [original, pending, payment] = [money(cell('original')), money(cell('pending')), money(cell('payment'))];
-  const number = parseInstallment(cell('number'));
+  const number = installmentOf(cell('number'));
   if (!date || original === null || pending === null || payment === null || !number) return null;
   const interest = (money(cell('interest')) ?? 0) + (money(cell('interestTax')) ?? 0);
   return { date, description: cell('description'), originalMinor: original, pendingMinor: pending, interestMinor: interest, paymentMinor: payment, current: number.current, total: number.total };

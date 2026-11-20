@@ -702,7 +702,7 @@ function start(root: HTMLElement) {
       <div class="row-actions">
         <a class="btn btn-link" href="/app/gastos/movimientos?lote=${encodeURIComponent(batchId)}">${esc(msg('import.done.movements'))}</a>
         <a href="/app/cuentas/${esc(state.accountId)}">${esc(msg('import.done.account'))}</a>
-        <a href="/app/importar?cuenta=${esc(state.accountId)}">${esc(msg('import.done.again'))}</a>
+        <a href="/app/importar?formato=csv&cuenta=${esc(state.accountId)}">${esc(msg('import.done.again'))}</a>
         <a href="/app/importar/historial">${esc(msg('import.history'))}</a>
       </div>`;
     done.scrollIntoView({ behavior: 'smooth', block: 'start' });
