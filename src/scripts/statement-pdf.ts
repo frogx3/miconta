@@ -22,6 +22,8 @@ import {
 } from '../lib/statements/mapping';
 import { detectTables, labeledDate, type DetectedTable, type PdfText } from '../lib/statements/tables';
 import type { BankPlanRow } from '../lib/plans/bank-balances';
+import { statementTiles, type StatementTile } from '../lib/import/mosaic';
+import { bindDrop, doneHtml, mosaicHtml, setImportStep } from './import-ui';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -78,6 +80,7 @@ function start(root: HTMLElement) {
 
   // ── 1. Leer el PDF en el navegador (no se sube) ──────────────────────────────────────────────
   const fileInput = $<HTMLInputElement>('#statement-file');
+  bindDrop($('#statement-drop'), fileInput);
   fileInput.addEventListener('change', () => {
     $('#statement-file-name').textContent = fileInput.files?.[0]?.name ?? '';
     $('#statement-password-field').hidden = true;
@@ -145,6 +148,7 @@ function start(root: HTMLElement) {
   function renderTables() {
     const box = $('#statement-tables');
     box.hidden = state.tables.length === 0;
+    setImportStep(box.hidden ? 1 : 2);
     box.innerHTML = `
       <section class="card"><h2>${esc(msg('statement.tables.title', { n: state.tables.length }))}</h2><p class="hint">${esc(msg('statement.tables.hint'))}</p></section>
       ${state.tables.map((table, index) => tableCard(table, index)).join('')}
@@ -310,6 +314,7 @@ function start(root: HTMLElement) {
       row.draft = finishMovement(row.draft, row.postedDate, row.last4);
     }
     $('#statement-result').hidden = true;
+    setImportStep(2);
     renderSums();
   });
 
@@ -361,7 +366,16 @@ function start(root: HTMLElement) {
     const movementHead = [msg('statement.field.date'), msg('statement.field.description'), msg('statement.fill.kind'), msg('statement.field.amount')];
     const movementCells = (m: { date: string; description: string; chargeMinor: number; creditMinor: number }) => cells(esc(m.date), `<strong>${esc(m.description)}</strong>`, kind(m), `<span class="num">${esc(amount(m))}</span>`);
     const differences = c.missing.length + c.changed.length + c.extra.length + c.plans.differs.length + c.plans.missing.length;
+    const legend: [StatementTile, string][] = (['matched', 'missing', 'changed', 'planDiffers', 'planMissing', 'extra'] as const).map((k) => [k, msg(`statement.mosaic.${k}`)]);
+    setImportStep(3);
     box.innerHTML = `
+      <section class="card">
+        <div class="mosaic-head">
+          <div><h2>${esc(msg('statement.mosaic.title'))}</h2><p class="hint">${esc(msg('statement.mosaic.hint'))}</p></div>
+          <strong>${esc(msg('statement.mosaic.count', { n: differences }))}</strong>
+        </div>
+        ${mosaicHtml(statementTiles(c), legend)}
+      </section>
       <section class="card">
         <h2>${esc(msg('statement.result.title'))}</h2>
         ${c.totalsOk === false ? `<p class="alert">${esc(msg('statement.result.totalsOff'))}</p>` : c.totalsOk ? `<p class="alert ok">${esc(msg('statement.result.totalsOk'))}</p>` : ''}
@@ -424,20 +438,21 @@ function start(root: HTMLElement) {
       // Ya guardado: las tablas y la comparación dejan de ser editables, así que se ocultan y solo queda el resultado.
       $('#statement-tables').hidden = true;
       $('#statement-review').hidden = true;
-      $('#statement-result > section:first-child').hidden = true;
-      $('#statement-save-card').innerHTML = `
-        <h2>${esc(msg('statement.save.done'))}</h2>
-        <p class="alert ok">${esc(
-          [
-            data!.movements ? msg('statement.save.doneMovements', { n: data!.movements, categorized: data!.categorized ?? 0 }) : '',
-            data!.cutoff ? msg('statement.save.doneCutoff') : '',
-            data!.planBalances ? msg('statement.save.donePlans', { n: data!.planBalances }) : '',
-          ].filter(Boolean).join(' '),
-        )}</p>
-        <div class="form-actions">
-          ${data!.movements ? `<a class="btn" href="/app/importar/historial">${esc(msg('statement.save.history'))}</a>` : ''}
-          <a class="btn btn-ghost" href="/app/importar/pdf?cuenta=${encodeURIComponent(account().id)}">${esc(msg('statement.save.again'))}</a>
-        </div>`;
+      root.querySelectorAll<HTMLElement>('#statement-result > section:not(#statement-save-card)').forEach((section) => (section.hidden = true));
+      setImportStep(4);
+      const done = data!;
+      $('#statement-save-card').innerHTML = doneHtml({
+        title: msg('statement.done.heading'),
+        results: [
+          ...(done.movements ? ([[done.movements, msg('statement.done.n.movements')]] as [number, string][]) : []),
+          ...(done.categorized ? ([[done.categorized, msg('statement.done.n.categorized')]] as [number, string][]) : []),
+          ...(done.planBalances ? ([[done.planBalances, msg('statement.done.n.plans')]] as [number, string][]) : []),
+        ],
+        note: done.cutoff ? `<p class="hint">${esc(msg('statement.save.doneCutoff'))}</p>` : '',
+        actions: `${done.movements ? `<a class="btn" href="/app/importar/historial">${esc(msg('statement.save.history'))}</a>` : ''}
+          <a class="btn btn-ghost" href="/app/importar/pdf?cuenta=${encodeURIComponent(account().id)}">${esc(msg('statement.save.again'))}</a>`,
+        undo: esc(msg('statement.done.undo')),
+      });
       $('#statement-save-card').scrollIntoView({ block: 'start' });
     } catch {
       button.disabled = false;

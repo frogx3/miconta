@@ -1,6 +1,8 @@
 import type { PreviewMovement, PreviewResult } from '../lib/import/service';
 import type { ImportField, ImportProfile } from '../lib/import/types';
 import { formatMinor } from '../lib/money-format';
+import { csvTiles, type CsvTile } from '../lib/import/mosaic';
+import { doneHtml, mosaicHtml, setImportStep } from './import-ui';
 
 interface Config {
   locale: string;
@@ -159,6 +161,8 @@ function start(root: HTMLElement) {
     const preview = state.preview!;
     $('#step-review').hidden = false;
     $('#step-done').hidden = true;
+    // Columnas solo cuenta como paso cuando hay que revisarlas; si el perfil ya se conoce, se salta.
+    setImportStep(preview.needsMapping ? 2 : 3, preview.needsMapping ? [] : [2]);
     renderSummary(preview);
     renderMapping(preview);
     renderMatches(preview);
@@ -171,14 +175,14 @@ function start(root: HTMLElement) {
   function renderSummary(preview: PreviewResult) {
     const notice = preview.headerChanged ? 'import.profile.changed' : `import.profile.${preview.profileSource}`;
     const { total, fresh, duplicates, errors } = preview.summary;
+    const legend: [CsvTile, string][] = (['new', 'installment', 'possiblePlan', 'duplicate', 'error'] as const).map((k) => [k, msg(`import.mosaic.${k}`)]);
     $('#summary').innerHTML = `
-      <p class="hint">${esc(state.file!.name)} · ${esc(msg(notice))}</p>
-      <div class="chips">
-        <span class="chip">${esc(msg('import.summary.total', { n: total }))}</span>
-        <span class="chip chip-ok">${esc(msg('import.summary.fresh', { n: fresh }))}</span>
-        ${duplicates ? `<span class="chip">${esc(msg('import.summary.duplicates', { n: duplicates }))}</span>` : ''}
-        ${errors ? `<span class="chip chip-bad">${esc(msg('import.summary.errors', { n: errors }))}</span>` : ''}
-      </div>`;
+      <div class="mosaic-head">
+        <div><h2>${esc(msg('import.mosaic.title'))}</h2><p class="hint">${esc(state.file!.name)} · ${esc(msg(notice))} ${esc(msg('import.mosaic.hint'))}</p></div>
+        <strong>${esc(msg('import.mosaic.count', { n: total }))}</strong>
+      </div>
+      ${mosaicHtml(csvTiles(preview), legend)}
+      <p class="sr-only">${esc([msg('import.summary.fresh', { n: fresh }), duplicates ? msg('import.summary.duplicates', { n: duplicates }) : '', errors ? msg('import.summary.errors', { n: errors }) : ''].filter(Boolean).join(' · '))}</p>`;
   }
 
   // Mapeo de columnas
@@ -610,8 +614,10 @@ function start(root: HTMLElement) {
                 .join('')}</ul></div>`
           : ''
       }
-      <p>${esc(counts.movements ? msg('import.confirm.summary', counts) : msg('import.confirm.nothing'))}</p>
-      <button type="button" class="btn btn-auto" id="do-import" ${canImport ? '' : 'disabled'}>${esc(msg('import.confirm.submit'))}</button>`;
+      <div class="import-bar">
+        <p>${esc(counts.movements ? msg('import.confirm.summary', counts) : msg('import.confirm.nothing'))}</p>
+        <button type="button" class="btn btn-auto" id="do-import" ${canImport ? '' : 'disabled'}>${esc(msg('import.confirm.submit'))}</button>
+      </div>`;
 
     $<HTMLInputElement>('#cutoff').addEventListener('change', (event) => (state.cutoff = (event.target as HTMLInputElement).value));
     $<HTMLInputElement>('#start').addEventListener('change', (event) => {
@@ -694,17 +700,17 @@ function start(root: HTMLElement) {
     $('#step-review').hidden = true;
     const done = $('#step-done');
     done.hidden = false;
-    done.innerHTML = `
-      <h2>${esc(msg('import.done.title'))}</h2>
-      <p>${esc(msg('import.done.summary', { movements: counts.movements ?? 0, plans: counts.plansCreated ?? 0, linked: counts.installmentsLinked ?? 0, cards: counts.cardsCreated ?? 0 }))}</p>
-      ${counts.categorized ? `<p class="hint">${esc(msg('import.done.categorized', { n: counts.categorized }))}</p>` : ''}
-      ${counts.assignedToCut ? `<p class="hint">${esc(msg('import.done.assigned', { n: counts.assignedToCut }))}</p>` : ''}
-      <div class="row-actions">
-        <a class="btn btn-link" href="/app/gastos/movimientos?lote=${encodeURIComponent(batchId)}">${esc(msg('import.done.movements'))}</a>
-        <a href="/app/cuentas/${esc(state.accountId)}">${esc(msg('import.done.account'))}</a>
-        <a href="/app/importar?formato=csv&cuenta=${esc(state.accountId)}">${esc(msg('import.done.again'))}</a>
-        <a href="/app/importar/historial">${esc(msg('import.history'))}</a>
-      </div>`;
+    setImportStep(4, state.preview?.needsMapping ? [] : [2]);
+    const result = (key: string): [number, string][] => (counts[key] ? [[counts[key], msg(`import.done.n.${key === 'installmentsLinked' ? 'linked' : key === 'plansCreated' ? 'plans' : key === 'cardsCreated' ? 'cards' : key}`)]] : []);
+    done.innerHTML = doneHtml({
+      title: msg('import.done.heading'),
+      results: [[counts.movements ?? 0, msg('import.done.n.movements')], ...result('installmentsLinked'), ...result('plansCreated'), ...result('categorized'), ...result('cardsCreated')],
+      note: counts.assignedToCut ? `<p class="hint">${esc(msg('import.done.assigned', { n: counts.assignedToCut }))}</p>` : '',
+      actions: `<a class="btn" href="/app/gastos/movimientos?lote=${encodeURIComponent(batchId)}">${esc(msg('import.done.movements'))}</a>
+        <a class="btn btn-ghost" href="/app/cuentas/${esc(state.accountId)}">${esc(msg('import.done.account'))}</a>
+        <a class="btn btn-ghost" href="/app/importar?formato=csv&cuenta=${esc(state.accountId)}">${esc(msg('import.done.again'))}</a>`,
+      undo: `<a href="/app/importar/historial">${esc(msg('import.done.undo'))}</a>`,
+    });
     done.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
