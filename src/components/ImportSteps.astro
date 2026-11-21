@@ -1,0 +1,21 @@
+---
+/** Pasos de Importar (CSV o PDF). El script de cada flujo mueve el paso actual con `setImportStep`. */
+interface Props {
+  label: string;
+  steps: { label: string; hint: string }[];
+}
+const { label, steps } = Astro.props;
+---
+
+<ol class="import-steps" data-import-steps aria-label={label}>
+  {
+    steps.map((step, index) => (
+      <li data-step={index + 1} aria-current={index === 0 ? 'step' : undefined}>
+        <span>
+          {step.label}
+          <small>{step.hint}</small>
+        </span>
+      </li>
+    ))
+  }
+</ol>
