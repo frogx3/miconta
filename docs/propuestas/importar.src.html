@@ -11,6 +11,17 @@
 .small{font-size:.8rem}
 .narrow{max-width:960px;margin:0 auto}
 
+/* Elegir formato */
+.formats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.format{all:unset;cursor:pointer;box-sizing:border-box;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:start;padding:22px;border-radius:18px;border:1px solid var(--line);background:var(--surface)}
+.format:hover{border-color:var(--gold)}
+.format:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.format .ico{grid-row:span 3;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--ivory);border:1px solid var(--line)}
+.format b{font-size:1.05rem}
+.format span{font-size:.86rem;color:var(--muted);line-height:1.45}
+.format em{font-style:normal;font-size:.78rem;font-weight:700;color:var(--ink)}
+.calm{margin-top:16px;font-size:.86rem;color:var(--muted)}
+
 /* Pasos: es una secuencia real, por eso numerada */
 .steps{list-style:none;margin:0 0 28px;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;counter-reset:s}
 .steps button{all:unset;cursor:pointer;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;font-size:.85rem;font-weight:700;color:var(--muted);border:1px solid transparent}
@@ -42,12 +53,14 @@
 .drop .file{display:inline-flex;flex-wrap:wrap;justify-content:center;max-width:100%;overflow-wrap:anywhere;align-items:center;gap:4px 10px;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:.88rem;font-weight:700;margin-top:6px}
 .drop .file small{white-space:nowrap;color:var(--good);font-weight:700}
 .cutrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-top:18px}
-.field{display:grid;gap:6px}
+.field{display:grid;gap:6px;align-content:start}
 .field label{font-size:.85rem;font-weight:700}
 .field .input{border:1px solid var(--field-line,var(--line));border-radius:12px;padding:11px 14px;font-size:1rem;background:var(--surface);font-weight:600}
 .field small{font-size:.8rem;color:var(--muted)}
 .tip{border-radius:14px;padding:14px 16px;background:var(--sky-soft);font-size:.86rem;line-height:1.5}
 .tip ol{margin:6px 0 0;padding-left:20px}
+.tip .btn{margin-top:10px}
+.private{display:flex;gap:10px;align-items:center;margin-top:16px;font-size:.84rem;color:var(--muted)}
 
 /* Paso 2 */
 .preview{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
@@ -59,8 +72,35 @@
 .sel.skip{color:var(--muted);border-style:dashed}
 .preview td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
 .preview td.dim{color:var(--muted)}
+.preview td.img{color:var(--muted);font-style:italic}
+.preview .more td{color:var(--muted);text-align:center;font-weight:600}
 .detected{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 .detected span{font-size:.8rem;font-weight:700;padding:6px 12px;border-radius:999px;background:var(--sky-soft)}
+
+/* PDF: tablas encontradas */
+.ptable{border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.ptable + .ptable{margin-top:12px}
+.ptable.on{border:2px solid var(--gold);padding:15px 17px}
+.ptable.off{background:var(--ivory)}
+.ptable header{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.ptable header input{width:20px;height:20px;accent-color:var(--navy)}
+.ptable header b{font-size:.95rem}
+.ptable header small{font-size:.8rem;color:var(--muted)}
+.ptable header .grow{flex:1;min-width:180px;display:grid;gap:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+.seg span{font-size:.78rem;font-weight:700;padding:5px 10px;border-radius:999px;color:var(--muted)}
+.seg span.on{background:var(--navy);color:#fff}
+:root[data-theme="dark"] .seg span.on{background:var(--gold);color:#0e1a2c}
+.ptable .preview{margin-top:14px}
+.ptable .detected{margin-top:12px}
+.fillrow{display:grid;grid-template-columns:24px 110px minmax(0,1fr) 130px 120px;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line);font-size:.86rem}
+.fillrow:first-of-type{border-top:0}
+.fillrow input[type=checkbox]{width:20px;height:20px;accent-color:var(--navy)}
+.fillrow .input{border:1px solid var(--field-line,var(--line));border-radius:10px;padding:8px 10px;font-weight:600;background:var(--surface);min-width:0}
+.fillrow .input.ph{color:var(--muted);font-weight:500}
+.periodrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.check{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.84rem;font-weight:700}
+.check.ok::before{content:"✓";width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--good);color:#fff;font-size:.72rem;flex:none}
 
 /* Paso 3: mosaico del archivo */
 .xray-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px}
@@ -96,12 +136,33 @@
 .sticky .btn.primary{background:var(--gold);color:#0e1a2c;border-color:var(--gold)}
 .sticky span{font-size:.88rem}
 
+/* PDF: diferencias */
+.diff h3{font-size:1rem;margin:0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.diff h3 .count{font-size:.78rem;font-weight:800;padding:2px 9px;border-radius:999px;background:var(--ivory);border:1px solid var(--line)}
+.diff + .diff{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.diff p{margin:6px 0 12px;font-size:.84rem;color:var(--muted);line-height:1.5}
+.dtable{overflow-x:auto}
+.dtable table{border-collapse:collapse;width:100%;min-width:520px;font-size:.85rem}
+.dtable th{font-size:.75rem;text-align:left;color:var(--muted);font-weight:700;padding:6px 10px;border-bottom:1px solid var(--line)}
+.dtable td{padding:10px;border-bottom:1px solid var(--line)}
+.dtable tr:last-child td{border-bottom:0}
+.dtable .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700}
+.dtable input{width:18px;height:18px;accent-color:var(--navy)}
+.kind{font-size:.74rem;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.kind.charge{background:var(--sky-soft)} .kind.credit{background:color-mix(in srgb,var(--good) 18%,transparent)}
+.tally{margin-top:8px;font-size:.8rem;color:var(--muted);font-weight:600}
+.savebox{display:grid;gap:10px}
+.savebox label{display:flex;gap:10px;align-items:flex-start;font-size:.88rem;line-height:1.4}
+.savebox input{width:20px;height:20px;accent-color:var(--navy);flex:none;margin:0}
+.manual{margin-top:12px;font-size:.82rem;color:var(--muted)}
+
 /* Paso 4 */
 .done{display:grid;grid-template-columns:200px minmax(0,1fr);gap:28px;align-items:center}
 .done .pup{width:200px;height:200px;border-radius:50%;overflow:hidden;background:#fbf8f1;border:4px solid var(--gold)}
 .done .pup img{width:150%;margin:-6% 0 0 -25%;display:block}
 .done h2{font-size:clamp(1.4rem,2.4vw,1.9rem);font-weight:800;letter-spacing:-.02em;line-height:1.2}
 .results{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}
+.results.three{grid-template-columns:repeat(3,minmax(0,1fr))}
 .results div{border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column}
 .results strong{font-size:1.4rem;font-weight:800}
 .results span{font-size:.8rem;color:var(--muted);font-weight:600}
@@ -115,14 +176,18 @@
   .steps button[aria-current="step"] span{font-size:.82rem}
   .steps button[aria-current="step"]{gap:8px;padding:6px 12px 6px 6px}
   .steps button small{display:none}
-  .cols2,.cutrow{grid-template-columns:1fr}
+  .cols2,.cutrow,.formats,.periodrow{grid-template-columns:1fr}
   .done{grid-template-columns:1fr;justify-items:center;text-align:center}
   .done .nexts{justify-content:center}
-  .results{grid-template-columns:1fr 1fr}
+  .results,.results.three{grid-template-columns:1fr 1fr}
+  .fillrow{grid-template-columns:24px minmax(0,1fr) minmax(0,1fr)}
+  .fillrow > span:nth-child(3){grid-column:2/-1}
 }
 @media (max-width:640px){
   .wrap{padding:0 16px}
   .panel{padding:18px}
+  .ptable{padding:14px}
+  .ptable.on{padding:13px}
   .done .pup{width:150px;height:150px}
   .mosaic{grid-template-columns:repeat(auto-fill,minmax(14px,1fr));gap:3px}
 }
@@ -147,17 +212,43 @@
 </header>
 
 <main class="wrap"><div class="narrow">
-  <div class="pagehead"><h1>Importar movimientos</h1><a class="link" href="#">Historial de cargas</a></div>
+  <nav class="crumb" id="crumb" hidden><a href="#" data-f="">Importar</a> › <span id="crumb-here"></span></nav>
+  <div class="pagehead"><h1 id="title">Importar</h1><a class="link" href="#">Historial de cargas</a></div>
 
-  <ol class="steps" aria-label="Pasos">
-    <li><button data-s="1" aria-current="step"><span>Archivo<small>Cuenta y corte</small></span></button></li>
-    <li><button data-s="2"><span>Columnas<small>Solo la primera vez</small></span></button></li>
-    <li><button data-s="3"><span>Revisar<small>Qué trae el archivo</small></span></button></li>
-    <li><button data-s="4"><span>Listo<small>Resumen</small></span></button></li>
+  <!-- ===== 0. ¿Qué archivo tienes? ===== -->
+  <section id="c0">
+    <div class="formats" role="group" aria-label="¿Qué archivo tienes?">
+      <button class="format" data-f="csv" data-s="1">
+        <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8"/></svg></span>
+        <b>Archivo CSV</b>
+        <span>El que descargas del portal de tu banco, o la plantilla de Don Bigo si prefieres capturar a mano.</span>
+        <em>Movimientos, mensualidades y planes nuevos</em>
+      </button>
+      <button class="format" data-f="pdf" data-s="1">
+        <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 15l2 2 4-4"/></svg></span>
+        <b>Estado de cuenta en PDF</b>
+        <span>El PDF que te manda tu banco: lo comparamos con lo que ya tienes y agregas lo que falte.</span>
+        <em>Diferencias, corte y saldo de tus planes</em>
+      </button>
+    </div>
+    <p class="calm">Nada se guarda hasta que lo revisas y lo apruebas.</p>
+  </section>
+
+  <ol class="steps" id="steps-csv" aria-label="Pasos" hidden>
+    <li><button data-f="csv" data-s="1"><span>Archivo<small>Cuenta y corte</small></span></button></li>
+    <li><button data-f="csv" data-s="2"><span>Columnas<small>Solo la primera vez</small></span></button></li>
+    <li><button data-f="csv" data-s="3"><span>Revisar<small>Qué trae el archivo</small></span></button></li>
+    <li><button data-f="csv" data-s="4"><span>Listo<small>Resumen</small></span></button></li>
+  </ol>
+  <ol class="steps" id="steps-pdf" aria-label="Pasos" hidden>
+    <li><button data-f="pdf" data-s="1"><span>Archivo<small>Cuenta y PDF</small></span></button></li>
+    <li><button data-f="pdf" data-s="2"><span>Tablas<small>Tú eliges qué usar</small></span></button></li>
+    <li><button data-f="pdf" data-s="3"><span>Diferencias<small>Contra Don Bigo</small></span></button></li>
+    <li><button data-f="pdf" data-s="4"><span>Listo<small>Lo que se guardó</small></span></button></li>
   </ol>
 
-  <!-- ===== 1. Archivo ===== -->
-  <section id="s1">
+  <!-- ===== CSV 1. Archivo ===== -->
+  <section id="csv1" hidden>
     <div class="panel">
       <h2>¿De qué cuenta es el archivo?</h2>
       <p class="lead">Elige la cuenta del estado de cuenta que descargaste.</p>
@@ -174,14 +265,14 @@
       </div>
       <div class="cutrow">
         <div class="field"><label for="cut">Fecha del corte</label><div class="input" id="cut">4 nov 2026</div><small>Tu Banorte corta el día 4. Si descargaste otro corte, cámbiala.</small></div>
-        <div class="tip"><b>¿Dónde lo descargo?</b><ol><li>Entra a tu banca en línea.</li><li>Movimientos › Estado de cuenta del corte.</li><li>Exportar › CSV.</li></ol></div>
+        <div class="tip"><b>¿Sin CSV del banco?</b><br>Llena la plantilla (fecha DD/MM/AAAA, descripción, cargo o abono) y súbela aquí. Se reconoce sola.<br><a class="btn" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>Descargar plantilla CSV</a></div>
       </div>
-      <div class="bar"><span class="muted small">Reconocimos el formato de Banorte: saltamos el paso de columnas.</span><button class="btn primary" data-s="3">Revisar el archivo</button></div>
+      <div class="bar"><span class="muted small">Reconocimos el formato de Banorte: saltamos el paso de columnas.</span><button class="btn primary" data-f="csv" data-s="3">Revisar el archivo</button></div>
     </div>
   </section>
 
-  <!-- ===== 2. Columnas ===== -->
-  <section id="s2" hidden>
+  <!-- ===== CSV 2. Columnas ===== -->
+  <section id="csv2" hidden>
     <div class="panel">
       <h2>¿Qué hay en cada columna?</h2>
       <p class="lead">Lo haces una sola vez por cuenta; la siguiente carga lo recuerda.</p>
@@ -203,12 +294,12 @@
         </table>
       </div>
       <div class="detected"><span>Fechas: día/mes/año</span><span>Decimales con punto</span><span>Miles con coma</span><span>Separador: coma</span></div>
-      <div class="bar"><button class="btn" data-s="1">Atrás</button><button class="btn primary" data-s="3">Aplicar y revisar</button></div>
+      <div class="bar"><button class="btn" data-f="csv" data-s="1">Atrás</button><button class="btn primary" data-f="csv" data-s="3">Aplicar y revisar</button></div>
     </div>
   </section>
 
-  <!-- ===== 3. Revisar ===== -->
-  <section id="s3" hidden>
+  <!-- ===== CSV 3. Revisar ===== -->
+  <section id="csv3" hidden>
     <div class="panel">
       <div class="xray-top"><div><h2>Qué trae tu archivo</h2><p class="lead" style="margin:0">Cada cuadrito es un movimiento.</p></div><strong>84 movimientos</strong></div>
       <div class="mosaic" id="mosaic" role="img" aria-label="62 nuevos, 12 ya importados, 5 mensualidades, 3 posibles planes y 2 con error"></div>
@@ -238,11 +329,11 @@
       <ul class="muted small" style="margin:0;padding-left:18px;line-height:1.7"><li>Fila 41: la fecha «31/11/2026» no existe.</li><li>Fila 77: no trae monto.</li></ul>
     </div>
 
-    <div class="sticky"><span>Se guardarán <b>70 movimientos</b> en Banorte, corte del 4 nov. 12 ya estaban y se omiten.</span><span style="display:flex;gap:10px"><button class="btn" data-s="1" style="background:transparent;color:inherit;border-color:var(--hero-line)">Atrás</button><button class="btn primary" data-s="4">Importar</button></span></div>
+    <div class="sticky"><span>Se guardarán <b>70 movimientos</b> en Banorte, corte del 4 nov. 12 ya estaban y se omiten.</span><span style="display:flex;gap:10px"><button class="btn" data-f="csv" data-s="1" style="background:transparent;color:inherit;border-color:var(--hero-line)">Atrás</button><button class="btn primary" data-f="csv" data-s="4">Importar</button></span></div>
   </section>
 
-  <!-- ===== 4. Listo ===== -->
-  <section id="s4" hidden>
+  <!-- ===== CSV 4. Listo ===== -->
+  <section id="csv4" hidden>
     <div class="panel">
       <div class="done">
         <div class="pup"><img src="{{MASCOT}}" alt="Don Bigo"></div>
@@ -255,28 +346,241 @@
             <div><strong>48</strong><span>clasificados solos</span></div>
           </div>
           <p class="muted" style="margin:14px 0 0;font-size:.9rem">14 compras quedaron sin categoría. Clasificarlas te toma un minuto.</p>
-          <div class="nexts"><a class="btn primary" href="#">Clasificar compras</a><a class="btn" href="#">Ver gastos del corte</a><a class="btn" href="#">Importar otro archivo</a></div>
+          <div class="nexts"><a class="btn primary" href="#">Clasificar compras</a><a class="btn" href="#">Ver gastos del corte</a><button class="btn" data-f="csv" data-s="1">Importar otro archivo</button></div>
           <p class="undo">¿Algo salió mal? Puedes <a class="link" href="#">deshacer esta carga</a> mientras sea la última de la cuenta.</p>
         </div>
       </div>
     </div>
   </section>
-  <p class="note">Maqueta con datos de ejemplo. Toca los pasos para ver cada pantalla.</p>
+
+  <!-- ===== PDF 1. Archivo ===== -->
+  <section id="pdf1" hidden>
+    <div class="panel">
+      <h2>¿De qué cuenta es el estado de cuenta?</h2>
+      <p class="lead">Lo comparamos con lo que ya tienes en esa cuenta.</p>
+      <div class="pick" role="group" aria-label="Cuenta">
+        <button class="acct" aria-pressed="true"><i style="background:#1d3557"></i><b>Banorte</b><span>Corte del 4 nov sin comparar</span></button>
+        <button class="acct" aria-pressed="false"><i style="background:#5f8a72"></i><b>BBVA Azul</b><span>Comparado el 12 oct</span></button>
+        <button class="acct" aria-pressed="false"><i style="background:#c5a047"></i><b>Nu</b><span>Al día</span></button>
+      </div>
+      <div class="drop">
+        <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
+        <b>Arrastra aquí el PDF de tu estado de cuenta</b>
+        <span class="muted small">o <a class="link" href="#">elígelo de tu computadora</a></span>
+        <span class="file">EstadoCuenta_Banorte_nov2026.pdf <small>6 páginas · con contraseña</small></span>
+      </div>
+      <div class="cutrow">
+        <div class="field"><label for="pw">Contraseña del PDF</label><div class="input" id="pw">••••••••</div><small>Solo si tu banco protege el PDF. Suele ser tu RFC o fecha de nacimiento.</small></div>
+        <div class="tip"><b>¿Por qué PDF?</b><br>El estado de cuenta trae lo que el CSV no: fecha límite, intereses, el saldo de cada compra a meses y cargos que llegan por fecha de cargo.</div>
+      </div>
+      <p class="private"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>El PDF se lee en tu navegador; no se sube ni se guarda.</p>
+      <div class="bar"><button class="btn" data-f="">Elegir otro formato</button><button class="btn primary" data-f="pdf" data-s="2">Buscar tablas</button></div>
+    </div>
+  </section>
+
+  <!-- ===== PDF 2. Tablas ===== -->
+  <section id="pdf2" hidden>
+    <div class="panel">
+      <h2>Encontramos 3 tablas</h2>
+      <p class="lead">Marca las que quieres usar. Tú decides: puede haber tablas de promociones o de otras secciones que no van.</p>
+
+      <div class="ptable on">
+        <header>
+          <input type="checkbox" checked aria-label="Usar esta tabla">
+          <span class="grow"><b>Movimientos del periodo</b><small>Páginas 2–3 · 40 renglones · tarjeta ••4821</small></span>
+          <span class="seg" aria-label="Esta tabla es de"><span class="on">Movimientos</span><span>Compras a meses</span></span>
+        </header>
+        <div class="preview">
+          <table>
+            <thead><tr>
+              <th><span class="orig">Columna 1</span><span class="sel set">Fecha ✓</span></th>
+              <th><span class="orig">Columna 2</span><span class="sel set">Fecha de cargo ✓</span></th>
+              <th><span class="orig">Columna 3</span><span class="sel set">Descripción ✓</span></th>
+              <th><span class="orig">Columna 4</span><span class="sel set">Cargos ✓</span></th>
+              <th><span class="orig">Columna 5</span><span class="sel set">Abonos ✓</span></th>
+            </tr></thead>
+            <tbody>
+              <tr><td>01-NOV-26</td><td>02-NOV-26</td><td>PAGO SPEI RECIBIDO</td><td></td><td>8,000.00</td></tr>
+              <tr><td>02-NOV-26</td><td>03-NOV-26</td><td>OXXO INSURGENTES</td><td>64.00</td><td></td></tr>
+              <tr><td>03-NOV-26</td><td>03-NOV-26</td><td>COMISION ANUALIDAD</td><td>650.00</td><td></td></tr>
+              <tr><td>03-NOV-26</td><td>04-NOV-26</td><td>CASHBACK</td><td class="img">vienen como imagen</td><td class="img">vienen como imagen</td></tr>
+              <tr class="more"><td colspan="5">36 renglones más · la tabla se desplaza</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="detected"><span>Fechas: día-mes-año</span><span>Cargos y abonos por separado</span><span>El signo «−» cuenta como abono</span></div>
+      </div>
+
+      <div class="ptable on">
+        <header>
+          <input type="checkbox" checked aria-label="Usar esta tabla">
+          <span class="grow"><b>Compras y cargos diferidos a meses</b><small>Página 4 · 5 renglones</small></span>
+          <span class="seg" aria-label="Esta tabla es de"><span>Movimientos</span><span class="on">Compras a meses</span></span>
+        </header>
+        <div class="preview">
+          <table>
+            <thead><tr>
+              <th><span class="orig">Columna 1</span><span class="sel set">Fecha ✓</span></th>
+              <th><span class="orig">Columna 2</span><span class="sel set">Descripción ✓</span></th>
+              <th><span class="orig">Columna 3</span><span class="sel set">Monto original ✓</span></th>
+              <th><span class="orig">Columna 4</span><span class="sel set">Saldo pendiente ✓</span></th>
+              <th><span class="orig">Columna 5</span><span class="sel set">Pago requerido ✓</span></th>
+              <th><span class="orig">Columna 6</span><span class="sel set">Núm. de pago ✓</span></th>
+            </tr></thead>
+            <tbody>
+              <tr><td>12-MAY-26</td><td>LIVERPOOL INSURGENTES</td><td>15,000.00</td><td>6,250.00</td><td>1,250.00</td><td>7 de 12</td></tr>
+              <tr><td>18-AGO-26</td><td>LAPTOP PALACIO</td><td>37,800.00</td><td>29,400.00</td><td>2,100.00</td><td>4 de 18</td></tr>
+              <tr class="more"><td colspan="6">3 renglones más</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small" style="margin:10px 0 0">Intereses e IVA solo aplican a compras a meses con intereses.</p>
+      </div>
+
+      <div class="ptable off">
+        <header>
+          <input type="checkbox" aria-label="Usar esta tabla">
+          <span class="grow"><b>Promociones vigentes</b><small>Página 5 · 3 renglones · no se usa</small></span>
+        </header>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Revisa antes de comparar</h2>
+      <p class="lead">40 movimientos y 5 planes leídos.</p>
+      <div class="periodrow">
+        <div class="field"><label>Inicio del periodo</label><div class="input">5 oct 2026</div></div>
+        <div class="field"><label>Fecha de corte</label><div class="input">4 nov 2026</div></div>
+        <div class="field"><label>Fecha límite de pago</label><div class="input">24 nov 2026</div></div>
+      </div>
+
+      <h3 style="margin:22px 0 4px;font-size:1rem">Completa 1 renglón</h3>
+      <p class="lead" style="margin-bottom:8px">Parte de este renglón viene como imagen en el PDF y no se puede leer. Escribe lo que ves en tu estado de cuenta o desmárcalo.</p>
+      <div class="fillrow"><input type="checkbox" checked aria-label="Incluir"><span>3 nov</span><span><b>CASHBACK</b></span><span class="seg"><span>Cargo</span><span class="on">Abono</span></span><span class="input">$38.50</span></div>
+
+      <h3 style="margin:22px 0 4px;font-size:1rem">Totales del estado de cuenta <span class="muted small">(opcional)</span></h3>
+      <p class="lead" style="margin-bottom:8px">Escribe el total de cargos y de abonos que imprime tu estado de cuenta para comprobar que no falte nada.</p>
+      <div class="cutrow" style="margin-top:0">
+        <div class="field"><label>Total de cargos</label><div class="input">$18,420.50</div><span class="check ok">Cargos: cuadra ($18,420.50).</span></div>
+        <div class="field"><label>Total de abonos</label><div class="input">$8,038.50</div><span class="check ok">Abonos: cuadra ($8,038.50).</span></div>
+      </div>
+      <div class="bar"><button class="btn" data-f="pdf" data-s="1">Atrás</button><button class="btn primary" data-f="pdf" data-s="3">Comparar con Don Bigo</button></div>
+    </div>
+  </section>
+
+  <!-- ===== PDF 3. Diferencias ===== -->
+  <section id="pdf3" hidden>
+    <div class="panel">
+      <div class="xray-top"><div><h2>Tu estado de cuenta contra Don Bigo</h2><p class="lead" style="margin:0">Cada cuadrito es un renglón del PDF. Lo leído cuadra con los totales.</p></div><strong>6 diferencias</strong></div>
+      <div class="mosaic" id="pmosaic" role="img" aria-label="35 coinciden, 3 faltan en Don Bigo, 1 con otro monto y 1 plan con otro número de pago"></div>
+      <div class="mlegend"><span><i class="k-dup"></i>Coinciden <b>35</b></span><span><i class="k-new"></i>Faltan en Don Bigo <b>3</b></span><span><i class="k-err"></i>Otro monto <b>1</b></span><span><i class="k-plan"></i>Plan con otro pago <b>1</b></span><span><i style="border:2px dashed var(--muted)"></i>Sobra en Don Bigo <b>1</b></span></div>
+    </div>
+
+    <div class="panel">
+      <div class="diff">
+        <h3>En el estado de cuenta y no en Don Bigo <span class="count">3</span></h3>
+        <p>Los trae el estado de cuenta y no los encontramos en Don Bigo (misma fecha ±3 días, mismo monto). Marca los que quieres agregar.</p>
+        <div class="dtable"><table>
+          <thead><tr><th>Agregar</th><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Tarjeta</th><th class="num">Monto</th></tr></thead>
+          <tbody>
+            <tr><td><input type="checkbox" checked aria-label="Agregar OXXO INSURGENTES"></td><td>2 nov</td><td>OXXO INSURGENTES</td><td><span class="kind charge">Cargo</span></td><td>••4821</td><td class="num">$64.00</td></tr>
+            <tr><td><input type="checkbox" checked aria-label="Agregar COMISION ANUALIDAD"></td><td>3 nov</td><td>COMISION ANUALIDAD</td><td><span class="kind charge">Cargo</span></td><td>••4821</td><td class="num">$650.00</td></tr>
+            <tr><td><input type="checkbox" checked aria-label="Agregar CASHBACK"></td><td>3 nov</td><td>CASHBACK</td><td><span class="kind credit">Abono</span></td><td>••4821</td><td class="num">$38.50</td></tr>
+          </tbody>
+        </table></div>
+        <div class="tally">2 cargos por $714.00 · 1 abono por $38.50.</div>
+      </div>
+
+      <div class="diff">
+        <h3>Mismo movimiento con otro monto <span class="count">1</span></h3>
+        <div class="dtable"><table>
+          <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th class="num">Banco</th><th class="num">Don Bigo</th></tr></thead>
+          <tbody><tr><td>27 oct</td><td>AMAZON MX MARKETPLACE</td><td><span class="kind charge">Cargo</span></td><td class="num">$1,299.00</td><td class="num">$1,229.00</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <div class="diff">
+        <h3>En Don Bigo y no en el estado de cuenta <span class="count">1</span></h3>
+        <p>Puede ser uno capturado a mano o importado dos veces, de otra tarjeta, o uno que el banco cobra en el siguiente corte. Revísalo en Movimientos y corrígelo si no corresponde.</p>
+        <div class="dtable"><table>
+          <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Tarjeta</th><th class="num">Monto</th></tr></thead>
+          <tbody><tr><td>4 nov</td><td>UBER TRIP</td><td><span class="kind charge">Cargo</span></td><td>••4821</td><td class="num">$142.00</td></tr></tbody>
+        </table></div>
+        <div class="tally">1 cargo por $142.00 · <a class="link" href="#">Ver en Movimientos</a></div>
+      </div>
+
+      <div class="diff">
+        <h3>Planes con otro número de pago o mensualidad <span class="count">1</span></h3>
+        <div class="dtable"><table>
+          <thead><tr><th>Plan</th><th>Tarjeta</th><th>Diferencia</th><th class="num">Saldo pendiente</th></tr></thead>
+          <tbody><tr><td><b>Laptop</b></td><td>••4821</td><td>pago banco 4 · Don Bigo 3</td><td class="num">$29,400.00</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Guardar en Don Bigo</h2>
+      <p class="lead">Desmarca lo que no quieras guardar. Solo se agrega lo que falta; lo demás se corrige a mano.</p>
+      <div class="savebox">
+        <label><input type="checkbox" checked>Faltan 3 movimientos. Los marcados se agregan como una carga que puedes deshacer en el historial.</label>
+        <label><input type="checkbox" checked>Guardar la fecha de corte (4 nov) y la fecha límite (24 nov) de este estado de cuenta.</label>
+        <label><input type="checkbox" checked>Actualizar el saldo pendiente de 5 planes con lo que dice el banco.</label>
+      </div>
+      <p class="manual">Los montos distintos, lo que sobra en Don Bigo y los planes que no existen no se tocan: corrígelos a mano si hace falta.</p>
+    </div>
+
+    <div class="sticky"><span>Se agregan <b>3 movimientos</b> a Banorte, se guarda el corte y se actualizan 5 planes.</span><span style="display:flex;gap:10px"><button class="btn" data-f="pdf" data-s="2" style="background:transparent;color:inherit;border-color:var(--hero-line)">Atrás</button><button class="btn primary" data-f="pdf" data-s="4">Guardar lo marcado</button></span></div>
+  </section>
+
+  <!-- ===== PDF 4. Listo ===== -->
+  <section id="pdf4" hidden>
+    <div class="panel">
+      <div class="done">
+        <div class="pup"><img src="{{MASCOT}}" alt="Don Bigo"></div>
+        <div>
+          <h2>Listo, guardamos lo que faltaba de tu estado de cuenta de noviembre.</h2>
+          <div class="results three">
+            <div><strong>3</strong><span>movimientos agregados (2 con categoría)</span></div>
+            <div><strong>4 nov</strong><span>corte y fecha límite guardados</span></div>
+            <div><strong>5</strong><span>planes con saldo del banco</span></div>
+          </div>
+          <p class="muted" style="margin:14px 0 0;font-size:.9rem">Quedan 3 cosas por revisar a mano: un monto distinto, un cargo que sobra y el número de pago de la Laptop.</p>
+          <div class="nexts"><a class="btn primary" href="#">Ver o deshacer la carga en el historial</a><button class="btn" data-f="pdf" data-s="1">Comparar otro estado de cuenta</button></div>
+          <p class="undo">Las tablas y las diferencias ya no se pueden editar. Para corregir algo, deshaz la carga y vuelve a comparar.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="note">Maqueta con datos de ejemplo. Elige CSV o PDF y toca los pasos para ver cada pantalla.</p>
 </div></main>
 <footer><div class="wrap">Don Bigo te ayuda a organizarte; no es asesoría financiera.</div></footer>
 
 <script>
 const $=s=>document.querySelector(s), fmt=n=>'$'+n.toLocaleString('es-MX');
-// mosaico: orden del archivo con cada tipo mezclado
-const kinds=[...Array(62).fill('new'),...Array(12).fill('dup'),...Array(5).fill('inst'),...Array(3).fill('plan'),...Array(2).fill('err')];
 let seed=3;const rnd=()=>((seed=(seed*9301+49297)%233280)/233280);
-for(let i=kinds.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[kinds[i],kinds[j]]=[kinds[j],kinds[i]]}
-$('#mosaic').innerHTML=kinds.map(k=>`<i class="k-${k}"></i>`).join('');
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const tiles=(sel,spec)=>$(sel).innerHTML=shuffle(spec.flatMap(([k,n])=>Array(n).fill(k))).map(k=>`<i class="k-${k}"></i>`).join('');
+// mosaico: orden del archivo con cada tipo mezclado
+tiles('#mosaic',[['new',62],['dup',12],['inst',5],['plan',3],['err',2]]);
+tiles('#pmosaic',[['dup',35],['new',3],['err',1],['plan',1]]);
 const m=[['Refrigerador Liverpool',7,12,1250],['Laptop',3,18,2100],['Seguro de auto',10,12,1980],['Boletos de avión',5,6,890],['Colchón',9,24,700]];
 $('#matches').innerHTML=m.map(([n,p,t,a])=>`<li class="match"><input type="checkbox" checked aria-label="Confirmar ${n}"><b>${n}${p===t?'<span class="final">Último pago</span>':''}</b><span class="amt">${fmt(a)}</span><small>Pago ${p} de ${t}</small><span class="step" aria-hidden="true">${Array.from({length:t},(_,k)=>`<i class="${k<p-1?'on':k===p-1?'new':''}"></i>`).join('')}</span></li>`).join('');
-function go(s){for(let i=1;i<=4;i++)$('#s'+i).hidden=i!=s;document.querySelectorAll('.steps button').forEach(b=>{const n=+b.dataset.s;b.toggleAttribute('aria-current',n===s);if(n===s)b.setAttribute('aria-current','step');b.classList.toggle('done',n<s&&!(n===2&&s>2&&skip))});scrollTo(0,0)}
+const TITLES={'':'Importar',csv:'Archivo CSV',pdf:'Comparar estado de cuenta (PDF)'};
 let skip=true;
-document.addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(b){if(b.dataset.s==='2')skip=false;go(+b.dataset.s)}const a=e.target.closest('.acct');if(a)document.querySelectorAll('.acct').forEach(x=>x.setAttribute('aria-pressed',x===a))});
+function go(f,s){
+  $('#c0').hidden=!!f;$('#crumb').hidden=!f;$('#crumb-here').textContent=TITLES[f];$('#title').textContent=TITLES[f];
+  for(const fl of ['csv','pdf']){
+    $('#steps-'+fl).hidden=fl!==f;
+    for(let i=1;i<=4;i++)$('#'+fl+i).hidden=!(fl===f&&i===s);
+    document.querySelectorAll('#steps-'+fl+' button').forEach(b=>{const n=+b.dataset.s;b.removeAttribute('aria-current');if(fl===f&&n===s)b.setAttribute('aria-current','step');b.classList.toggle('done',fl===f&&n<s&&!(fl==='csv'&&n===2&&skip))});
+  }
+  scrollTo(0,0)
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-f]');if(b){e.preventDefault();if(b.dataset.f==='csv'&&b.dataset.s==='2')skip=false;if(b.dataset.s==='1')skip=true;go(b.dataset.f,+b.dataset.s||0)}
+  const a=e.target.closest('.acct');if(a)a.parentElement.querySelectorAll('.acct').forEach(x=>x.setAttribute('aria-pressed',x===a));
+});
 $('#theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
 </script>
 </body>
