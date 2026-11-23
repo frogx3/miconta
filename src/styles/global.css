@@ -3310,6 +3310,21 @@ form + .row-actions {
 .agenda-row.is-done .agenda-amount,
 .agenda-row.is-cancelled .agenda-amount { color: var(--muted); }
 .agenda-row.is-cancelled strong { text-decoration: line-through; }
+/* Estados de la agenda: atrasado (alerta), hoy (acento), hecho (salvia con ✓) y cancelado (tachado, gris). */
+.agenda-group { margin-top: 1rem; }
+.agenda-group > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+.agenda-group > summary::-webkit-details-marker { display: none; }
+.agenda-group > summary::before { content: '+'; flex: none; width: 1.25rem; height: 1.25rem; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 5px; font-size: 0.85rem; color: var(--muted); }
+.agenda-group[open] > summary::before { content: '−'; }
+.agenda-group > summary h3 { margin: 0; font-size: 0.95rem; }
+.agenda-group > .hint { margin: 0.35rem 0 0; }
+.agenda-group-overdue > summary h3 { color: var(--warn); }
+.agenda-group-done > summary h3,
+.agenda-group-cancelled > summary h3 { color: var(--muted); }
+.agenda-row.is-overdue .agenda-amount.is-payable { color: var(--warn); }
+.badge-today { background: var(--step-soft); color: var(--text); font-weight: 700; }
+.badge-paid { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); font-weight: 700; }
+.dot-overdue { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--warn); }
 
 .agenda-row .row-actions {
   display: flex;

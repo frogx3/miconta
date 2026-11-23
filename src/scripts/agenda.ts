@@ -74,11 +74,14 @@ if (root) {
 
   // Tocar un día filtra la lista sin recargar; tocarlo otra vez (o "Ver todo el mes") la muestra completa.
   const days = [...root.querySelectorAll<HTMLButtonElement>('.agenda-day')];
-  const rows = [...root.querySelectorAll<HTMLElement>('.agenda-row')];
+  // Solo los pagos y cobros (no el historial del saldo, que también usa .agenda-row).
+  const rows = [...root.querySelectorAll<HTMLElement>('.agenda-group .agenda-row')];
+  const groups = [...root.querySelectorAll<HTMLElement>('.agenda-group')];
   const showAll = root.querySelector<HTMLButtonElement>('#agenda-show-all')!;
   const filter = (date: string | null) => {
     days.forEach((day) => day.setAttribute('aria-pressed', String(day.dataset.date === date)));
     rows.forEach((row) => (row.hidden = date !== null && row.dataset.date !== date));
+    groups.forEach((group) => (group.hidden = !group.querySelector('.agenda-row:not([hidden])')));
     showAll.hidden = date === null;
   };
   days.forEach((day) => day.addEventListener('click', () => filter(day.getAttribute('aria-pressed') === 'true' ? null : day.dataset.date!)));

@@ -48,23 +48,30 @@ const monthName = (m: string) => new Intl.DateTimeFormat(locale, { month: 'long'
 const compact = (minor: number, cur: string) => new Intl.NumberFormat(locale, { style: 'currency', currency: cur, notation: 'compact', maximumFractionDigits: 1 }).format(minor / 10 ** (currencyDigits(cur) ?? 2));
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
 
-// Lista: lo del mes y, en el mes actual, los pendientes vencidos (que se muestran en el día de hoy).
-const effective = (e: Entry) => (month === current && e.status === 'pending' && e.dueDate < today ? today : e.dueDate);
+// Lista: lo del mes y, en el mes actual, los pendientes atrasados de meses anteriores. Cada uno en su fecha real.
+const isOverdue = (e: Entry) => e.status === 'pending' && !e.projected && e.dueDate < today;
 const listed = entries
-  .filter((e) => monthOf(e.dueDate) === month || (month === current && e.status === 'pending' && e.dueDate < today))
-  .sort((a, b) => effective(a).localeCompare(effective(b)) || a.description.localeCompare(b.description));
+  .filter((e) => monthOf(e.dueDate) === month || (month === current && isOverdue(e)))
+  .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.description.localeCompare(b.description));
 const byDate = new Map<string, Entry[]>();
-for (const e of listed) byDate.set(effective(e), [...(byDate.get(effective(e)) ?? []), e]);
+for (const e of listed) byDate.set(e.dueDate, [...(byDate.get(e.dueDate) ?? []), e]);
+// Un grupo por estado, para no confundir lo atrasado con lo pendiente ni lo hecho con lo cancelado.
+const groups = [
+  { key: 'overdue', items: listed.filter(isOverdue) },
+  { key: 'pending', items: listed.filter((e) => e.status === 'pending' && !isOverdue(e)) },
+  { key: 'done', items: listed.filter((e) => e.status === 'done') },
+  { key: 'cancelled', items: listed.filter((e) => e.status === 'cancelled') },
+] as const;
 
 function labelFor(e: Entry): { text: string; tone: string } {
   if (e.status === 'cancelled') return { text: t(locale, 'agenda.label.cancelled'), tone: 'muted' };
   if (e.status === 'done') {
     const doneAt = itemById.get(e.key)?.doneAt;
     const date = formatDate(doneAt ? isoDate(doneAt) : e.dueDate, locale);
-    return { text: t(locale, e.kind === 'payable' ? 'agenda.label.paid' : 'agenda.label.received', { date }), tone: 'muted' };
+    return { text: `✓ ${t(locale, e.kind === 'payable' ? 'agenda.label.paid' : 'agenda.label.received', { date })}`, tone: 'paid' };
   }
-  if (e.dueDate < today) return { text: t(locale, 'agenda.label.overdue'), tone: 'warn' };
-  if (e.dueDate === today) return { text: t(locale, 'agenda.label.today'), tone: 'warn' };
+  if (isOverdue(e)) return { text: tn(locale, 'agenda.label.late', daysBetween(e.dueDate, today)), tone: 'warn' };
+  if (e.dueDate === today) return { text: t(locale, 'agenda.label.today'), tone: 'today' };
   return { text: tn(locale, 'agenda.label.in', daysBetween(today, e.dueDate)), tone: 'muted' };
 }
 
@@ -149,6 +156,7 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
       <div class="agenda-legend">
         <span><span class="dot dot-pay" aria-hidden="true"></span>{t(locale, 'agenda.payable')}<Help topic="agenda.payable" /></span>
         <span><span class="dot dot-receive" aria-hidden="true"></span>{t(locale, 'agenda.receivable')}<Help topic="agenda.receivable" /></span>
+        <span><span class="dot dot-pay dot-overdue" aria-hidden="true"></span>{t(locale, 'agenda.legend.overdue')}</span>
         <span><span class="dot dot-done" aria-hidden="true"></span>{t(locale, 'agenda.legend.done')}</span>
       </div>
       <div class="agenda-cal">
@@ -169,7 +177,7 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
               <button type="button" class:list={['agenda-day', date === today && 'is-today']} data-date={date} aria-pressed="false" aria-label={label} aria-current={date === today ? 'date' : undefined}>
                 <span class="agenda-day-n">{Number(date.slice(8))}</span>
                 <span class="agenda-dots" aria-hidden="true">
-                  {dayEntries.filter((e) => e.status !== 'cancelled').map((e) => <span class:list={['dot', e.status === 'done' ? 'dot-done' : e.kind === 'payable' ? 'dot-pay' : 'dot-receive']}></span>)}
+                  {dayEntries.filter((e) => e.status !== 'cancelled').map((e) => <span class:list={['dot', e.status === 'done' ? 'dot-done' : e.kind === 'payable' ? 'dot-pay' : 'dot-receive', isOverdue(e) && 'dot-overdue']}></span>)}
                 </span>
                 {balance !== undefined && <span class:list={['agenda-day-balance', balance < 0 && 'is-negative']} aria-hidden="true">{compact(balance, primary!.currency)}</span>}
               </button>
@@ -206,15 +214,19 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
         )
       }
       {listed.length === 0 && <p class="empty">{t(locale, 'agenda.list.empty')}</p>}
+      {groups.filter((g) => g.items.length > 0).map((g) => (
+      <details class:list={['agenda-group', `agenda-group-${g.key}`]} open={g.key !== 'cancelled'}>
+        <summary><h3>{t(locale, `agenda.group.${g.key}`, { n: String(g.items.length) })}</h3></summary>
+        {g.key === 'overdue' && <p class="hint">{t(locale, 'agenda.group.overdueHint')}</p>}
       <ul class="agenda-list">
         {
-          listed.map((e) => {
+          g.items.map((e) => {
             const label = labelFor(e);
             const item = itemById.get(e.key);
             const suggestion = suggestionByKey.get(e.key);
             const cardBody = suggestion ? { cardId: suggestion.cardId, dueDate: suggestion.dueDate } : null;
             return (
-              <li class:list={['agenda-row', `is-${e.status}`]} data-date={effective(e)}>
+              <li class:list={['agenda-row', `is-${e.status}`, isOverdue(e) && 'is-overdue']} data-date={e.dueDate}>
                 <div class="agenda-row-main">
                   <strong>{e.description}</strong>
                   <span class:list={['agenda-amount', e.kind === 'receivable' ? 'is-receivable' : 'is-payable']}>
@@ -277,6 +289,8 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
           })
         }
       </ul>
+      </details>
+      ))}
     </section>
 
     <section class="card">

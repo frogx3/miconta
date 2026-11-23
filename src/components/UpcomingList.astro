@@ -51,7 +51,7 @@ const details = entries.map((e) => {
               <span class="muted activity-sub">
                 {formatDate(e.dueDate, locale)}
                 {e.dueDate < today && <span class="badge badge-warn">{t(locale, 'agenda.label.overdue')}</span>}
-                {e.dueDate === today && <span class="badge badge-warn">{t(locale, 'agenda.label.today')}</span>}
+                {e.dueDate === today && <span class="badge badge-today">{t(locale, 'agenda.label.today')}</span>}
                 {tomorrow && e.dueDate === tomorrow && <span class="badge badge-warn">{t(locale, 'agenda.label.tomorrow')}</span>}
               </span>
             </span>
