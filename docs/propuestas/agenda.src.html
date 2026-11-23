@@ -52,7 +52,10 @@
 .ev.pay{background:var(--surface);border-color:var(--terra)}
 .ev.get{background:var(--surface);border-color:var(--sage);color:var(--good)}
 .ev.card{background:var(--surface)}
-.ev.done{opacity:.55;text-decoration:line-through}
+.ev.done{opacity:.6}
+.ev.done::before{content:"✓ ";color:var(--good)}
+.ev.late{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--surface));color:var(--warn)}
+.ev.cancel{opacity:.5;text-decoration:line-through;border-left-style:dashed;border-color:var(--muted)}
 .cal-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:.8rem;color:var(--muted);font-weight:600}
 .cal-legend span{display:inline-flex;gap:6px;align-items:center}
 .cal-legend i{width:3px;height:12px;border-radius:2px}
@@ -60,6 +63,17 @@
 .next{display:grid;gap:22px}
 .bucket h3{font-size:.85rem;font-weight:700;margin:0 0 8px;color:var(--muted)}
 .bucket h3.warn{color:var(--warn)}
+.bucket .why{margin:-4px 0 8px;font-size:.8rem;color:var(--muted)}
+/* Un estado, una forma: atrasado (alerta), hoy (dorado suave), hecho (salvia con ✓), cancelado (tachado). */
+.st{font-size:.75rem;font-weight:800;border-radius:999px;padding:1px 8px;margin-left:6px;white-space:nowrap}
+.st.late{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.st.today{background:var(--gold-soft);color:var(--ink)}
+.st.done{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
+.st.cancel{border:1px solid var(--line);color:var(--muted)}
+.item.late .amt{color:var(--warn)}
+.item.cancel .t{text-decoration:line-through;color:var(--muted)}
+.item.cancel .amt{color:var(--muted);text-decoration:line-through}
+.undo{all:unset;cursor:pointer;font-size:.8rem;font-weight:700;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .items{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px}
 .item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
 .item:first-child{border-top:0}
@@ -171,15 +185,17 @@ details.done .item{opacity:.7}
       <div class="head"><h2 id="cal-t">Calendario</h2><span class="muted small">Toca un día para ver sus movimientos</span></div>
       <div class="dow" aria-hidden="true"><span>lun</span><span>mar</span><span>mié</span><span>jue</span><span>vie</span><span>sáb</span><span>dom</span></div>
       <div class="grid" id="grid"></div>
-      <div class="cal-legend"><span><i style="background:var(--terra)"></i>Pago</span><span><i style="background:var(--sage)"></i>Cobro</span><span><i style="background:#1d3557"></i>Pago de tarjeta (color de la tarjeta)</span></div>
+      <div class="cal-legend"><span><i style="background:var(--terra)"></i>Pago</span><span><i style="background:var(--sage)"></i>Cobro</span><span><i style="background:#1d3557"></i>Pago de tarjeta (color de la tarjeta)</span><span><i style="background:var(--warn)"></i>Atrasado</span><span>✓ Hecho</span><span style="text-decoration:line-through">Cancelado</span></div>
     </section>
 
     <section class="next" aria-labelledby="next-t">
       <div class="head" style="margin-bottom:0"><h2 id="next-t">Lo que sigue</h2><a href="#">Ver todo</a></div>
+      <div class="bucket"><h3 class="warn">Atrasados (1)</h3><p class="why">Ya pasó su fecha y no lo has marcado. Mientras siga pendiente, cuenta en tu saldo de hoy.</p><ul class="items" id="b-late"></ul></div>
       <div class="bucket"><h3>Hoy, 18 nov</h3><ul class="items" id="b-today"></ul></div>
       <div class="bucket"><h3>Próximos 7 días</h3><ul class="items" id="b-week"></ul></div>
       <div class="bucket"><h3>Más adelante</h3><ul class="items" id="b-later"></ul></div>
-      <details class="done"><summary>Ya hecho este mes (4)</summary><ul class="items" id="b-done"></ul></details>
+      <details class="done" open><summary>Hechos este mes (4)</summary><ul class="items" id="b-done"></ul></details>
+      <details class="done"><summary>Cancelados (1)</summary><ul class="items" id="b-cancel"></ul></details>
     </section>
   </div>
 
@@ -220,7 +236,8 @@ const ev=[
  {d:10,t:'Gimnasio',a:-650,k:'pay',done:true,rec:true},
  {d:15,t:'Quincena',a:14000,k:'get',done:true,rec:true},
  {d:18,t:'Spotify',a:-129,k:'pay',rec:true,sub:'Cargo a Nu'},
- {d:20,t:'Luz CFE',a:-640,k:'pay',sub:'Bimestral'},
+ {d:14,t:'Luz CFE',a:-640,k:'pay',sub:'Bimestral',late:true},
+ {d:8,t:'Clase de yoga',a:-400,k:'pay',cancel:true},
  {d:22,t:'Renta',a:-8500,k:'pay',rec:true},
  {d:24,t:'Banorte Oro',a:-12480,k:'card',tone:'#1d3557',sub:'Para no pagar intereses',est:true},
  {d:28,t:'Factura de diseño',a:6500,k:'get',sub:'Cliente Estudio Norte'},
@@ -231,7 +248,8 @@ const ev=[
 function flow(){
   const svg=$('#flow');svg.innerHTML='';const W=Math.round(svg.getBoundingClientRect().width)||640;svg.setAttribute('viewBox',`0 0 ${W} 260`);const H=200,top=24,min=-9000,max=22000,y=v=>top+H-(v-min)/(max-min)*H,x=d=>(d-1)/29*W;
   let bal=5649,pts=[],proj=[];
-  for(let d=1;d<=30;d++){ev.filter(e=>e.d===d).forEach(e=>{if(e.k!=='get'||e.done)bal+=e.a});pts.push([d,bal])}
+  const day=e=>e.late?TODAY:e.d; // lo atrasado sigue pendiente: cuenta hoy, no en su fecha
+  for(let d=1;d<=30;d++){ev.filter(e=>day(e)===d&&!e.cancel).forEach(e=>{if(e.k!=='get'||e.done)bal+=e.a});pts.push([d,bal])}
   // proyección: igual hasta el 27, luego suma el cobro
   let b2=pts[26][1];proj=[[27,b2]];for(let d=28;d<=30;d++){ev.filter(e=>e.d===d&&e.k==='get'&&!e.done).forEach(e=>b2+=e.a);ev.filter(e=>e.d===d&&e.k!=='get').forEach(e=>b2+=e.a);proj.push([d,b2])}
   const zero=y(0);
@@ -263,7 +281,7 @@ function cal(){
   for(let d=1;d<=30;d++){
     const es=ev.filter(e=>e.d===d&&!e.hide);
     const short=d>=24&&d<28;
-    h+=`<div class="cell ${d===TODAY?'today':''} ${short?'short':''}" ${d===TODAY?'aria-current="date"':''}><span class="n">${d}</span>${es.map(e=>`<span class="ev ${e.k} ${e.done?'done':''}" style="--tone:${e.tone||''};${e.k==='card'?`border-color:${e.tone}`:''}" title="${e.t} ${fmt(e.a)}">${e.t}</span>`).join('')}</div>`;
+    h+=`<div class="cell ${d===TODAY?'today':''} ${short?'short':''}" ${d===TODAY?'aria-current="date"':''}><span class="n">${d}</span>${es.map(e=>`<span class="ev ${e.k} ${e.done?'done':''} ${e.late?'late':''} ${e.cancel?'cancel':''}" style="--tone:${e.tone||''};${e.k==='card'?`border-color:${e.tone}`:''}" title="${e.t} ${fmt(e.a)}">${e.t}</span>`).join('')}</div>`;
   }
   const rest=(7-(first+30)%7)%7;for(let i=0;i<rest;i++)h+='<div class="cell out"></div>';
   $('#grid').innerHTML=h;
@@ -272,21 +290,29 @@ function cal(){
 /* Lista */
 function item(e){
   const ico=e.k==='get'?'+':e.k==='card'?'':'−';
-  const btn=e.done?'':`<span class="act"><button class="mark">${e.k==='get'?'Marcar cobrado':'Marcar pagado'}</button></span>`;
-  return `<li class="item"><span class="ico ${e.k}" ${e.k==='card'?`style="background:${e.tone}"`:''}>${e.k==='card'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>':ico}</span>
+  const state=e.cancel?'cancel':e.late?'late':e.done?'done':'';
+  const badge=e.cancel?'<span class="st cancel">Cancelado</span>'
+    :e.done?`<span class="st done">✓ ${e.k==='get'?'Cobrado':'Pagado'} el ${e.d} nov</span>`
+    :e.late?`<span class="st late">Atrasado ${TODAY-e.d} días</span>`
+    :e.d===TODAY?'<span class="st today">Hoy</span>':'';
+  const btn=e.cancel||e.done?`<span class="act"><button class="undo">Deshacer</button></span>`:`<span class="act"><button class="mark">${e.k==='get'?'Ya lo cobré':'Ya lo pagué'}</button></span>`;
+  return `<li class="item ${state}"><span class="ico ${e.k}" ${e.k==='card'?`style="background:${e.tone}"`:''}>${e.k==='card'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>':ico}</span>
     <span class="t">${e.t}</span>
     <span class="amt ${e.a>0?'in':''}">${e.a>0?'+':''}${fmt(e.a)}</span>
-    <span class="s">${e.done?(e.k==='get'?'Cobrado':'Pagado')+' el '+e.d+' nov':[e.d===TODAY?'':e.d+' nov',e.sub].filter(Boolean).join(' · ')+(e.rec?'<span class="rec">mensual</span>':'')+(e.est?'<span class="est">estimado</span>':'')}</span>${btn}</li>`;
+    <span class="s">${[e.d===TODAY&&!e.done?'':e.d+' nov',e.sub].filter(Boolean).join(' · ')}${badge}${!e.done&&!e.cancel&&e.rec?'<span class="rec">mensual</span>':''}${e.est?'<span class="est">estimado</span>':''}</span>${btn}</li>`;
 }
 function lists(){
-  $('#b-today').innerHTML=ev.filter(e=>e.d===TODAY).map(item).join('');
-  $('#b-week').innerHTML=ev.filter(e=>!e.done&&e.d>TODAY&&e.d<=24).map(item).join('');
-  $('#b-later').innerHTML=ev.filter(e=>!e.done&&e.d>24).map(item).join('');
+  const open=e=>!e.done&&!e.cancel&&!e.late;
+  $('#b-late').innerHTML=ev.filter(e=>e.late).map(item).join('');
+  $('#b-today').innerHTML=ev.filter(e=>open(e)&&e.d===TODAY).map(item).join('');
+  $('#b-week').innerHTML=ev.filter(e=>open(e)&&e.d>TODAY&&e.d<=24).map(item).join('');
+  $('#b-later').innerHTML=ev.filter(e=>open(e)&&e.d>24).map(item).join('');
   $('#b-done').innerHTML=ev.filter(e=>e.done&&!e.hide).concat([{d:5,t:'Ajuste a mano',a:-300,k:'pay',done:true}]).map(item).join('');
+  $('#b-cancel').innerHTML=ev.filter(e=>e.cancel).map(item).join('');
 }
 
 flow();cal();lists();addEventListener('resize',()=>{$('#flow').innerHTML='';flow()});
-document.addEventListener('click',e=>{const b=e.target.closest('.mark');if(b){const li=b.closest('.item');b.textContent=b.textContent.includes('cobrado')?'Cobrado ✓':'Pagado ✓';b.disabled=true;li.style.opacity=.6}});
+document.addEventListener('click',e=>{const b=e.target.closest('.mark');if(b){const li=b.closest('.item');b.textContent=b.textContent.includes('cobré')?'Cobrado ✓':'Pagado ✓';b.disabled=true;li.style.opacity=.6}});
 $('#theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
 </script>
 </body>
