@@ -12,6 +12,8 @@ import type { SuggestedCardPayment } from '../../lib/agenda/card-payments';
 import { loadAgendaMonth } from '../../lib/agenda/month';
 import { balanceHistory, dailyBalance } from '../../lib/agenda/balance';
 import { RECURRENCES } from '../../lib/agenda/validation';
+import BalanceCurve from '../../components/BalanceCurve.astro';
+import { balanceCurve } from '../../lib/agenda/curve';
 import { whatsappConfig } from '../../lib/agenda/whatsapp';
 import { user } from '../../db/schema';
 import { eq } from 'drizzle-orm';
@@ -89,7 +91,7 @@ function strategyLines(result: MonthResult): string[] {
     return [line.biggest ? t(locale, 'agenda.strategy.ok', { payable: line.biggest.description, amount: money(line.biggest.amountMinor, cur), date: formatDate(line.biggest.date, locale) }) : t(locale, 'agenda.strategy.okNone')];
   });
 }
-const strategy = isPast ? [] : results.map((r) => ({ tone: r.strategy.some((l) => l.kind !== 'ok') ? 'bad' : 'good', lines: strategyLines(r) }));
+const strategyOf = (r: MonthResult) => ({ tone: r.strategy.some((l) => l.kind !== 'ok') ? 'bad' : 'good', lines: strategyLines(r) });
 
 // Calendario de lunes a domingo.
 const [year, monthNumber] = month.split('-').map(Number) as [number, number];
@@ -132,23 +134,29 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
     <div id="agenda-error" class="alert" role="alert" hidden></div>
 
     {
-      !isPast && results.map((r) => (
-        <section class:list={['card agenda-result', r.resultMinor > 0 ? 'tone-good' : r.resultMinor < 0 ? 'tone-bad' : 'tone-zero']}>
-          <p class="agenda-answer">
-            {r.resultMinor > 0 ? t(locale, 'agenda.result.surplus', { amount: money(r.resultMinor, r.currency) }) : r.resultMinor < 0 ? t(locale, 'agenda.result.short', { amount: money(-r.resultMinor, r.currency) }) : t(locale, 'agenda.result.zero')}
-          </p>
-          <p class="muted">{t(locale, 'agenda.math', { available: money(r.availableMinor, r.currency), receivable: money(r.receivableMinor, r.currency), payable: money(r.payableMinor, r.currency) })}</p>
-        </section>
-      ))
-    }
-
-    {
-      strategy.length > 0 && (
-        <section class="card">
-          <h2>{t(locale, 'agenda.strategy.title')}</h2>
-          {strategy.map((block) => block.lines.map((line) => <p class:list={['agenda-strategy', `tone-${block.tone}`]}>{line}</p>))}
-        </section>
-      )
+      !isPast && results.map((r) => {
+        const how = strategyOf(r);
+        return (
+          <section class:list={['card agenda-flow', r.resultMinor > 0 ? 'tone-good' : r.resultMinor < 0 ? 'tone-bad' : 'tone-zero']} aria-label={t(locale, 'agenda.strategy.title')}>
+            <div>
+              <p class="agenda-answer">
+                {r.resultMinor > 0 ? t(locale, 'agenda.result.surplus', { amount: money(r.resultMinor, r.currency) }) : r.resultMinor < 0 ? t(locale, 'agenda.result.short', { amount: money(-r.resultMinor, r.currency) }) : t(locale, 'agenda.result.zero')}
+              </p>
+              <p class="muted">{t(locale, 'agenda.math', { available: money(r.availableMinor, r.currency), receivable: money(r.receivableMinor, r.currency), payable: money(r.payableMinor, r.currency) })}<Help topic="agenda.available" /></p>
+              {r.receivableMinor > 0 && <p class="muted">{t(locale, 'home.eq.receivable', { amount: money(r.receivableMinor, r.currency), after: money(r.resultMinor + r.receivableMinor, r.currency) })}</p>}
+              <div class:list={['agenda-how', `tone-${how.tone}`]} role="note">
+                <strong>{t(locale, 'agenda.strategy.title')}.</strong>
+                {how.lines.map((line) => <p>{line}</p>)}
+              </div>
+            </div>
+            <div class="agenda-curve">
+              <h2>{t(locale, 'agenda.curve.title')} <small class="muted">{t(locale, 'agenda.curve.sub', { month: monthName(month) })}</small></h2>
+              {/* En el mes actual lo que ya pasó es una línea plana: la curva empieza hoy. */}
+              <BalanceCurve points={balanceCurve(month === current ? r.days.filter((d) => d.date >= today) : r.days)} currency={r.currency} today={today} />
+            </div>
+          </section>
+        );
+      })
     }
 
     <section class="card">
@@ -380,3 +388,44 @@ const title = t(locale, 'agenda.title', { month: monthName(month) });
 <script>
   import '../../scripts/agenda';
 </script>
+
+<style>
+  .agenda-flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 1.25rem 2rem;
+    align-items: start;
+  }
+
+  .agenda-flow .agenda-answer {
+    margin-top: 0;
+  }
+
+  .agenda-how {
+    margin-top: 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    background: var(--bg);
+  }
+
+  .agenda-how p {
+    margin: 0.3rem 0 0;
+  }
+
+  .agenda-curve h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+  }
+
+  .agenda-curve h2 small {
+    display: block;
+    font-weight: 500;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 56rem) {
+    .agenda-flow {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
