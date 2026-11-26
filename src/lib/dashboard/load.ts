@@ -43,6 +43,9 @@ export async function loadDashboard(db: Db, workspace: { id: string; defaultCurr
         last4: primary.last4,
         tone: tones.get(primary.id)!,
         creditLimitMinor: primary.creditLimitMinor,
+        currency,
+        cutoffDay: primary.cutoffDay,
+        paymentDueDay: primary.paymentDueDay,
         cuts,
         rowsByMonth: new Map(months.map((month, i) => [month, rows[i]!])),
         openRows,
@@ -59,6 +62,7 @@ export async function loadDashboard(db: Db, workspace: { id: string; defaultCurr
   return {
     currency,
     selection,
+    accounts,
     sections: buildCutSections(accounts, selection, currency, thresholdMinor),
     lines: lineUsage(accounts),
     plans: summarize(plans, today, 36, payDateOf).find((summary) => summary.currency === currency) ?? null,

@@ -1,0 +1,56 @@
+---
+import { t } from '../i18n/messages';
+
+interface Props {
+  /** Pagos hechos. */
+  paid: number;
+  total: number;
+  /** Más alto, para el detalle de un plan. */
+  large?: boolean;
+}
+
+const { paid, total, large = false } = Astro.props;
+const { locale } = Astro.locals;
+// Con muchos pagos (p. ej. 48) los segmentos serían hilos: arriba de 24 se dibuja una barra continua.
+const asBar = total > 24;
+const done = Math.min(Math.max(paid, 0), total);
+---
+
+<span class:list={['segments', large && 'is-large', asBar && 'is-bar']} role="img" aria-label={t(locale, 'plans.segments', { paid: String(done), total: String(total) })}>
+  {asBar ? <i class="is-paid" style={`width:${total > 0 ? (done / total) * 100 : 0}%`}></i> : Array.from({ length: total }, (_, index) => <i class:list={[index < done && 'is-paid']}></i>)}
+</span>
+
+<style>
+  .segments {
+    display: flex;
+    gap: 2px;
+    height: 6px;
+    min-width: 4rem;
+  }
+
+  .segments i {
+    flex: 1;
+    border-radius: 2px;
+    background: var(--line);
+  }
+
+  .segments i.is-paid {
+    background: var(--bar-a);
+  }
+
+  .segments.is-large {
+    gap: 4px;
+    height: 12px;
+  }
+
+  .segments.is-bar {
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--line);
+  }
+
+  .segments.is-bar i {
+    flex: none;
+    border-radius: 0;
+  }
+</style>

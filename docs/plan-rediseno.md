@@ -92,6 +92,12 @@ Cargadores nuevos:
 La respuesta «¿Me alcanza?» usa la misma lógica que Agenda (un cobro cuenta hasta marcarlo).
 
 ## Fase 3 · Cuentas y Planes
+
+En dos PR. **Cuentas (hecho):** calendario del mes en semanas (no la tira de 31 días: no cabe en el celular), con
+corte (rombo) y fecha límite (círculo) por tarjeta, punteados si son estimados; línea total y disponible estimado; «al
+día / falta cargar el corte de …» por cuenta; en el detalle, tabla de cortes (pago oficial o estimado, mensualidades y
+compras) y planes con avance por pago (`Segments`). Lógica en `src/lib/accounts/calendar.ts`. **Planes:** pendiente.
+
 - **Cuentas:** calendario de cortes y pagos del mes, plásticos con red y tono, aviso de corte pendiente de cargar, detalle con historial de cortes.
 - **Planes:** escalera con liberaciones, lista por tarjeta con avance por pago, detalle con calendario de pagos y comparación con el saldo del banco.
 

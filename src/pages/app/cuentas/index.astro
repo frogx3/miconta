@@ -11,6 +11,9 @@ import { todayISO } from '../../../lib/date-format';
 import { formatMinor } from '../../../lib/money-format';
 import { listPlans, payDateResolver } from '../../../lib/plans/repo';
 import { summarize } from '../../../lib/plans/schedule';
+import { cutState, monthMarks } from '../../../lib/accounts/calendar';
+import { loadDashboard } from '../../../lib/dashboard/load';
+import { formatDate } from '../../../lib/date-format';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -22,7 +25,25 @@ const tones = cardTones(allAccounts);
 const accounts = showArchived ? allAccounts : allAccounts.filter((account) => !account.archivedAt);
 const canWrite = workspace.role !== 'viewer';
 const [allPlans, payDateOf] = await Promise.all([listPlans(getDb(), workspace.id), payDateResolver(getDb(), workspace.id)]);
-const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => plan.accountId === accountId), todayISO(Astro.locals.timeZone), 36, payDateOf).find((entry) => entry.thisMonthMinor > 0);
+const today = todayISO(Astro.locals.timeZone);
+const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => plan.accountId === accountId), today, 36, payDateOf).find((entry) => entry.thisMonthMinor > 0);
+
+// Calendario del mes, estado de la última carga y uso de línea: las cuentas con tarjeta de crédito en la moneda del espacio.
+const dash = await loadDashboard(getDb(), workspace, today, null);
+const money = (minor: number) => formatMinor(minor, dash.currency, locale);
+const month = today.slice(0, 7);
+const monthName = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`));
+const marks = monthMarks(dash.accounts, month, today);
+const byAccount = new Map(dash.accounts.map((account) => [account.accountId, account]));
+const [year, monthNumber] = month.split('-').map(Number) as [number, number];
+const daysInMonth = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+// La semana empieza en lunes: huecos antes del día 1.
+const lead = (new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay() + 6) % 7;
+const weekdays = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(locale, { weekday: 'narrow', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, 1 + i))));
+const lineTotal = dash.lines.reduce((total, line) => total + line.limitMinor, 0);
+const available = dash.lines.reduce((total, line) => total + Math.max(0, line.limitMinor - line.plansMinor - line.openChargesMinor), 0);
+const lastCut = new Map((dash.sections?.cards ?? []).map((card) => [card.accountId, card]));
+const monthLong = (key: string) => new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(new Date(`${key}-01T00:00:00Z`));
 ---
 
 <AppLayout title={t(locale, 'accounts.title')} active="accounts">
@@ -43,6 +64,52 @@ const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => pla
   </div>
 
   {
+    dash.accounts.length > 0 && (
+      <section class="card acc-cal" aria-labelledby="acc-cal-t">
+        <div class="acc-cal-top">
+          <div>
+            <h2 id="acc-cal-t">{t(locale, 'accounts.cal.title', { month: monthName })}</h2>
+            <p class="hint">{t(locale, 'accounts.cal.hint')}</p>
+          </div>
+          <dl class="acc-cal-stats">
+            {dash.sections && dash.sections.payTotalMinor > 0 && <div><dt>{t(locale, 'accounts.cal.pay')}</dt><dd>{money(dash.sections.payTotalMinor)}</dd></div>}
+            {lineTotal > 0 && <div><dt>{t(locale, 'accounts.cal.line')}</dt><dd>{money(lineTotal)}</dd></div>}
+            {lineTotal > 0 && <div><dt>{t(locale, 'accounts.cal.available')}</dt><dd>{money(available)}<small class="muted">{t(locale, 'accounts.cal.estimate')}</small></dd></div>}
+          </dl>
+        </div>
+        <ol class="acc-month" aria-label={t(locale, 'accounts.cal.title', { month: monthName })}>
+          {weekdays.map((day) => <li class="acc-wd" aria-hidden="true">{day}</li>)}
+          {Array.from({ length: lead }, () => <li class="acc-blank" aria-hidden="true"></li>)}
+          {Array.from({ length: daysInMonth }, (_, index) => {
+            const day = index + 1;
+            const dayMarks = marks.filter((mark) => mark.day === day);
+            const iso = `${month}-${String(day).padStart(2, '0')}`;
+            return (
+              <li class:list={['acc-day', iso === today && 'is-today', dayMarks.length > 0 && 'has-marks']}>
+                <span class="acc-num">{day}</span>
+                {dayMarks.length > 0 && (
+                  <span class="acc-marks">
+                    {dayMarks.map((mark) => {
+                      const account = byAccount.get(mark.accountId)!;
+                      return <i class:list={['acc-mark', `is-${mark.kind}`, `tone-${account.tone}`, mark.estimated && 'is-estimated']} title={t(locale, mark.kind === 'cut' ? 'accounts.cal.cutOf' : 'accounts.cal.dueOf', { name: account.accountName })}></i>;
+                    })}
+                  </span>
+                )}
+                {dayMarks.length > 0 && <span class="sr-only">{dayMarks.map((mark) => t(locale, mark.kind === 'cut' ? 'accounts.cal.cutOf' : 'accounts.cal.dueOf', { name: byAccount.get(mark.accountId)!.accountName })).join('; ')}</span>}
+              </li>
+            );
+          })}
+        </ol>
+        <p class="acc-legend">
+          {dash.accounts.map((account) => <span><i class={`tone-dot tone-${account.tone}`}></i>{account.accountName}{account.last4 && ` ··${account.last4}`}</span>)}
+          <span><i class="acc-mark is-cut tone-graphite"></i>{t(locale, 'accounts.cal.cut')}</span>
+          <span><i class="acc-mark is-due tone-graphite"></i>{t(locale, 'accounts.cal.due')}</span>
+        </p>
+      </section>
+    )
+  }
+
+  {
     accounts.length === 0 ? (
       <section class="card">
         <p class="empty">{t(locale, 'accounts.empty')}</p>
@@ -51,7 +118,10 @@ const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => pla
       <ul class="cards-grid">
         {accounts.map((account) => {
           const active = account.cards.filter((card) => !card.archivedAt);
-          const month = thisMonth(account.id);
+          const planMonth = thisMonth(account.id);
+          const dashAccount = byAccount.get(account.id);
+          const state = dashAccount && !account.archivedAt ? cutState(dashAccount.cuts, dashAccount.cutoffDay, today) : null;
+          const cut = lastCut.get(account.id);
           return (
             <li>
               <a class:list={['card-item', account.archivedAt && 'is-archived']} href={`/app/cuentas/${account.id}`}>
@@ -63,7 +133,13 @@ const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => pla
                   {account.bank}
                   {account.customerId && <span> · {t(locale, 'accounts.customerId', { id: account.customerId })}</span>}
                 </span>
-                {month && <span class="month-line">{t(locale, 'accounts.list.thisMonth', { amount: formatMinor(month.thisMonthMinor, month.currency, locale) })}</span>}
+                {planMonth && <span class="month-line">{t(locale, 'accounts.list.thisMonth', { amount: formatMinor(planMonth.thisMonthMinor, planMonth.currency, locale) })}</span>}
+                {state && state.state !== 'none' && (
+                  <span class:list={['acc-fresh', state.state === 'late' ? 'is-late' : 'is-ok']}>
+                    {state.state === 'late' ? t(locale, 'accounts.fresh.late', { month: monthLong(state.expectedMonth) }) : t(locale, 'accounts.fresh.ok', { month: monthLong(state.lastMonth) })}
+                  </span>
+                )}
+                {cut && cut.dueDate && <span class="muted">{t(locale, cut.dueDate < today ? 'accounts.list.paid' : 'accounts.list.pay', { amount: money(cut.payMinor), date: formatDate(cut.dueDate, locale) })}</span>}
                 {active.length === 0 ? (
                   <span class="muted">{t(locale, 'accounts.noCards')}</span>
                 ) : (
@@ -95,3 +171,165 @@ const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => pla
     )
   }
 </AppLayout>
+
+<style>
+  .acc-cal-top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .acc-cal-top h2 {
+    margin: 0;
+  }
+
+  .acc-cal-top .hint {
+    margin: 0.25rem 0 0;
+  }
+
+  .acc-cal-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    margin: 0;
+  }
+
+  .acc-cal-stats div {
+    display: grid;
+  }
+
+  .acc-cal-stats dt {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .acc-cal-stats dd {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+
+  .acc-cal-stats small {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+
+  .acc-month {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .acc-wd {
+    padding-bottom: 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .acc-day {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 0.2rem;
+    min-height: 3.25rem;
+    padding: 0.3rem;
+    border-radius: 8px;
+    background: var(--bg);
+  }
+
+  .acc-num {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .acc-day.has-marks .acc-num {
+    color: var(--text);
+  }
+
+  .acc-day.is-today {
+    box-shadow: inset 0 0 0 2px var(--step);
+  }
+
+  .acc-marks {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 3px;
+  }
+
+  /* Rombo = corte; círculo = fecha límite de pago. Línea punteada = fecha estimada (sin corte real). */
+  .acc-mark {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background: var(--tone);
+  }
+
+  .acc-mark.is-cut {
+    transform: rotate(45deg) scale(0.85);
+    border-radius: 2px;
+  }
+
+  .acc-mark.is-due {
+    border-radius: 50%;
+  }
+
+  .acc-mark.is-estimated {
+    background: transparent;
+    outline: 2px dashed var(--tone);
+    outline-offset: -2px;
+  }
+
+  .acc-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0.9rem 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .acc-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .acc-legend .tone-dot {
+    width: 0.7rem;
+    height: 0.7rem;
+  }
+
+  .acc-fresh {
+    font-size: 0.84rem;
+    font-weight: 600;
+  }
+
+  .acc-fresh.is-ok {
+    color: var(--good);
+  }
+
+  .acc-fresh.is-late {
+    color: var(--warn);
+  }
+
+  @media (max-width: 40rem) {
+    .acc-day {
+      min-height: 2.75rem;
+      padding: 0.2rem;
+    }
+
+    .acc-mark {
+      width: 8px;
+      height: 8px;
+    }
+  }
+</style>
