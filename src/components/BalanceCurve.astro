@@ -1,0 +1,138 @@
+---
+import { t } from '../i18n/messages';
+import { formatDate } from '../lib/date-format';
+import { formatMinor } from '../lib/money-format';
+import { negativeRuns, type CurvePoint } from '../lib/agenda/curve';
+
+interface Props {
+  points: CurvePoint[];
+  currency: string;
+  today: string;
+}
+
+const { points, currency, today } = Astro.props;
+const { locale } = Astro.locals;
+const money = (minor: number) => formatMinor(minor, currency, locale);
+
+// Escalones por día: el saldo no cambia entre movimientos. Escala con el cero siempre visible.
+const W = 600, H = 200, padX = 6, padTop = 10, padBottom = 22;
+const values = points.flatMap((p) => [p.balanceMinor, p.withIncomeMinor]).concat(0);
+const lo = Math.min(...values), hi = Math.max(...values, lo + 1);
+const step = (W - 2 * padX) / points.length;
+const x = (index: number) => padX + index * step;
+const y = (v: number) => padTop + (1 - (v - lo) / (hi - lo)) * (H - padTop - padBottom);
+const path = (key: 'balanceMinor' | 'withIncomeMinor') => points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}H${x(i + 1).toFixed(1)}`).join('');
+const hasIncome = points.some((p) => p.withIncomeMinor !== p.balanceMinor);
+const runs = negativeRuns(points);
+const indexOf = (date: string) => points.findIndex((p) => p.date === date);
+const todayIndex = indexOf(today);
+const lowest = points.reduce((min, p) => (p.balanceMinor < min.balanceMinor ? p : min), points[0]!);
+const ticks = [0, Math.floor(points.length / 2), points.length - 1];
+const summary = lowest.balanceMinor < 0
+  ? t(locale, 'agenda.curve.srShort', { amount: money(-lowest.balanceMinor), date: formatDate(lowest.date, locale), days: String(points.filter((p) => p.balanceMinor < 0).length) })
+  : t(locale, 'agenda.curve.srOk', { amount: money(lowest.balanceMinor), date: formatDate(lowest.date, locale) });
+---
+
+<figure class="curve">
+  <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary}>
+    {runs.map((run) => <rect class="curve-neg" x={x(indexOf(run.from))} y={padTop} width={(indexOf(run.to) - indexOf(run.from) + 1) * step} height={H - padTop - padBottom} />)}
+    <line class="curve-zero" x1={padX} x2={W - padX} y1={y(0)} y2={y(0)} />
+    {todayIndex >= 0 && <line class="curve-today" x1={x(todayIndex) + step / 2} x2={x(todayIndex) + step / 2} y1={padTop} y2={H - padBottom} />}
+    {hasIncome && <path class="curve-income" d={path('withIncomeMinor')} />}
+    <path class="curve-line" d={path('balanceMinor')} />
+    {ticks.map((i) => <text class="curve-tick" x={x(i) + step / 2} y={H - 6} text-anchor="middle">{Number(points[i]!.date.slice(8))}</text>)}
+  </svg>
+  <figcaption class="curve-legend">
+    <span><i class="is-line"></i>{t(locale, 'agenda.curve.balance')}</span>
+    {hasIncome && <span><i class="is-income"></i>{t(locale, 'agenda.curve.income')}</span>}
+    {runs.length > 0 && <span><i class="is-neg"></i>{t(locale, 'agenda.curve.negative')}</span>}
+    <span class="curve-range">{t(locale, 'agenda.curve.range', { low: money(lo), high: money(hi) })}</span>
+  </figcaption>
+</figure>
+
+<style>
+  .curve {
+    margin: 0;
+  }
+
+  .curve svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .curve-neg {
+    fill: color-mix(in srgb, var(--terra) 16%, transparent);
+  }
+
+  .curve-zero {
+    stroke: var(--muted);
+    stroke-dasharray: 3 4;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .curve-today {
+    stroke: var(--step);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .curve-line,
+  .curve-income {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .curve-line {
+    stroke: var(--bar-a);
+  }
+
+  .curve-income {
+    stroke: var(--sage);
+    stroke-dasharray: 6 5;
+  }
+
+  .curve-tick {
+    font-size: 16px;
+    fill: var(--muted);
+  }
+
+  .curve-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .curve-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .curve-legend i {
+    display: inline-block;
+    width: 16px;
+    height: 0;
+    border-top: 3px solid var(--bar-a);
+  }
+
+  .curve-legend i.is-income {
+    border-top: 3px dashed var(--sage);
+  }
+
+  .curve-legend i.is-neg {
+    height: 10px;
+    border: 0;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--terra) 30%, transparent);
+  }
+
+  .curve-range {
+    margin-left: auto;
+  }
+</style>

@@ -105,6 +105,12 @@ banco dice» (saldo reportado contra el calculado a esa fecha). Lógica en `src/
 - **Planes:** escalera con liberaciones, lista por tarjeta con avance por pago, detalle con calendario de pagos y comparación con el saldo del banco.
 
 ## Fase 4 · Agenda y Gastos
+
+En dos PR. **Agenda (hecho):** una tarjeta por moneda con la respuesta, la cuenta, «Cómo vas» y la curva del saldo día
+a día (desde hoy en el mes actual), con los días en negativo sombreados y la línea «si cobras a tiempo»
+(`BalanceCurve`, `src/lib/agenda/curve.ts`). El calendario y «Lo que sigue» agrupado ya existían. **Gastos:** pendiente.
+`smoke:agenda` está desactualizada desde los PR #31 y #33 (texto de la cuenta, saldo global, límite de registros).
+
 - **Agenda:** curva del saldo día a día con días en negativo, calendario mensual, «Lo que sigue» agrupado.
 - **Gastos:** dona animada, gasto día por día, presupuesto con tope, hormiga y tendencia por categoría; movimientos con selección múltiple y «crear regla».
 
