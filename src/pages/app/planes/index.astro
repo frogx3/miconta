@@ -3,7 +3,7 @@ import AppLayout from '../../../layouts/AppLayout.astro';
 import Help from '../../../components/Help.astro';
 import FilterChip from '../../../components/FilterChip.astro';
 import Breadcrumb from '../../../components/Breadcrumb.astro';
-import { messagesFor, t } from '../../../i18n/messages';
+import { messagesFor, t, tn } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { formatDate, formatMonth, todayISO } from '../../../lib/date-format';
 import { remainingBalanceMinor } from '../../../lib/import/plans';
@@ -12,6 +12,10 @@ import { getAccount } from '../../../lib/accounts/repo';
 import { listPlans, payDateResolver } from '../../../lib/plans/repo';
 import { isOpen, lastPayDate, stillPaying, summarize, summarizeByCard } from '../../../lib/plans/schedule';
 import { listTags, plansWithTag, tagsByPlan } from '../../../lib/plans/tags';
+import Segments from '../../../components/Segments.astro';
+import { releases } from '../../../lib/plans/releases';
+import { cardTones } from '../../../lib/accounts/format';
+import { listAccounts } from '../../../lib/accounts/repo';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -52,6 +56,11 @@ const VISIBLE_MONTHS = 12;
 const canWrite = workspace.role !== 'viewer';
 const balanceAccounts = [...new Map(everything.map((plan) => [plan.accountId, plan.accountName])).entries()];
 const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common.']);
+const tones = cardTones(await listAccounts(getDb(), workspace.id, true));
+// Lista agrupada por tarjeta, en el orden de término del primer plan de cada una.
+const groups = [...new Map(shown.map((plan) => [plan.cardId, { cardId: plan.cardId, cardName: plan.cardName, plans: shown.filter((other) => other.cardId === plan.cardId) }])).values()];
+const cardSummaryOf = (cardId: string) => byCurrencyCards.flatMap((entry) => entry.cards).find((card) => card.cardId === cardId);
+const monthLong = (key: string) => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${key}-01T00:00:00Z`));
 ---
 
 <AppLayout title={t(locale, 'plans.title')} active="plans">
@@ -95,78 +104,47 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
             );
           };
           return (
-            <section class="card">
-              <div class="stats">
-                <div class="stat">
-                  <span class="muted">{t(locale, 'plans.summary.remaining')}<Help topic="plans.summary.remaining" /></span>
-                  <strong>{money(summary.remainingBalanceMinor)}</strong>
-                </div>
-                <div class="stat">
-                  <span class="muted">{t(locale, 'plans.summary.thisMonth')}<Help topic="plans.summary.thisMonth" /></span>
-                  <strong>{money(summary.thisMonthMinor)}</strong>
-                  {summary.overdueInstallments > 0 && <span class="hint">{t(locale, 'plans.summary.overdue', { n: summary.overdueInstallments })}</span>}
-                </div>
-                <div class="stat">
-                  <span class="muted">{t(locale, 'plans.summary.active')}<Help topic="plans.summary.active" /></span>
-                  <strong>{summary.openPlans}</strong>
-                </div>
-                {summary.debtFreeDate && (
-                  <div class="stat">
-                    <span class="muted">{t(locale, 'plans.summary.debtFree')}<Help topic="plans.summary.debtFree" /></span>
-                    <strong class="milestone">{formatDate(summary.debtFreeDate, locale)}</strong>
-                  </div>
-                )}
-              </div>
-              {
-                (() => {
-                  const cardsOfCurrency = byCurrencyCards.find((entry) => entry.currency === summary.currency)?.cards ?? [];
-                  // Con una sola tarjeta el desglose repetiría los totales de arriba.
-                  if (cardsOfCurrency.length < 2) return null;
-                  return (
-                    <>
-                      <h2>{t(locale, 'plans.byCard.title')} · {summary.currency}<Help topic="plans.byCard.title" /></h2>
-                      <div class="table-scroll">
-                        <table class="import-table">
-                          <caption class="sr-only">{t(locale, 'plans.byCard.title')}</caption>
-                          <thead>
-                            <tr>
-                              <th scope="col">{t(locale, 'plans.col.card')}<Help topic="plans.col.card" /></th>
-                              <th scope="col" class="num">{t(locale, 'plans.summary.active')}<Help topic="plans.summary.active" /></th>
-                              <th scope="col" class="num">{t(locale, 'plans.summary.thisMonth')}<Help topic="plans.summary.thisMonth" /></th>
-                              <th scope="col" class="num">{t(locale, 'plans.summary.remaining')}<Help topic="plans.summary.remaining" /></th>
-                              <th scope="col">{t(locale, 'plans.summary.debtFree')}<Help topic="plans.summary.debtFree" /></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {cardsOfCurrency.map((card) => (
-                              <tr>
-                                <td><a href={href({ estado: '', tarjeta: card.cardId })}>{card.cardName}</a></td>
-                                <td class="num">{card.openPlans}</td>
-                                <td class="num nowrap">
-                                  {money(card.thisMonthMinor)}
-                                  {card.overdueInstallments > 0 && <span class="hint block">{t(locale, 'plans.projection.overdue', { n: card.overdueInstallments })}</span>}
-                                </td>
-                                <td class="num nowrap">{money(card.remainingBalanceMinor)}</td>
-                                <td class="nowrap">{card.debtFreeDate ? formatDate(card.debtFreeDate, locale) : '—'}</td>
-                              </tr>
+            <section class="card plans-free" aria-labelledby={`free-${summary.currency}`}>
+              <div>
+                <h2 id={`free-${summary.currency}`}>{t(locale, 'plans.free.title')}{summaries.length > 1 && ` · ${summary.currency}`}</h2>
+                <p class="hint">{t(locale, 'plans.free.hint')}</p>
+                {(() => {
+                  // Respeta los filtros de tarjeta y etiqueta; en «Cerrados» no aplica (son planes que ya no se pagan).
+                  const list = tab === 'active' ? releases(all.filter((plan) => (!cardFilter || plan.cardId === cardFilter) && (!withTag || withTag.has(plan.id))), summary.currency, today, payDateOf).slice(0, 8) : [];
+                  return list.length === 0 ? (
+                    tab === 'active' && <p class="empty">{t(locale, 'plans.free.none')}</p>
+                  ) : (
+                    <ol class="freelist">
+                      {list.map((entry) => (
+                        <li>
+                          <span class="freelist-month">{monthLong(entry.month)}</span>
+                          <span class="freelist-dot" aria-hidden="true"></span>
+                          <span class="freelist-what">
+                            {entry.plans.map((item, index) => (
+                              <>
+                                {index > 0 && ', '}
+                                <a href={`/app/planes/${item.id}`}>{item.name}</a>
+                              </>
                             ))}
-                            <tr class="total-row">
-                              <th scope="row">{t(locale, 'plans.byCard.total')}</th>
-                              <td class="num"><strong>{summary.openPlans}</strong></td>
-                              <td class="num nowrap"><strong>{money(summary.thisMonthMinor)}</strong></td>
-                              <td class="num nowrap"><strong>{money(summary.remainingBalanceMinor)}</strong></td>
-                              <td></td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
+                          </span>
+                          <span class="freelist-amount">{t(locale, 'plans.free.amount', { amount: money(entry.freedMinor) })}</span>
+                        </li>
+                      ))}
+                    </ol>
                   );
-                })()
-              }
-              <h2>
+                })()}
+              </div>
+              <div class="free-side">
+                <div class="kv"><span>{t(locale, 'plans.summary.thisMonth')}<Help topic="plans.summary.thisMonth" /></span><strong>{money(summary.thisMonthMinor)}</strong></div>
+                <div class="kv"><span>{t(locale, 'plans.summary.remaining')}<Help topic="plans.summary.remaining" /></span><strong>{money(summary.remainingBalanceMinor)}</strong></div>
+                <div class="kv"><span>{t(locale, 'plans.summary.active')}<Help topic="plans.summary.active" /></span><strong>{summary.openPlans}</strong></div>
+                {summary.debtFreeDate && <div class="kv"><span>{t(locale, 'plans.summary.debtFree')}<Help topic="plans.summary.debtFree" /></span><strong class="milestone">{monthLong(summary.debtFreeDate.slice(0, 7))}</strong></div>}
+                {summary.overdueInstallments > 0 && <p class="notice" role="note">{t(locale, 'plans.free.overdue', { n: summary.overdueInstallments })}</p>}
+              </div>
+              <details class="free-ladder">
+              <summary>
                 {t(locale, 'plans.projection.title')} · {summary.currency}
-              <Help topic="plans.projection.title" /></h2>
+              </summary>
               <p class="hint">{t(locale, 'plans.projection.hint')}</p>
               <div class="table-scroll">
                 <table class="import-table ladder">
@@ -186,6 +164,7 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
                   )}
                 </table>
               </div>
+              </details>
             </section>
           );
         })}
@@ -218,53 +197,58 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
           )
         }
 
-        <section class="card">
-          {
-            shown.length === 0 ? (
+        {
+          shown.length === 0 ? (
+            <section class="card">
               <p class="empty">{t(locale, 'plans.noneInTab')}</p>
-            ) : (
-              <div class="table-scroll">
-                <table class="import-table">
-<caption class="sr-only">{t(locale, 'table.sr.plans')}</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">{t(locale, 'plans.col.name')}<Help topic="plans.col.name" /></th>
-                      <th scope="col">{t(locale, 'plans.col.card')}<Help topic="plans.col.card" /></th>
-                      <th scope="col">{t(locale, 'plans.col.progress')}<Help topic="plans.col.progress" /></th>
-                      <th scope="col" class="num">{t(locale, 'plans.col.installment')}<Help topic="plans.col.installment" /></th>
-                      <th scope="col" class="num">{t(locale, 'plans.col.remaining')}<Help topic="plans.col.remaining" /></th>
-                      <th scope="col">{t(locale, 'plans.col.end')}<Help topic="plans.col.end" /></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((plan) => (
-                      <tr>
-                        <td>
+            </section>
+          ) : (
+            groups.map((group) => {
+              const summary = cardSummaryOf(group.cardId);
+              return (
+                <section class="card plan-group" aria-labelledby={`group-${group.cardId}`}>
+                  <div class="plan-group-head">
+                    <h2 id={`group-${group.cardId}`}>
+                      <span class={`tone-dot tone-${tones.get(group.cardId) ?? 'navy'}`} aria-hidden="true"></span>
+                      <a href={href({ estado: tab === 'closed' ? 'cerrados' : '', tarjeta: group.cardId })}>{group.cardName}</a>
+                    </h2>
+                    {tab === 'active' && summary && (
+                      <span class="muted">
+                        {tn(locale, 'plans.group.sub', summary.openPlans, { month: formatMinor(summary.thisMonthMinor, summary.currency, locale), remaining: formatMinor(summary.remainingBalanceMinor, summary.currency, locale) })}
+                      </span>
+                    )}
+                  </div>
+                  <div class="plan-cols" aria-hidden="true">
+                    <span>{t(locale, 'plans.col.name')}</span>
+                    <span>{t(locale, 'plans.col.progress')}</span>
+                    <span class="num">{t(locale, 'plans.col.installment')}</span>
+                    <span class="num">{t(locale, 'plans.col.remaining')}</span>
+                    <span>{t(locale, 'plans.col.end')}</span>
+                  </div>
+                  <ul class="plan-rows">
+                    {group.plans.map((plan) => (
+                      <li>
+                        <span class="plan-name">
                           <a href={`/app/planes/${plan.id}${accountFilter ? `?cuenta=${accountFilter}` : ''}`}>{plan.name}</a>
-                          <br />
-                          <span class="muted">{t(locale, `import.plan.type.${plan.type}`)}</span>
+                          <small class="muted">{t(locale, `import.plan.type.${plan.type}`)}</small>
                           {(tagMap.get(plan.id) ?? []).map((tag) => <a class="chip chip-tag" href={href({ estado: tab === 'closed' ? 'cerrados' : '', tarjeta: cardFilter, etiqueta: tag.id })}>{tag.name}</a>)}
-                          {plan.status !== 'active' && <span class:list={['badge', plan.status === 'review' && 'badge-warn', plan.status === 'settled_manual' && 'badge-off']}>{plan.status === 'completed_natural' && stillPaying(plan, today, payDateOf) ? t(locale, 'plans.status.payingOff', { date: formatDate(endOf.get(plan.id)!, locale) }) : t(locale, `plans.status.${plan.status}`)}</span>}
-                        </td>
-                        <td>{plan.cardName}</td>
-                        <td class="nowrap">
-                          <span class="bar bar-small" aria-hidden="true">
-                            <span style={`width:${Math.min(100, (plan.paidInstallments / plan.totalInstallments) * 100)}%`} />
-                          </span>
-                          <span class="muted">{plan.paidInstallments}/{plan.totalInstallments}</span>
-                        </td>
-                        <td class="num nowrap">{formatMinor(plan.installmentAmountMinor, plan.currency, locale)}</td>
-                        <td class="num nowrap">{isOpen(plan) ? formatMinor(remainingBalanceMinor(plan), plan.currency, locale) : '—'}</td>
-                        <td class="nowrap">{formatDate(endOf.get(plan.id)!, locale)}</td>
-                      </tr>
+                          {plan.status !== 'active' && <span class:list={['badge', plan.status === 'review' && 'badge-warn', plan.status === 'settled_manual' && 'badge-off']}>{t(locale, `plans.status.${plan.status}`)}</span>}
+                        </span>
+                        <span class="plan-progress">
+                          <Segments paid={plan.paidInstallments} total={plan.totalInstallments} />
+                          <small class="muted">{t(locale, 'plans.segments', { paid: String(plan.paidInstallments), total: String(plan.totalInstallments) })}</small>
+                        </span>
+                        <span class="num plan-money" data-label={t(locale, 'plans.col.installment')}>{formatMinor(plan.installmentAmountMinor, plan.currency, locale)}</span>
+                        <span class="num plan-money" data-label={t(locale, 'plans.col.remaining')}>{isOpen(plan) ? formatMinor(remainingBalanceMinor(plan), plan.currency, locale) : '—'}</span>
+                        <span class="plan-end" data-label={t(locale, 'plans.col.end')}>{formatDate(endOf.get(plan.id)!, locale)}</span>
+                      </li>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          }
-        </section>
-
+                  </ul>
+                </section>
+              );
+            })
+          )
+        }
         {canWrite && (
           <details class="card" id="balances" data-messages={JSON.stringify(balanceMessages)} data-currency={all[0]?.currency ?? workspace.defaultCurrency} data-locale={locale}>
             <summary><strong>{t(locale, 'balances.title')}</strong></summary>
@@ -316,3 +300,210 @@ const balanceMessages = messagesFor(locale, ['balances.', 'validation.', 'common
 <script>
   import '../../../scripts/plan-balances';
 </script>
+
+<style>
+  .plans-free {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 1.5rem 2rem;
+  }
+
+  .plans-free h2 {
+    margin: 0;
+  }
+
+  .freelist {
+    position: relative;
+    display: grid;
+    gap: 0.75rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .freelist li {
+    display: grid;
+    grid-template-columns: 11rem 1rem minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+
+  .freelist-month {
+    font-weight: 700;
+  }
+
+  .freelist-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--step);
+    align-self: center;
+  }
+
+  .freelist-what {
+    overflow-wrap: anywhere;
+  }
+
+  .freelist-amount {
+    font-weight: 700;
+    color: var(--good);
+    white-space: nowrap;
+  }
+
+  .free-side {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+  }
+
+  .kv {
+    display: grid;
+  }
+
+  .kv span {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .kv strong {
+    font-size: 1.2rem;
+  }
+
+  .free-ladder {
+    grid-column: 1 / -1;
+  }
+
+  .free-ladder summary {
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .plan-group-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.25rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .plan-group-head h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  .plan-cols,
+  .plan-rows li {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(7rem, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .plan-cols {
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  .plan-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .plan-rows li {
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .plan-rows li:last-child {
+    border-bottom: 0;
+  }
+
+  .plan-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    min-width: 0;
+  }
+
+  .plan-name a:first-child {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .plan-name small {
+    flex-basis: 100%;
+    order: 1;
+  }
+
+  .plan-progress {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .plan-progress small {
+    font-size: 0.75rem;
+  }
+
+  .plan-money {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .num {
+    text-align: right;
+  }
+
+  .plan-end {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 48rem) {
+    .plans-free {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .freelist li {
+      grid-template-columns: 1rem minmax(0, 1fr) auto;
+    }
+
+    .freelist-month {
+      grid-column: 1 / -1;
+    }
+
+    .plan-cols {
+      display: none;
+    }
+
+    /* En el celular cada plan es una tarjeta: nombre, avance y tres datos con su etiqueta. */
+    .plan-rows li {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .plan-name,
+    .plan-progress {
+      grid-column: 1 / -1;
+    }
+
+    .plan-rows [data-label] {
+      display: grid;
+      text-align: left;
+      white-space: normal;
+    }
+
+    .plan-rows [data-label]::before {
+      content: attr(data-label);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+  }
+</style>

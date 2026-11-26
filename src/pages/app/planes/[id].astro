@@ -13,6 +13,8 @@ import { buildSchedule, isOpen, paymentDateFor } from '../../../lib/plans/schedu
 import { listCutoffs } from '../../../lib/spending/repo';
 import { realCuts } from '../../../lib/spending/statement';
 import { listTags, tagsByPlan } from '../../../lib/plans/tags';
+import Segments from '../../../components/Segments.astro';
+import { bankComparison } from '../../../lib/plans/releases';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -35,11 +37,13 @@ const schedule = buildSchedule(plan, today, 5, (chargeISO) => paymentDateFor(cha
 const lastPayDate = schedule.at(-1)?.payDate ?? null;
 // El banco ya cargó todo, pero la última mensualidad aún se debe hasta la fecha límite de ese corte.
 const payingOff = plan.status === 'completed_natural' && lastPayDate !== null && lastPayDate >= today;
-const paidPct = Math.min(100, (plan.paidInstallments / plan.totalInstallments) * 100);
 const rateInput = new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 2 }).format(plan.interestRateBp / 100);
 const messages = messagesFor(locale, ['validation.', 'common.', 'plan.edit.', 'plan.settle.', 'plan.tags.']);
 const eventFormat = { t: tr, money, date: (iso: string) => formatDate(iso, locale), rate: (bp: number) => formatRate(bp, locale) };
 const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
+const remaining = open ? remainingBalanceMinor(plan) : 0;
+const bank = open ? bankComparison(plan) : null;
+const monthLong = (iso: string) => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso.slice(0, 7)}-01T00:00:00Z`));
 ---
 
 <AppLayout title={plan.name} active="plans">
@@ -64,9 +68,16 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
   </div>
 
   <section class="card" id="plan" data-plan-id={plan.id} data-messages={JSON.stringify(messages)}>
-    <div class="progress-head">
+    <div class="plan-hero">
       <strong>{t(locale, 'plan.progress', { paid: plan.paidInstallments, total: plan.totalInstallments })}</strong>
-      <span class="bar bar-wide" aria-hidden="true"><span style={`width:${paidPct}%`} /></span>
+      <Segments paid={plan.paidInstallments} total={plan.totalInstallments} large />
+      <dl class="plan-stats">
+        <div><dt>{t(locale, 'plan.installment')}</dt><dd>{money(plan.installmentAmountMinor)}</dd></div>
+        <div><dt>{t(locale, 'plan.paid')}</dt><dd>{money(Math.max(0, plan.totalAmountMinor - remaining))}</dd></div>
+        <div><dt>{t(locale, 'plan.remainingBalance')}<Help topic="plan.remainingBalance" /></dt><dd>{money(remaining)}</dd></div>
+        <div><dt>{t(locale, 'plan.totalAmount')}</dt><dd>{money(plan.totalAmountMinor)}</dd></div>
+        {lastPayDate && <div><dt>{t(locale, 'plan.lastPayment')}</dt><dd class="milestone">{monthLong(lastPayDate)}</dd></div>}
+      </dl>
     </div>
     <dl class="facts">
       <dt>{t(locale, 'plan.card')}<Help topic="plan.card" /></dt>
@@ -75,17 +86,8 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
         <span class="muted"> · </span>
         <a href={`/app/gastos/movimientos?mes=todo&filtro=c:${card.id}`}>{t(locale, 'plan.viewCharges')}</a>
       </dd>
-      <dt>{t(locale, 'plan.installment')}<Help topic="plan.installment" /></dt>
-      <dd>{money(plan.installmentAmountMinor)}</dd>
       <dt>{t(locale, 'plan.remainingInstallments')}<Help topic="plan.remainingInstallments" /></dt>
       <dd>{open ? remainingInstallments(plan) : 0}</dd>
-      <dt>{t(locale, 'plan.remainingBalance')}<Help topic="plan.remainingBalance" /></dt>
-      <dd>
-        {open ? money(remainingBalanceMinor(plan)) : money(0)}
-        {open && plan.reportedBalanceDate && <span class="muted"> · {t(locale, 'plan.balanceBank', { date: formatDate(plan.reportedBalanceDate, locale) })}</span>}
-      </dd>
-      <dt>{t(locale, 'plan.totalAmount')}<Help topic="plan.totalAmount" /></dt>
-      <dd>{money(plan.totalAmountMinor)}</dd>
       {plan.type !== 'msi' && (<><dt>{t(locale, 'plan.interest')}<Help topic="plan.interest" /></dt><dd>{formatRate(plan.interestRateBp, locale)}</dd></>)}
       <dt>{t(locale, 'plan.firstCharge')}<Help topic="plan.firstCharge" /></dt>
       <dd>{formatDate(plan.firstChargeDate, locale)}</dd>
@@ -122,6 +124,23 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
       )
     }
   </section>
+
+  {
+    bank && (
+      <section class="card plan-bank" aria-labelledby="plan-bank-t">
+        <h2 id="plan-bank-t">{t(locale, 'plan.bank.title')}</h2>
+        <dl class="plan-cmp">
+          <dt>{t(locale, 'plan.bank.reported', { date: formatDate(bank.date, locale) })}</dt>
+          <dd>{money(bank.reportedMinor)}</dd>
+          <dt>{t(locale, 'plan.bank.ours')}</dt>
+          <dd>{money(bank.estimateMinor)}</dd>
+        </dl>
+        <p class:list={['plan-cmp-note', bank.diffMinor === 0 ? 'is-ok' : 'is-diff']}>
+          {bank.diffMinor === 0 ? t(locale, 'plan.bank.same') : t(locale, bank.diffMinor > 0 ? 'plan.bank.more' : 'plan.bank.less', { amount: money(Math.abs(bank.diffMinor)) })}
+        </p>
+      </section>
+    )
+  }
 
   <section class="card" id="tags" data-plan-id={plan.id} data-messages={JSON.stringify(messages)}>
     <h2>{t(locale, 'plan.tags.title')}<Help topic="plan.tags.title" /></h2>
@@ -295,3 +314,59 @@ const stateOf = new Map(schedule.map((row) => [row.no, row.state]));
   import '../../../scripts/plan-detail';
   import '../../../scripts/plan-tags';
 </script>
+
+<style>
+  .plan-hero {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .plan-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 0.75rem 1.25rem;
+    margin: 0.25rem 0 0;
+  }
+
+  .plan-stats div {
+    display: grid;
+  }
+
+  .plan-stats dt {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .plan-stats dd {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+
+  .plan-cmp {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem 1rem;
+    margin: 0.75rem 0 0;
+  }
+
+  .plan-cmp dd {
+    margin: 0;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .plan-cmp-note {
+    margin: 0.75rem 0 0;
+    font-weight: 600;
+  }
+
+  .plan-cmp-note.is-ok {
+    color: var(--good);
+  }
+
+  .plan-cmp-note.is-diff {
+    color: var(--warn);
+  }
+</style>

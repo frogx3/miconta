@@ -98,7 +98,10 @@ const period = selection.month ? { label: t(locale, 'movements.period.cutoffName
     </section>
 
     <section class="home-ladder" aria-labelledby="home-ladder-t">
-      <h2 id="home-ladder-t">{t(locale, 'home.ladder.title')} <small>{t(locale, 'home.ladder.sub')}</small></h2>
+      <div class="home-ladder-head">
+        <h2 id="home-ladder-t">{t(locale, 'home.ladder.title')} <small>{t(locale, 'home.ladder.sub')}</small></h2>
+        <a href="/app/planes">{t(locale, 'app.dashboard.plans')}</a>
+      </div>
       {
         plans && ladder.length > 0 ? (
           <>
@@ -418,8 +421,22 @@ const period = selection.month ? { label: t(locale, 'movements.period.cutoffName
     background: var(--step);
   }
 
+  .home-ladder-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .home-ladder-head a {
+    font-size: 0.85rem;
+    color: var(--header-ink);
+    white-space: nowrap;
+  }
+
   .home-ladder h2 {
-    margin: 0 0 0.75rem;
+    margin: 0;
     font-size: 1rem;
   }
 
