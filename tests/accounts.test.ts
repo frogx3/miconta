@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateAccountInput, validateCardInput } from '../src/lib/accounts/validation';
+import { cardTones } from '../src/lib/accounts/format';
 import { currencyDigits, currencyOptions, formatMinor, numberFormatFor, parseMoneyInput, toInputString } from '../src/lib/money-format';
 
 describe('formato de dinero por idioma y moneda', () => {
@@ -77,7 +78,7 @@ describe('validación de tarjetas', () => {
   it('normaliza una tarjeta de crédito válida', () => {
     expect(validateCardInput(valid, 'es-MX')).toEqual({
       ok: true,
-      value: { kind: 'credit', isDigital: false, last4: '4172', label: 'Física', currency: 'MXN', creditLimitMinor: 5_000_000, cutoffDay: 15, paymentDueDay: 5 },
+      value: { kind: 'credit', isDigital: false, last4: '4172', label: 'Física', currency: 'MXN', creditLimitMinor: 5_000_000, cutoffDay: 15, paymentDueDay: 5, tone: null, network: null },
     });
   });
 
@@ -127,5 +128,23 @@ describe('validación de tarjetas', () => {
   it('interpreta el límite según el locale del usuario', () => {
     const result = validateCardInput({ ...valid, currency: 'ARS', creditLimit: '50.000,00' }, 'es-AR');
     expect(result).toMatchObject({ ok: true, value: { creditLimitMinor: 5_000_000 } });
+  });
+});
+
+describe('tono y red de las tarjetas', () => {
+  it('acepta tono y red conocidos; vacío o desconocido queda en automático', () => {
+    const base = { kind: 'debit', last4: '1234', currency: 'MXN' };
+    const chosen = validateCardInput({ ...base, tone: 'sage', network: 'amex' }, 'es-MX');
+    expect(chosen.ok && chosen.value).toMatchObject({ tone: 'sage', network: 'amex' });
+    const auto = validateCardInput({ ...base, tone: '', network: 'diners' }, 'es-MX');
+    expect(auto.ok && auto.value).toMatchObject({ tone: null, network: null });
+  });
+
+  it('asigna un tono por cuenta en orden de alta y respeta el elegido', () => {
+    const tones = cardTones([
+      { id: 'b', createdAt: new Date(2026, 1, 1), cards: [{ id: 'b1', tone: null }, { id: 'b2', tone: 'gold' }] },
+      { id: 'a', createdAt: new Date(2026, 0, 1), cards: [{ id: 'a1', tone: null }, { id: 'a2', tone: null }] },
+    ]);
+    expect(Object.fromEntries(tones)).toEqual({ a1: 'navy', a2: 'navy', b1: 'sage', b2: 'gold' });
   });
 });

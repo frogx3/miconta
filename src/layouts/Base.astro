@@ -26,9 +26,8 @@ const { locale } = Astro.locals;
         var root = document.documentElement;
         var choice = null;
         try { choice = localStorage.getItem('miconta-theme'); } catch (e) {}
-        if (choice === 'light' || choice === 'dark') root.setAttribute('data-theme', choice);
         var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        root.setAttribute('data-mode', dark ? 'dark' : 'light');
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
       })();
     </script>
     <meta name="robots" content="noindex" />

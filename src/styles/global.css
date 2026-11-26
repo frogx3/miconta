@@ -43,7 +43,7 @@
   --font: 'Montserrat Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Tema: sin elección sigue al sistema (data-theme ausente); 'light' y 'dark' lo fuerzan. */
+/* Tema: data-theme lleva el tema efectivo (lo pone Base.astro antes de pintar); la media query cubre la página sin JS. */
 :root {
   color-scheme: light dark;
 }
@@ -494,6 +494,7 @@ h2 {
 
 .card-item {
   display: grid;
+  align-content: start;
   gap: 0.4rem;
   height: 100%;
   background: var(--surface);
@@ -1741,26 +1742,6 @@ textarea {
   color: var(--accent);
 }
 
-.card-lines {
-  list-style: none;
-  margin: 0.15rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0.3rem;
-  font-size: 0.875rem;
-}
-
-.card-lines li {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.15rem 0.5rem;
-}
-
-.card-lines .icon {
-  color: var(--accent);
-}
-
 .card-fields {
   display: block;
   margin: 0;
@@ -2418,11 +2399,11 @@ textarea {
   display: none;
 }
 
-:root[data-mode='dark'] .theme-toggle .theme-moon {
+:root[data-theme='dark'] .theme-toggle .theme-moon {
   display: none;
 }
 
-:root[data-mode='dark'] .theme-toggle .theme-sun {
+:root[data-theme='dark'] .theme-toggle .theme-sun {
   display: block;
 }
 
@@ -3101,7 +3082,7 @@ form + .row-actions {
   color: var(--muted);
 }
 
-:root[data-mode='dark'] .legal-body h2 {
+:root[data-theme='dark'] .legal-body h2 {
   color: var(--text);
 }
 
@@ -3642,4 +3623,255 @@ form + .row-actions {
 }
 @media (max-width: 640px) {
   .mosaic { grid-template-columns: repeat(auto-fill, minmax(14px, 1fr)); gap: 3px; }
+}
+
+/* ── Tarjetas: color y plástico (Fase 0 del rediseño) ─────────────────────────────────────────── */
+/* Los colores de tarjeta son iguales en claro y oscuro, como un plástico real. */
+.tone-navy { --tone: #1d3557; --tone-ink: #ffffff; }
+.tone-sage { --tone: #5f8a72; --tone-ink: #ffffff; }
+.tone-terra { --tone: #b5654a; --tone-ink: #ffffff; }
+.tone-gold { --tone: #c5a047; --tone-ink: #0e1a2c; }
+.tone-sky { --tone: #4a6a8f; --tone-ink: #ffffff; }
+.tone-graphite { --tone: #4a4640; --tone-ink: #ffffff; }
+
+.plastics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.plastic {
+  container-type: inline-size;
+  aspect-ratio: 1.586;
+  width: 100%;
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  color: var(--tone-ink);
+  background: var(--tone);
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  row-gap: 0.2rem;
+  overflow: hidden;
+}
+
+.plastic.is-digital {
+  color: var(--text);
+  background: transparent;
+  border: 2px dashed var(--tone);
+}
+
+.plastic-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.plastic-kind {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: clamp(0.72rem, 7cqi, 0.9rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.plastic-tag {
+  align-self: flex-start;
+  font-size: clamp(0.62rem, 5.5cqi, 0.75rem);
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  color: var(--tone-ink);
+  background: var(--tone);
+}
+
+.plastic-net {
+  width: 24cqi;
+  flex: none;
+}
+
+.plastic-chip {
+  width: 15cqi;
+  aspect-ratio: 1.35;
+  border-radius: 3px;
+  align-self: center;
+  background: linear-gradient(135deg, #e7d39a, #b8913a);
+}
+
+.plastic.is-digital .plastic-chip {
+  visibility: hidden;
+}
+
+.plastic-n {
+  font-size: clamp(0.8rem, 9cqi, 1.15rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.plastic-use {
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.25);
+  overflow: hidden;
+}
+
+.plastic.is-digital .plastic-use {
+  background: var(--sky-soft);
+}
+
+.plastic-use i {
+  display: block;
+  height: 100%;
+  background: var(--step);
+}
+
+.plastic-facts {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+}
+
+.tone-dot {
+  display: inline-block;
+  flex: none;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.segmented-wrap {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+}
+
+.tone-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tone-picker label {
+  position: relative;
+  cursor: pointer;
+}
+
+.tone-picker input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.tone-swatch {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--tone);
+  border: 2px solid var(--surface);
+  outline: 1px solid var(--line);
+}
+
+.tone-auto {
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--bg);
+}
+
+.tone-picker input:checked + .tone-swatch {
+  outline: 3px solid var(--text);
+}
+
+.tone-picker input:focus-visible + .tone-swatch {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Selector de corte del encabezado: banda oscura en ambos temas, como el resto del encabezado. */
+.period {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-left: auto;
+  padding: 0 0.25rem;
+  border: 1px solid var(--header-line);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.period a,
+.period > span[aria-hidden] {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  font-size: 1.15rem;
+  color: var(--header-ink);
+  text-decoration: none;
+}
+
+.period > span[aria-hidden] {
+  opacity: 0.35;
+}
+
+.period a:hover {
+  background: var(--header-hover);
+}
+
+.period a:focus-visible {
+  outline: 2px solid var(--step);
+  outline-offset: -2px;
+}
+
+.period-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.period-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.period-short {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .site-header-inner {
+    gap: 0.25rem;
+  }
+
+  .period-long,
+  .site-header-inner:has(.period) .theme-toggle {
+    display: none;
+  }
+
+  .period-short {
+    display: inline;
+  }
+
+  .site-header-inner:has(.period) .brand > span:not(.brand-icon-pic) {
+    display: none;
+  }
+
+  .period a,
+  .period > span[aria-hidden] {
+    width: 2.25rem;
+  }
 }

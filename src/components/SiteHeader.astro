@@ -15,9 +15,11 @@ interface Props {
   area: 'app' | 'admin';
   active?: NavKey;
   readOnly?: boolean;
+  /** Corte que muestra la página: las flechas cambian `?corte=AAAA-MM` (null = no hay más). */
+  period?: { label: string; short: string; prev: string | null; next: string | null };
 }
 
-const { area, active, readOnly = false } = Astro.props;
+const { area, active, readOnly = false, period } = Astro.props;
 const { locale } = Astro.locals;
 const items = navFor(area, { readOnly });
 const home = area === 'admin' ? '/admin' : '/app';
@@ -37,6 +39,19 @@ const soon = agenda ? hasPaymentSoon(agenda.entries, tomorrow) : false;
       <span>Don <span class="brand-bigo">Bigo</span></span>
       {area === 'admin' && <span class="brand-sub">· {t(locale, 'admin.title')}</span>}
     </a>
+
+    {
+      period && (
+        <nav class="period" aria-label={t(locale, 'header.period')}>
+          {period.prev ? <a href={period.prev} aria-label={t(locale, 'statement.prev')}>‹</a> : <span aria-hidden="true">‹</span>}
+          <span class="period-label">
+            <span class="period-long">{period.label}</span>
+            <span class="period-short">{period.short}</span>
+          </span>
+          {period.next ? <a href={period.next} aria-label={t(locale, 'statement.next')}>›</a> : <span aria-hidden="true">›</span>}
+        </nav>
+      )
+    }
 
     <div class="header-actions">
       {

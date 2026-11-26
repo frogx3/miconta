@@ -2,6 +2,7 @@
 import { t } from '../i18n/messages';
 import { currencyOptions, toInputString } from '../lib/money-format';
 import type { Card } from '../lib/accounts/repo';
+import { CARD_NETWORKS, CARD_TONES } from '../lib/accounts/validation';
 
 interface Props {
   accountId: string;
@@ -25,7 +26,7 @@ const uid = card?.id ?? 'new';
 const err = (field: string) => `${field}-error-${uid}`;
 ---
 
-<form class="card-form" data-card-form data-account-id={accountId} data-card-id={card?.id} data-archived={String(!!card?.archivedAt)} data-last4={card?.last4 ?? ''} novalidate>
+<form class="card-form" data-card-form data-look={`${card?.tone ?? ''}|${card?.network ?? ''}`} data-account-id={accountId} data-card-id={card?.id} data-archived={String(!!card?.archivedAt)} data-last4={card?.last4 ?? ''} novalidate>
   <div class="form-alert alert" role="alert" tabindex="-1" hidden></div>
   <fieldset disabled={readOnly} class="card-fields">
     <div class="card-segments">
@@ -100,6 +101,35 @@ const err = (field: string) => `${field}-error-${uid}`;
           <span class="field-error" id={err('paymentDueDay')} data-error-for="paymentDueDay"></span>
         </div>
       </div>
+    </div>
+
+    <p class="card-section-title">{t(locale, 'card.section.look')}</p>
+    <div class="field" role="radiogroup" aria-labelledby={`network-label-${uid}`}>
+      <span class="field-label" id={`network-label-${uid}`}>{t(locale, 'card.field.network')}</span>
+      <div class="segmented segmented-wrap">
+        {
+          ['', ...CARD_NETWORKS].map((value) => (
+            <label>
+              <input type="radio" name="network" value={value} checked={value === (card?.network ?? '')} />
+              <span>{t(locale, value ? `card.network.${value}` : 'card.network.unset')}</span>
+            </label>
+          ))
+        }
+      </div>
+    </div>
+    <div class="field" role="radiogroup" aria-labelledby={`tone-label-${uid}`} aria-describedby={`tone-hint-${uid}`}>
+      <span class="field-label" id={`tone-label-${uid}`}>{t(locale, 'card.field.tone')}</span>
+      <div class="tone-picker">
+        {
+          ['', ...CARD_TONES].map((value) => (
+            <label title={t(locale, value ? `card.tone.${value}` : 'card.tone.auto')}>
+              <input type="radio" name="tone" value={value} checked={value === (card?.tone ?? '')} aria-label={t(locale, value ? `card.tone.${value}` : 'card.tone.auto')} />
+              <span class:list={['tone-swatch', value ? `tone-${value}` : 'tone-auto']} aria-hidden="true">{!value && 'A'}</span>
+            </label>
+          ))
+        }
+      </div>
+      <span class="hint" id={`tone-hint-${uid}`}>{t(locale, 'card.hint.tone')}</span>
     </div>
   </fieldset>
   {
