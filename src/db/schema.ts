@@ -48,9 +48,23 @@ export const user = sqliteTable('user', {
   inAppNotifications: integer('in_app_notifications', { mode: 'boolean' }).notNull().default(true),
   /** El usuario pidió borrar su cuenta: queda sin acceso y se purga a los 30 días salvo que un admin la restablezca. */
   deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+  /**
+   * Solicitud de invitación desde la landing: nace `pending` (sin espacio, contraseña ni código) y un admin la aprueba
+   * o la rechaza. Los usuarios creados de otra forma ya están aprobados.
+   */
+  approvalStatus: text('approval_status', { enum: ['approved', 'pending', 'rejected'] }).notNull().default('approved'),
+  requestedAt: integer('requested_at', { mode: 'timestamp_ms' }),
+  reviewedAt: integer('reviewed_at', { mode: 'timestamp_ms' }),
+  reviewedBy: text('reviewed_by'),
+  reviewNote: text('review_note'),
+  /** Lo que eligió en el formulario: qué quiere ordenar primero (ver INTERESTS). */
+  signupInterest: text('signup_interest'),
+  /** Entró en la beta: marca para el beneficio de las membresías. */
+  betaMember: integer('beta_member', { mode: 'boolean' }).notNull().default(false),
+  privacyAcceptedAt: integer('privacy_accepted_at', { mode: 'timestamp_ms' }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (t) => [uniqueIndex('user_whatsapp_phone_uq').on(t.whatsappPhone)]);
+}, (t) => [uniqueIndex('user_whatsapp_phone_uq').on(t.whatsappPhone), index('user_approval_idx').on(t.approvalStatus)]);
 
 export const session = sqliteTable(
   'session',

@@ -1,13 +1,26 @@
-/** Plantilla HTML del correo de primer acceso. Tablas y estilos en línea: es lo que respetan Gmail y Outlook. */
+/** Plantilla HTML de los correos de Don Bigo (acceso, bienvenida, solicitud). Tablas y estilos en línea: es lo que respetan Gmail y Outlook. */
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export interface AccessEmailText {
   greeting: string;
   intro: string;
+  /** Texto del botón; sin `url` no se dibuja. */
   cta: string;
+  /** Nota en letra chica bajo el botón (vencimiento del código, etc.). */
   expires: string;
   footer: string;
+  /** Pasos numerados bajo el botón (correo de bienvenida). */
+  steps?: string[];
+  /** Párrafo extra al final del cuerpo (beneficio de la beta, contacto). */
+  note?: string;
+}
+
+export interface EmailParts {
+  code?: string | null;
+  url?: string | null;
+  /** Imagen pública de la mascota (ruta desde `origin`), arriba del saludo. */
+  image?: string | null;
 }
 
 const NAVY = '#1d3557';
@@ -21,12 +34,16 @@ const FONT = "Montserrat,'Segoe UI',Helvetica,Arial,sans-serif";
  * también como degradado y el logo (`email-logo.png`) trae su propio fondo navy, así nunca se pierde.
  * `origin` sirve para el logo (PNG público: Gmail no muestra SVG) y el enlace al sitio. */
 export function accessEmailHtml(text: AccessEmailText, code: string, url: string, origin: string): string {
+  return brandEmailHtml(text, { code, url }, origin);
+}
+
+export function brandEmailHtml(text: AccessEmailText, { code = null, url = null, image = null }: EmailParts, origin: string): string {
   const e = escapeHtml;
   const host = new URL(origin).host;
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only"><title>Don Bigo</title></head>
 <body style="margin:0;padding:0;background:${PAPER}">
-<div style="display:none;max-height:0;overflow:hidden">${e(text.intro)} ${e(code)}</div>
+<div style="display:none;max-height:0;overflow:hidden">${e(text.intro)} ${e(code ?? '')}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER}">
 <tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #dcd5c6;border-radius:12px;overflow:hidden">
@@ -34,17 +51,20 @@ export function accessEmailHtml(text: AccessEmailText, code: string, url: string
     <img src="${e(origin)}/brand/email-logo.png" width="72" height="72" alt="Don Bigo" style="display:block;border:0;margin:0 auto 10px;border-radius:16px">
     <div style="font-family:${FONT};font-size:22px;font-weight:700;color:#ffffff;letter-spacing:.2px">Don <span style="color:${GOLD}">Bigo</span></div>
   </td></tr>
+  ${image ? `<tr><td align="center" style="padding:24px 32px 0"><img src="${e(origin)}${e(image)}" width="140" alt="" style="display:block;border:0;margin:0 auto;width:140px;height:auto"></td></tr>` : ''}
   <tr><td style="padding:32px 32px 8px;font-family:${FONT};color:#14202f;font-size:16px;line-height:1.55">
     <p style="margin:0 0 12px;font-weight:600">${e(text.greeting)}</p>
     <p style="margin:0 0 20px">${e(text.intro)}</p>
   </td></tr>
-  <tr><td align="center" style="padding:0 32px">
+  ${code ? `<tr><td align="center" style="padding:0 32px">
     <div style="background:#f3e8c8;border:1px solid ${GOLD};border-radius:10px;padding:16px 12px;font-family:'SFMono-Regular',Consolas,'Courier New',monospace;font-size:26px;font-weight:700;letter-spacing:4px;white-space:nowrap;color:${NAVY}">${e(code)}</div>
-  </td></tr>
-  <tr><td align="center" style="padding:28px 32px 8px">
+  </td></tr>` : ''}
+  ${url ? `<tr><td align="center" style="padding:28px 32px 8px">
     <a href="${e(url)}" style="display:inline-block;background:${NAVY};color:#ffffff;font-family:${FONT};font-size:16px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:8px">${e(text.cta)}</a>
-  </td></tr>
-  <tr><td style="padding:16px 32px 32px;font-family:${FONT};color:${MUTED};font-size:13px;line-height:1.5;text-align:center">${e(text.expires)}</td></tr>
+  </td></tr>` : ''}
+  ${text.expires ? `<tr><td style="padding:16px 32px ${text.steps || text.note ? 8 : 32}px;font-family:${FONT};color:${MUTED};font-size:13px;line-height:1.5;text-align:center">${e(text.expires)}</td></tr>` : ''}
+  ${text.steps?.length ? `<tr><td style="padding:16px 32px 8px;font-family:${FONT};color:#14202f;font-size:15px;line-height:1.55"><ol style="margin:0;padding-left:22px">${text.steps.map((step) => `<li style="margin:0 0 8px">${e(step)}</li>`).join('')}</ol></td></tr>` : ''}
+  ${text.note ? `<tr><td style="padding:8px 32px 32px;font-family:${FONT};color:#14202f;font-size:15px;line-height:1.55">${e(text.note)}</td></tr>` : ''}
 </table>
 <p style="margin:20px 0 0;font-family:${FONT};font-size:12px;color:${MUTED};text-align:center">${e(text.footer)}<br><a href="${e(origin)}" style="color:${MUTED}">${e(host)}</a></p>
 </td></tr>

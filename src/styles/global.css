@@ -233,51 +233,130 @@ h1 {
   }
 }
 
-.brand-icon-lg {
-  width: 5rem;
-  height: 5rem;
+/* Pantalla de acceso: panel navy con la mascota y el formulario al lado (en el celular, el panel arriba). */
+.auth-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 100dvh;
 }
 
-.brand-stack {
+.auth-side {
+  position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.5rem;
-  font-size: 1.75rem;
-  margin-bottom: 1.5rem;
-}
-
-/* Pantalla de acceso */
-.auth-wrap {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 1rem;
-  padding: 1rem;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 2rem 3rem 2.5rem;
+  color: var(--auth-ink);
   background: var(--auth-canvas);
+  overflow: hidden;
 }
 
-.auth-theme .icon-btn {
+.auth-side-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.auth-side .brand {
+  font-size: 1.4rem;
   color: var(--auth-ink);
 }
 
-.auth-theme .icon-btn:hover {
+.auth-side .logo-light {
+  display: none;
+}
+
+.auth-side .logo-dark {
+  display: block;
+}
+
+.auth-side .icon-btn {
+  color: var(--auth-ink);
+}
+
+.auth-side .icon-btn:hover {
   background: var(--header-hover);
   border-color: transparent;
 }
 
-.auth-card {
-  width: 100%;
-  max-width: 24rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 1.75rem;
+.auth-pup {
+  position: relative;
+  align-self: center;
+  width: min(22rem, 80%);
+  aspect-ratio: 1;
 }
 
-.auth-card .brand-stack {
-  margin-bottom: 1.5rem;
+.auth-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--gold-soft);
+}
+
+.auth-pup img {
+  position: absolute;
+  left: 12%;
+  bottom: 0;
+  width: 76%;
+  height: auto;
+}
+
+.auth-hello {
+  max-width: 28rem;
+}
+
+.auth-hello p {
+  margin: 0.75rem 0 0;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: var(--footer-muted);
+}
+
+.auth-hello .auth-hello-title {
+  margin: 0;
+  font-size: clamp(1.9rem, 3.4vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--auth-ink);
+}
+
+.auth-beta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.84rem;
+}
+
+.auth-beta b {
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  color: var(--step-text);
+  background: var(--step);
+}
+
+.auth-wrap {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1.5rem;
+  padding: 2.5rem 1.5rem;
+  background: var(--bg);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 26rem;
+}
+
+.auth-card h1 {
+  font-size: 1.7rem;
+  letter-spacing: -0.02em;
 }
 
 .field {
@@ -1336,10 +1415,48 @@ textarea {
   border-color: var(--field-line);
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 56rem) {
+  .auth-split {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .auth-side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 7rem;
+    align-items: end;
+    gap: 0.75rem;
+    padding: 1.25rem 1.25rem 0;
+  }
+
+  .auth-side-top {
+    grid-column: 1 / -1;
+  }
+
+  .auth-hello {
+    padding-bottom: 1.25rem;
+  }
+
+  .auth-hello .auth-hello-title {
+    font-size: 1.5rem;
+  }
+
+  .auth-hello p {
+    font-size: 0.92rem;
+  }
+
+  .auth-beta {
+    display: none;
+  }
+
+  .auth-pup {
+    order: 2;
+    width: 7rem;
+  }
+
   .auth-wrap {
     align-content: start;
-    padding-top: max(1.5rem, 7dvh);
+    padding: 1.75rem 1.25rem 2.5rem;
   }
 }
 
@@ -2426,12 +2543,6 @@ textarea {
   padding: 0 0.4rem;
 }
 
-.auth-theme {
-  position: fixed;
-  top: 0.75rem;
-  right: clamp(0.75rem, 3vw, 1.5rem);
-  z-index: 10;
-}
 
 /* El dorado marca el logro: la fecha en que termina la deuda */
 .milestone {
@@ -2907,13 +3018,11 @@ form + .row-actions {
 }
 
 .auth-legal a {
-  color: var(--auth-ink);
-  opacity: 0.85;
+  color: var(--muted);
 }
 
 .auth-legal a:hover {
-  color: var(--step);
-  opacity: 1;
+  color: var(--text);
 }
 
 .footer-legal {
@@ -3874,4 +3983,95 @@ form + .row-actions {
   .period > span[aria-hidden] {
     width: 2.25rem;
   }
+}
+
+/* Admin · Por aprobar */
+.approval-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1 1 16rem;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.approval-pick input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.subnav .badge {
+  margin-left: 0.35rem;
+}
+
+/* Entrar: otras formas de acceso */
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-alt {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.auth-alt a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-size: 0.92rem;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface);
+}
+
+.auth-alt a:hover {
+  border-color: var(--step);
+}
+
+.auth-alt a::after {
+  content: '›';
+  font-size: 1.4rem;
+  color: var(--muted);
+}
+
+.auth-alt b {
+  display: block;
+}
+
+.auth-alt b + span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.auth-help {
+  margin: 1.5rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--muted);
+}
+
+.auth-help a {
+  font-weight: 700;
+  color: var(--text);
 }

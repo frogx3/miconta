@@ -86,7 +86,8 @@ async function handle(context: APIContext, next: MiddlewareNext): Promise<Respon
   const home = isAdmin ? '/admin' : '/app';
 
   if ((inApp || inAdmin) && !data) return context.redirect('/login');
-  if (GUEST_ONLY.includes(pathname) && data) return context.redirect(home);
+  // La landing (/) y las páginas de acceso son para quien no ha entrado.
+  if ((pathname === '/' || GUEST_ONLY.includes(pathname)) && data) return context.redirect(home);
   if (inAdmin && !isAdmin) return context.redirect('/app');
   if (inApp && isAdmin) return context.redirect('/admin');
 

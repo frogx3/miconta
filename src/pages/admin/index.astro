@@ -12,7 +12,8 @@ const { user, locale } = Astro.locals;
 if (user?.role !== 'admin') return Astro.redirect('/app');
 
 const { users: allUsers } = await getAuth().api.listUsers({
-  query: { limit: 200, sortBy: 'createdAt', sortDirection: 'asc' },
+  // Solo aprobadas: las solicitudes de la landing no deben desplazar a los usuarios del límite de 200.
+  query: { limit: 200, sortBy: 'createdAt', sortDirection: 'asc', filterField: 'approvalStatus', filterValue: 'approved', filterOperator: 'eq' },
   headers: Astro.request.headers,
 });
 // Las cuentas borradas por su dueño (stand-by) o ya purgadas no aparecen en la lista principal.
@@ -34,7 +35,7 @@ const keys: MessageKey[] = ['admin.deletion.confirmPurge', 'admin.deletion.error
 const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
 ---
 
-<AdminLayout title={t(locale, 'admin.title')}>
+<AdminLayout title={t(locale, 'admin.title')} active="users">
   <h1>{t(locale, 'admin.users')}</h1>
   <p class="hint">{t(locale, 'admin.hint')}</p>
 
@@ -61,6 +62,7 @@ const messages = Object.fromEntries(keys.map((key) => [key, t(locale, key)]));
                 <span class:list={['badge', row.banned && 'badge-off']}>
                   {t(locale, row.banned ? 'admin.status.suspended' : 'admin.status.active')}
                 </span>
+                {(row as { betaMember?: boolean }).betaMember && <span class="badge">{t(locale, 'admin.beta.badge')}</span>}
                 {inviteBadges.has(row.id) && <span class:list={['badge', inviteBadges.get(row.id)!.cls]}>{inviteBadges.get(row.id)!.text}</span>}
               </td>
               <td>

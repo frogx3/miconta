@@ -17,9 +17,11 @@ interface Props {
   readOnly?: boolean;
   /** Corte que muestra la página: las flechas cambian `?corte=AAAA-MM` (null = no hay más). */
   period?: { label: string; short: string; prev: string | null; next: string | null };
+  /** Contadores junto a una opción del menú (p. ej. solicitudes por aprobar). */
+  badges?: Partial<Record<NavKey, number>>;
 }
 
-const { area, active, readOnly = false, period } = Astro.props;
+const { area, active, readOnly = false, period, badges = {} } = Astro.props;
 const { locale } = Astro.locals;
 const items = navFor(area, { readOnly });
 const home = area === 'admin' ? '/admin' : '/app';
@@ -106,6 +108,7 @@ const soon = agenda ? hasPaymentSoon(agenda.entries, tomorrow) : false;
               <a class="menu-link" href={item.href} aria-current={active === item.key ? 'page' : undefined}>
                 <span class="menu-icon"><Icon name={item.icon} size={20} /></span>
                 <span>{t(locale, item.label)}</span>
+                {!!badges[item.key] && <span class="badge badge-warn">{badges[item.key]}</span>}
               </a>
             </li>
           ))

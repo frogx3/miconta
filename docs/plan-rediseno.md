@@ -17,7 +17,14 @@ Base visual: las maquetas de `docs/propuestas/` (empieza por `index.html`). Cada
 4. **Mascota**: `public/brand/mascota/` en WebP (listo, lista, saluda, sobre, teléfono). Faltan alcancía y presentando sin fondo.
 5. **Componentes base**: `Plastic` ya está en `/app/cuentas`. `StepChart`, `Donut`, `Meter`, `Segments` y `MascotCard` llegan con la primera pantalla que los use (Fases 2–4), para no tener código sin usar.
 
-## Fase 1 · Beta pública: landing, entrar y pedir invitación
+## Fase 1 · Beta pública: landing, entrar y pedir invitación (hecha)
+
+Decidido al programarla: correo «Recibimos tu solicitud» sí, rechazo silencioso (sin correo); antibots con campo trampa y
+5 intentos por hora por IP (Turnstile solo si llega spam); el admin recibe un correo por solicitud y ve el contador en
+«Por aprobar» (`/admin/por-aprobar`, junto a «Usuarios»: «Cuentas» ya nombra lo del banco); contacto
+`contacto@donbigo.com`, sin WhatsApp; beta sin cupo (la aprobación manual es el filtro); el beneficio se anuncia sin
+prometer precio. En la landing la mascota sale tres veces (saluda, teléfono, sobre); WhatsApp y Nu no se mencionan
+porque hoy no aplican.
 
 ### Pantallas
 - `/` pasa a ser la landing (hoy redirige). Quien ya tiene sesión entra directo a `/app`.
@@ -91,11 +98,6 @@ La respuesta «¿Me alcanza?» usa la misma lógica que Agenda (un cobro cuenta 
 - **Tu cuenta:** tarjeta de miembro (muestra «Beta» si `beta_member`), personas, avisos, respaldo y zona de peligro.
 
 ## Decisiones pendientes
-1. Beneficio para quienes entren en la beta (precio especial, meses gratis, etc.).
-2. Correo de contacto y WhatsApp reales. Las maquetas usan `hola@donbigo.com` y `55 7120 4433`, que son inventados; hoy se envía desde `contacto@donbigo.com`.
-3. ¿Mandar correo de «Recibimos tu solicitud»? ¿Y de rechazo?
-4. ¿Turnstile en el formulario desde el inicio?
-5. ¿Cupo máximo de beta o aprobación libre?
-6. Avisar al admin de solicitudes nuevas: push, correo o solo el contador.
-7. Actualizar el aviso de privacidad para cubrir los datos de la invitación.
-8. Pose de la alcancía sin fondo (hoy solo hay versión con fondo blanco).
+1. Beneficio concreto para quienes entren en la beta (precio especial, meses gratis, etc.).
+2. Datos del responsable en `src/lib/legal.ts` (nombre, domicilio, correo de privacidad, jurisdicción): siguen como marcadores y el aviso de privacidad es público.
+3. Pose de la alcancía sin fondo (hoy solo hay versión con fondo blanco).

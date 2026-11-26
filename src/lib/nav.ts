@@ -1,7 +1,7 @@
 import type { IconName } from './icons';
 import type { MessageKey } from '../i18n/messages';
 
-export type NavKey = 'dashboard' | 'accounts' | 'plans' | 'spending' | 'categories' | 'import' | 'users' | 'account' | 'goals' | 'agenda';
+export type NavKey = 'dashboard' | 'accounts' | 'plans' | 'spending' | 'categories' | 'import' | 'users' | 'approvals' | 'account' | 'goals' | 'agenda';
 
 export interface NavItem {
   key: NavKey;
@@ -22,7 +22,10 @@ const APP: NavItem[] = [
   { key: 'account', href: '/app/cuenta', icon: 'user', label: 'nav.account' },
 ];
 
-const ADMIN: NavItem[] = [{ key: 'users', href: '/admin', icon: 'users', label: 'admin.users' }];
+const ADMIN: NavItem[] = [
+  { key: 'users', href: '/admin', icon: 'users', label: 'admin.users' },
+  { key: 'approvals', href: '/admin/por-aprobar', icon: 'check', label: 'admin.approvals' },
+];
 
 /** Menú de cada área; quien solo lee (viewer) no ve Importar. */
 export function navFor(area: 'app' | 'admin', opts: { readOnly?: boolean } = {}): NavItem[] {

@@ -26,6 +26,16 @@ type HookContext = { path?: string; request?: Request; headers?: Headers } | nul
 
 const header = (context: HookContext, name: string): string | null => context?.request?.headers.get(name) ?? context?.headers?.get(name) ?? null;
 
+/** Espacio propio de un usuario nuevo, donde es dueño (para `db.batch`). */
+export function ownWorkspace(db: Db, user: { id: string; name: string; locale?: unknown }) {
+  const locale = typeof user.locale === 'string' && user.locale ? user.locale : DEFAULT_LOCALE;
+  const workspaceId = crypto.randomUUID();
+  return [
+    db.insert(schema.workspaces).values({ id: workspaceId, name: user.name, locale, defaultCurrency: defaultCurrencyForLocale(locale) }),
+    db.insert(schema.workspaceMembers).values({ workspaceId, userId: user.id, role: 'owner' }),
+  ] as const;
+}
+
 export function createUserHooks(db: Db, allowSignup: boolean, setup: SetupConfig = { required: false, code: null }) {
   return {
     before: async (user: Record<string, unknown>, context: HookContext) => {
@@ -61,22 +71,13 @@ export function createUserHooks(db: Db, allowSignup: boolean, setup: SetupConfig
       // Quien se registra con una invitación entra al espacio compartido y no recibe uno propio.
       const inviteToken = context?.path === PUBLIC_SIGNUP_PATH ? header(context, 'x-invite-token') : null;
       if (inviteToken && (await claimInvitation(db, inviteToken, user.id))) return;
-      const locale = typeof user.locale === 'string' && user.locale ? user.locale : DEFAULT_LOCALE;
-      const workspaceId = crypto.randomUUID();
-      await db.batch([
-        db.insert(schema.workspaces).values({
-          id: workspaceId,
-          name: user.name,
-          locale,
-          defaultCurrency: defaultCurrencyForLocale(locale),
-        }),
-        db.insert(schema.workspaceMembers).values({ workspaceId, userId: user.id, role: 'owner' }),
-      ]);
+      await db.batch(ownWorkspace(db, user));
     },
 
     beforeSession: async (session: { userId: string } & Record<string, unknown>) => {
-      const [row] = await db.select({ deletedAt: schema.user.deletedAt }).from(schema.user).where(eq(schema.user.id, session.userId)).limit(1);
-      if (row?.deletedAt) throw new APIError('UNAUTHORIZED', { message: 'Invalid email or password', code: 'INVALID_EMAIL_OR_PASSWORD' });
+      const [row] = await db.select({ deletedAt: schema.user.deletedAt, approvalStatus: schema.user.approvalStatus }).from(schema.user).where(eq(schema.user.id, session.userId)).limit(1);
+      // Una solicitud sin aprobar (o rechazada) tampoco entra, aunque alguien le pusiera contraseña.
+      if (row?.deletedAt || (row && row.approvalStatus !== 'approved')) throw new APIError('UNAUTHORIZED', { message: 'Invalid email or password', code: 'INVALID_EMAIL_OR_PASSWORD' });
     },
   };
 }
