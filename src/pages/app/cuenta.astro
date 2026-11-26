@@ -10,12 +10,18 @@ import { DELETION_GRACE_DAYS } from '../../lib/me/lifecycle';
 import { listInvitations, listMembers } from '../../lib/members/repo';
 import { INVITE_DAYS, canManageMember, invitableRoles, isPermanent } from '../../lib/members/roles';
 import { vapidConfig } from '../../lib/push/webpush';
+import BrandIcon from '../../components/BrandIcon.astro';
+import { accountTally } from '../../lib/me/tally';
 
 const { workspace, user, locale } = Astro.locals;
 if (!workspace || !user) return Astro.redirect('/login');
 
 const db = getDb();
-const [members, pending, backups] = await Promise.all([listMembers(db, workspace.id), listInvitations(db, workspace.id), listBackups(db, workspace.id)]);
+const [members, pending, backups, tally] = await Promise.all([listMembers(db, workspace.id), listInvitations(db, workspace.id), listBackups(db, workspace.id), accountTally(db, workspace.id)]);
+// Quien entró por la beta pública lleva la marca en su tarjeta (beneficio de las membresías).
+const isBeta = Boolean((user as { betaMember?: boolean }).betaMember);
+const since = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(user.createdAt);
+const count = (n: number) => new Intl.NumberFormat(locale).format(n);
 const roles = invitableRoles(workspace.role);
 const canInvite = roles.length > 0;
 const isOwner = workspace.role === 'owner';
@@ -37,24 +43,49 @@ const expiresOn = (date: Date) => iso(new Date(date.getTime() + BACKUP_DAYS * 86
   <div id="me" data-messages={JSON.stringify(messages)} data-email={user.email} data-busy={busy ? 'true' : undefined}>
     <div id="me-error" class="alert" role="alert" hidden></div>
 
-    <section class="card" id="estatus">
-      <h2>{t(locale, 'me.status.title')}</h2>
-      <dl class="facts">
-        <dt>{t(locale, 'me.status.plan')}</dt>
-        <dd><span class="badge">{t(locale, 'me.status.free')}</span></dd>
-        <dt>{t(locale, 'me.status.state')}</dt>
-        <dd>{t(locale, 'me.status.active')}</dd>
-        <dt>{t(locale, 'me.status.since')}</dt>
-        <dd>{formatDate(iso(user.createdAt), locale)}</dd>
-        <dt>{t(locale, 'me.status.email')}</dt>
-        <dd>{user.email}</dd>
-        <dt>{t(locale, 'app.dashboard.workspace')}</dt>
-        <dd>{workspace.name}</dd>
-        <dt>{t(locale, 'app.dashboard.role')}</dt>
-        <dd>{t(locale, `role.${workspace.role}` as 'role.owner')}</dd>
-        <dt>{t(locale, 'app.dashboard.currency')}</dt>
-        <dd>{workspace.defaultCurrency}</dd>
-      </dl>
+    <nav class="me-nav" aria-label={t(locale, 'me.nav')}>
+      <a href="#estatus">{t(locale, 'me.status.title')}</a>
+      <a href="#miembros">{t(locale, 'members.title')}</a>
+      <a href="#configuracion">{t(locale, 'me.settings.title')}</a>
+      <a href="#respaldo">{t(locale, 'me.backup.title')}</a>
+      <a href="#peligro" class="is-danger">{t(locale, 'me.danger.title')}</a>
+    </nav>
+
+    <section class="card me-status" id="estatus" aria-labelledby="me-status-t">
+      <h2 id="me-status-t" class="sr-only">{t(locale, 'me.status.title')}</h2>
+      <div class="me-member">
+        <div class="me-card" role="img" aria-label={t(locale, 'me.card.sr', { name: user.name, plan: isBeta ? t(locale, 'me.card.beta') : t(locale, 'me.status.free'), since })}>
+          <div class="me-card-top">
+            <span class="me-card-brand"><BrandIcon size={28} /> Don <span class="brand-bigo">Bigo</span></span>
+            <span class="me-card-tier">{isBeta ? t(locale, 'me.card.beta') : t(locale, 'me.status.free')}</span>
+          </div>
+          <div class="me-card-who">
+            <strong>{user.name}</strong>
+            <span>{t(locale, 'me.card.since', { since })}</span>
+          </div>
+        </div>
+        <dl class="facts">
+          <dt>{t(locale, 'me.status.plan')}</dt>
+          <dd><span class="badge">{t(locale, 'me.status.free')}</span>{isBeta && <span class="badge">{t(locale, 'me.card.beta')}</span>}</dd>
+          <dt>{t(locale, 'me.status.state')}</dt>
+          <dd>{t(locale, 'me.status.active')}</dd>
+          <dt>{t(locale, 'me.status.since')}</dt>
+          <dd>{formatDate(iso(user.createdAt), locale)}</dd>
+          <dt>{t(locale, 'me.status.email')}</dt>
+          <dd>{user.email}</dd>
+          <dt>{t(locale, 'app.dashboard.workspace')}</dt>
+          <dd>{workspace.name} · {t(locale, `role.${workspace.role}` as 'role.owner')}</dd>
+          <dt>{t(locale, 'app.dashboard.currency')}</dt>
+          <dd>{workspace.defaultCurrency}</dd>
+        </dl>
+      </div>
+      <ul class="me-tally" aria-label={t(locale, 'me.tally.title')}>
+        <li><strong>{count(tally.accounts)}</strong><span>{t(locale, 'me.tally.accounts')}</span></li>
+        <li><strong>{count(tally.plans)}</strong><span>{t(locale, 'me.tally.plans')}</span></li>
+        <li><strong>{count(tally.movements)}</strong><span>{t(locale, 'me.tally.movements')}</span></li>
+        <li><strong>{count(tally.goals)}</strong><span>{t(locale, 'me.tally.goals')}</span></li>
+      </ul>
+      {isBeta && <p class="me-beta">{t(locale, 'me.card.betaNote')}</p>}
     </section>
   </div>
 
@@ -252,3 +283,166 @@ const expiresOn = (date: Date) => iso(new Date(date.getTime() + BACKUP_DAYS * 86
   import '../../scripts/push-toggle';
   import '../../scripts/me';
 </script>
+
+<style>
+  .me-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 1rem;
+  }
+
+  .me-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+    background: var(--surface);
+  }
+
+  .me-nav a.is-danger {
+    color: var(--danger);
+  }
+
+  .me-member {
+    display: grid;
+    grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  /* Tarjeta de miembro: navy con el moño dorado de la marca (en oscuro, grafito con borde). */
+  .me-card {
+    position: relative;
+    display: grid;
+    align-content: space-between;
+    aspect-ratio: 1.586;
+    padding: 1rem 1.1rem;
+    border-radius: 14px;
+    color: #ffffff;
+    background: #1d3557;
+    overflow: hidden;
+  }
+
+  :global(:root[data-theme='dark']) .me-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+
+  .me-card::after {
+    content: '';
+    position: absolute;
+    right: -1.5rem;
+    bottom: -1.5rem;
+    width: 6rem;
+    height: 6rem;
+    border-radius: 50%;
+    border: 10px solid var(--step);
+    opacity: 0.35;
+  }
+
+  .me-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .me-card-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 800;
+  }
+
+  .me-card :global(.logo-light) {
+    display: none;
+  }
+
+  .me-card :global(.logo-dark) {
+    display: block;
+  }
+
+  .me-card-tier {
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--step-text);
+    background: var(--step);
+  }
+
+  .me-card-who {
+    display: grid;
+  }
+
+  .me-card-who strong {
+    font-size: 1.15rem;
+  }
+
+  .me-card-who span {
+    font-size: 0.8rem;
+    opacity: 0.85;
+  }
+
+  .me-status .facts dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .me-status .facts .badge + .badge {
+    margin-left: 0.35rem;
+  }
+
+  .me-tally {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .me-tally li {
+    display: grid;
+    padding: 0.75rem;
+    border-radius: 10px;
+    background: var(--bg);
+  }
+
+  .me-tally strong {
+    font-size: 1.3rem;
+  }
+
+  .me-tally span {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .me-beta {
+    margin: 1rem 0 0;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+
+  @media (max-width: 48rem) {
+    .me-member {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .me-card {
+      max-width: 20rem;
+    }
+
+    .me-tally {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

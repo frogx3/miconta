@@ -10,6 +10,7 @@ Crea usuarios y datos de prueba (@miconta.test).
 import http.cookiejar
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -132,11 +133,12 @@ seed(b, ws["b"], ids["b@miconta.test"], "b")
 
 print("1) Portada y avisos")
 status, html, _ = a.call("GET", "/app", raw=True)
-check("la portada muestra la agenda del mes", (200, True), (status, 'class="card home-agenda' in html))
+# Portada rediseñada (Fase 2): la cuenta de «¿Me alcanza?» (home-eq) solo aparece cuando hay agenda.
+check("la portada muestra la agenda del mes", (200, True), (status, bool(re.search(r'class="home-eq[" ]', html))))
 check("…y el aviso de que hoy toca pagar", True, 'notice notice-due' in html and "Luz a" in html)
 check("…y ya no muestra el bloque de espacio/rol/moneda", False, 'class="facts"' in html)
 status, html, _ = c.call("GET", "/app", raw=True)
-check("C (sin agenda) no ve el bloque de agenda ni avisos", (200, False, False), (status, 'class="card home-agenda' in html, 'notice notice-due' in html))
+check("C (sin agenda) no ve el bloque de agenda ni avisos", (200, False, False), (status, bool(re.search(r'class="home-eq[" ]', html)), 'notice notice-due' in html))
 check("ajuste con valor inválido: 400", 400, a.call("PATCH", "/api/me/settings", {"inAppNotifications": "no"})[0])
 check("ajuste desde otro origen: 403", 403, a.call("PATCH", "/api/me/settings", {"inAppNotifications": False}, origin="http://evil.test")[0])
 check("A apaga los avisos", 200, a.call("PATCH", "/api/me/settings", {"inAppNotifications": False})[0])
