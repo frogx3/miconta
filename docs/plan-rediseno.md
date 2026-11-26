@@ -104,11 +104,16 @@ banco dice» (saldo reportado contra el calculado a esa fecha). Lógica en `src/
 - **Cuentas:** calendario de cortes y pagos del mes, plásticos con red y tono, aviso de corte pendiente de cargar, detalle con historial de cortes.
 - **Planes:** escalera con liberaciones, lista por tarjeta con avance por pago, detalle con calendario de pagos y comparación con el saldo del banco.
 
-## Fase 4 · Agenda y Gastos
+## Fase 4 · Agenda y Gastos (hecha)
 
 En dos PR. **Agenda (hecho):** una tarjeta por moneda con la respuesta, la cuenta, «Cómo vas» y la curva del saldo día
 a día (desde hoy en el mes actual), con los días en negativo sombreados y la línea «si cobras a tiempo»
-(`BalanceCurve`, `src/lib/agenda/curve.ts`). El calendario y «Lo que sigue» agrupado ya existían. **Gastos:** pendiente.
+(`BalanceCurve`, `src/lib/agenda/curve.ts`). El calendario y «Lo que sigue» agrupado ya existían. **Gastos (hecho):** arriba, «Gastaste $X en N compras» contra el
+promedio de los cortes anteriores con gasto (uno en ceros casi siempre es uno sin cargar) y una dona por categoría
+(conic-gradient, entra girando); el corte día por día con fines de semana sombreados y promedios; tendencia de las
+categorías más grandes en los cortes de la serie. Presupuesto con tope y hormiga ya existían. En Movimientos, al
+clasificar varios a la vez se ofrece la regla: el comercio si es uno solo o el inicio común («OXXO»).
+Lógica en `src/lib/spending/insights.ts`.
 `smoke:agenda` está desactualizada desde los PR #31 y #33 (texto de la cuenta, saldo global, límite de registros).
 
 - **Agenda:** curva del saldo día a día con días en negativo, calendario mensual, «Lo que sigue» agrupado.

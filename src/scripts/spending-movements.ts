@@ -198,9 +198,21 @@ if (root && root.dataset.config) {
   root.querySelector<HTMLButtonElement>('#bulk-apply')?.addEventListener('click', async () => {
     const choice = root.querySelector<HTMLElement & { value: string }>('#bulk-category')!.value;
     if (!choice) return;
-    const ids = picks().filter((pick) => pick.checked).map((pick) => pick.closest<HTMLElement>('tr')!.dataset.id!);
-    if (ids.length === 0) return;
-    if (await assign(ids, choice === 'none' ? null : choice)) location.reload();
+    const rows = picks().filter((pick) => pick.checked).map((pick) => pick.closest<HTMLElement>('tr')!);
+    if (rows.length === 0) return;
+    const categoryId = choice === 'none' ? null : choice;
+    if (!(await assign(rows.map((row) => row.dataset.id!), categoryId))) return;
+    // Se ofrece la regla para que los siguientes se clasifiquen solos: el comercio si todos son el mismo; si no, el inicio
+    // que comparten («OXXO» para «OXXO CENTRO» y «OXXOAMERICAS»), porque las reglas buscan texto contenido. Editable en el modal.
+    const keys = new Set(rows.map((row) => merchantKey(row.dataset.desc!)));
+    const shared = rows.map((row) => row.dataset.desc!).reduce((prefix, desc) => {
+      let i = 0;
+      while (i < prefix.length && prefix[i] === desc[i]) i++;
+      return prefix.slice(0, i);
+    }).trim();
+    const pattern = keys.size === 1 ? [...keys][0]! : shared.length >= 3 ? shared : null;
+    if (categoryId && pattern) await createRule(pattern, categoryId);
+    location.reload();
   });
 
   // Convertir un movimiento en plan: formulario en una fila justo debajo del movimiento.
