@@ -17,6 +17,11 @@ import { accountActivity, cardsInUse, getAccount, listAccounts } from '../../../
 import { cardFacts, cardTones } from '../../../lib/accounts/format';
 import { listPlans, payDateResolver } from '../../../lib/plans/repo';
 import { summarize } from '../../../lib/plans/schedule';
+import Segments from '../../../components/Segments.astro';
+import { cutHistory, cutState } from '../../../lib/accounts/calendar';
+import { thresholdFor } from '../../../lib/spending/analysis';
+import { getWorkspaceSettings, listCutoffs, movementsForAccount } from '../../../lib/spending/repo';
+import { cutPeriod, realCuts } from '../../../lib/spending/statement';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -28,7 +33,28 @@ const inUse = await cardsInUse(db, workspace.id, account.id);
 const tones = cardTones(await listAccounts(db, workspace.id, true));
 const activity = await accountActivity(db, workspace.id, account.id, account.cards.map((card) => card.id));
 // Lo que cuesta esta cuenta: el mismo cálculo del Panel, solo con los planes de esta cuenta.
-const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO(Astro.locals.timeZone), 36, await payDateResolver(db, workspace.id));
+const today = todayISO(Astro.locals.timeZone);
+const accountPlans = (await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id);
+const status = summarize(accountPlans, today, 36, await payDateResolver(db, workspace.id));
+const openPlans = accountPlans.filter((plan) => plan.status === 'active' || plan.status === 'review').sort((a, b) => b.totalInstallments - b.paidInstallments - (a.totalInstallments - a.paidInstallments));
+
+// Cortes de la cuenta (con su tarjeta de crédito principal): estado de la última carga e historial de hasta 6 cortes.
+const primary = account.cards.find((card) => card.kind === 'credit' && card.cutoffDay !== null && !card.archivedAt);
+const cuts = primary ? realCuts(await listCutoffs(db, workspace.id, account.id), primary.cutoffDay, primary.paymentDueDay) : [];
+const recent = cuts.slice(-6);
+const settings = primary ? await getWorkspaceSettings(db, workspace.id) : null;
+const cutRows = primary && settings
+  ? cutHistory(
+      cuts,
+      new Map(await Promise.all(recent.map(async (cut) => [cut.month, await movementsForAccount(db, workspace.id, account.id, primary.currency, cutPeriod(cuts, cut.month)!)] as const))),
+      thresholdFor(primary.currency, { currency: settings.currency, thresholdMinor: settings.thresholdMinor }),
+    )
+  : [];
+const freshness = primary ? cutState(cuts, primary.cutoffDay, today) : null;
+const cutMoney = (minor: number) => formatMinor(minor, primary?.currency ?? workspace.defaultCurrency, locale);
+const monthLong = (key: string) => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${key}-01T00:00:00Z`));
+const daysUntil = (iso: string) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+const cutMax = Math.max(1, ...cutRows.map((row) => row.planMinor + row.purchasesMinor));
 
 const emailCapture = emailCaptureEnabled();
 const inbox = emailCapture ? await getInbox(db, workspace.id, account.id) : null;
@@ -128,6 +154,85 @@ const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&a
     }
   </section>
 
+  {
+    primary && (
+      <section class="card acct-cuts" aria-labelledby="acct-cuts-t">
+        <div class="acct-head">
+          <h2 id="acct-cuts-t">{t(locale, 'account.cuts.title')}</h2>
+          <a href={`/app/gastos/corte?cuenta=${account.id}`}>{t(locale, 'account.cuts.link')}</a>
+        </div>
+        {freshness && freshness.state !== 'none' && (
+          <p class:list={['acct-fresh', freshness.state === 'late' ? 'is-late' : 'is-ok']}>
+            {freshness.state === 'late' ? t(locale, 'account.cuts.late', { month: monthLong(freshness.expectedMonth) }) : t(locale, 'account.cuts.ok', { month: monthLong(freshness.lastMonth) })}
+            {freshness.state === 'late' && !readOnly && <a href={`/app/importar?cuenta=${account.id}`}>{t(locale, 'account.activity.import')}</a>}
+          </p>
+        )}
+        {cutRows.length > 0 && cutRows[0]!.dueDate && daysUntil(cutRows[0]!.dueDate) >= 0 && (
+          <p class="acct-next">
+            <strong>{cutMoney(cutRows[0]!.payMinor)}</strong>{' '}
+            {daysUntil(cutRows[0]!.dueDate) === 0 ? t(locale, 'account.cuts.nextToday') : tn(locale, 'account.cuts.next', daysUntil(cutRows[0]!.dueDate), { date: formatDate(cutRows[0]!.dueDate, locale) })}
+          </p>
+        )}
+        {cutRows.length === 0 ? (
+          <p class="empty">{t(locale, 'statement.noCuts')}</p>
+        ) : (
+          <table class="acct-table">
+            <caption class="sr-only">{t(locale, 'account.cuts.title')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t(locale, 'account.cuts.col.cut')}</th>
+                <th scope="col">{t(locale, 'account.cuts.col.pay')}</th>
+                <th scope="col" class="acct-col-mix">{t(locale, 'account.cuts.col.mix')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cutRows.map((row) => (
+                <tr>
+                  <td>
+                    <a href={`/app/gastos/corte?cuenta=${account.id}&corte=${row.month}`}>{monthLong(row.month)}</a>
+                    <small class="muted">{t(locale, 'account.cuts.closed', { date: formatDate(row.cutoff, locale) })}</small>
+                  </td>
+                  <td>
+                    {cutMoney(row.payMinor)}
+                    <small class="muted">{t(locale, row.basis === 'official' ? 'account.cuts.official' : 'account.cuts.estimate')}</small>
+                  </td>
+                  <td class="acct-col-mix">
+                    <span class="acct-mix" aria-hidden="true">
+                      <i class="is-plan" style={`width:${((row.planMinor / cutMax) * 100).toFixed(1)}%`}></i>
+                      <i class="is-buy" style={`width:${((row.purchasesMinor / cutMax) * 100).toFixed(1)}%`}></i>
+                    </span>
+                    <small class="muted">{t(locale, 'account.cuts.mix', { plans: cutMoney(row.planMinor), buys: cutMoney(row.purchasesMinor) })}</small>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    )
+  }
+
+  {
+    openPlans.length > 0 && (
+      <section class="card" aria-labelledby="acct-plans-t">
+        <div class="acct-head">
+          <h2 id="acct-plans-t">{t(locale, 'account.plans.title')}</h2>
+          <a href={`/app/planes?cuenta=${account.id}`}>{tn(locale, 'account.activity.plans', openPlans.length)}</a>
+        </div>
+        <ul class="acct-plans">
+          {openPlans.slice(0, 6).map((plan) => (
+            <li>
+              <a href={`/app/planes/${plan.id}`}>{plan.name}</a>
+              <span class="acct-plan-amount">{formatMinor(plan.installmentAmountMinor, plan.currency, locale)}</span>
+              <Segments paid={plan.paidInstallments} total={plan.totalInstallments} />
+              <small class="muted">{t(locale, 'plans.segments', { paid: String(plan.paidInstallments), total: String(plan.totalInstallments) })}</small>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
   <section class="card" id="cards" data-messages={JSON.stringify(messages)}>
     <h2>{t(locale, 'cards.title')}<Help topic="cards.title" /></h2>
     <p class="hint">{t(locale, 'cards.hint')}</p>
@@ -226,3 +331,105 @@ const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&a
 <script>
   import '../../../scripts/account-cards';
 </script>
+
+<style>
+  .acct-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+  }
+
+  .acct-head h2 {
+    margin: 0;
+  }
+
+  .acct-fresh {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin: 0.75rem 0 0;
+    font-weight: 600;
+  }
+
+  .acct-fresh.is-ok {
+    color: var(--good);
+  }
+
+  .acct-fresh.is-late {
+    color: var(--warn);
+  }
+
+  .acct-next {
+    margin: 0.5rem 0 0;
+  }
+
+  .acct-next strong {
+    font-size: 1.3rem;
+  }
+
+  .acct-table {
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .acct-table td small {
+    display: block;
+    font-size: 0.78rem;
+  }
+
+  .acct-mix {
+    display: flex;
+    height: 8px;
+    min-width: 6rem;
+    border-radius: 999px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .acct-mix .is-plan {
+    background: var(--bar-a);
+  }
+
+  .acct-mix .is-buy {
+    background: var(--sky);
+  }
+
+  .acct-plans {
+    display: grid;
+    gap: 0.9rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .acct-plans li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.3rem 0.75rem;
+  }
+
+  .acct-plans a {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .acct-plan-amount {
+    font-weight: 700;
+  }
+
+  .acct-plans :global(.segments) {
+    grid-column: 1 / -1;
+  }
+
+  .acct-plans small {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 40rem) {
+    .acct-col-mix {
+      display: none;
+    }
+  }
+</style>

@@ -15,6 +15,9 @@ export interface DashboardAccount {
   last4: string | null;
   tone: CardTone;
   creditLimitMinor: number | null;
+  currency: string;
+  cutoffDay: number | null;
+  paymentDueDay: number | null;
   cuts: RealCut[];
   /** Movimientos de cada corte pedido (`YYYY-MM`), en la moneda de la portada. */
   rowsByMonth: ReadonlyMap<string, readonly SpendRow[]>;
