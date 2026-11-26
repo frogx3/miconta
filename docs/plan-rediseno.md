@@ -73,7 +73,14 @@ Se envía por el SMTP actual (`send-access.ts`). Reenviar desde el admin usa la 
 - Unitarias: validación del formulario, transición pending → approved/rejected y que un `pending` no pueda entrar.
 - `pnpm smoke:invitations`: pedir invitación → aparece en Por aprobar → aprobar → llega el código → canjearlo → `/app/bienvenida`.
 
-## Fase 2 · Portada tipo dashboard
+## Fase 2 · Portada tipo dashboard (hecha)
+
+Decidido: la portada sigue el selector de corte del encabezado (`/app?corte=AAAA-MM`) en las secciones por corte; «¿Me
+alcanza?», escalera, próximos 14 días, uso de línea y metas son de hoy. Todo en la moneda del espacio; otras monedas solo
+se avisan con enlaces. Uso de línea = saldo de planes + cargos desde el último corte (estimación, se dice). Cargadores en
+`src/lib/dashboard/` (`build.ts` puro con pruebas, `load.ts` consulta). Las barras son HTML/CSS: `StepChart` y demás
+componentes de gráficas se extraen en la Fase 3, cuando Planes los use también.
+
 Cargadores nuevos:
 - cortes cerrados por tarjeta (lo que pagas del último corte, desglosado en mensualidades y compras);
 - gasto por categoría del corte contra el promedio de 6 cortes;

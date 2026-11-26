@@ -1,133 +1,837 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import Help from '../../components/Help.astro';
-import Icon from '../../components/Icon.astro';
+import GoalCard from '../../components/GoalCard.astro';
 import { t, tn } from '../../i18n/messages';
 import { getDb } from '../../lib/auth';
-import { listAccounts } from '../../lib/accounts/repo';
-import { formatDate, todayISO } from '../../lib/date-format';
+import { formatDate, formatMonth, formatMonthLong, todayISO } from '../../lib/date-format';
 import { formatMinor } from '../../lib/money-format';
-import { listPlans, payDateResolver } from '../../lib/plans/repo';
-import { summarize } from '../../lib/plans/schedule';
-import GoalCard from '../../components/GoalCard.astro';
 import { buildGoalViews } from '../../lib/goals/view';
-import { currentAgenda, upcomingEntries } from '../../lib/agenda/month';
+import { currentAgenda, loadAgendaMonth } from '../../lib/agenda/month';
 import { addDays } from '../../lib/spending/statement';
-import UpcomingList from '../../components/UpcomingList.astro';
+import { isMonth } from '../../lib/spending/analysis';
+import { listCategories } from '../../lib/spending/repo';
+import { loadDashboard } from '../../lib/dashboard/load';
 
 const { user, workspace, locale } = Astro.locals;
-if (!user) return Astro.redirect('/login');
+if (!user || !workspace) return Astro.redirect('/login');
 
-const accounts = workspace ? await listAccounts(getDb(), workspace.id) : [];
-const summaries = workspace ? summarize(await listPlans(getDb(), workspace.id), todayISO(Astro.locals.timeZone), 36, await payDateResolver(getDb(), workspace.id)) : [];
-const goalViews = workspace ? (await buildGoalViews(getDb(), workspace.id, todayISO(Astro.locals.timeZone))).slice(0, 4) : [];
-
-// Agenda del mes: solo si hay algo cargado (pagos, cobros o saldos).
+const db = getDb();
 const today = todayISO(Astro.locals.timeZone);
-const agenda = await currentAgenda(Astro.locals, getDb(), today);
-const hasAgenda = Boolean(agenda && (agenda.entries.length > 0 || agenda.balances.length > 0));
-const upcoming = upcomingEntries(agenda?.entries ?? []);
-const money = (minor: number, currency: string) => formatMinor(minor, currency, locale);
+const requested = Astro.url.searchParams.get('corte');
+const [dash, categories, goalViews, agenda] = await Promise.all([
+  loadDashboard(db, workspace, today, isMonth(requested) ? requested : null),
+  listCategories(db, workspace.id),
+  buildGoalViews(db, workspace.id, today),
+  currentAgenda(Astro.locals, db, today),
+]);
+const { currency, selection, sections, lines, plans } = dash;
+const money = (minor: number) => formatMinor(minor, currency, locale);
+const canWrite = workspace.role !== 'viewer';
+
+// ¿Me alcanza?: la misma cuenta que la Agenda (un cobro cuenta hasta marcarlo cobrado), en la moneda de la portada.
+const result = agenda?.results.find((entry) => entry.currency === currency) ?? null;
+
+// Próximos 14 días: si cruzan de mes, también los pendientes del mes siguiente.
+const horizon = addDays(today, 14);
+let entries = agenda?.entries ?? [];
+if (horizon.slice(0, 7) !== today.slice(0, 7)) {
+  const next = await loadAgendaMonth(db, workspace.id, horizon.slice(0, 7), today);
+  entries = [...entries, ...next.entries.filter((entry) => !entries.some((seen) => seen.key === entry.key))];
+}
+const soon = entries
+  .filter((entry) => entry.status === 'pending' && entry.currency === currency && entry.dueDate >= today && entry.dueDate <= horizon)
+  .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.description.localeCompare(b.description))
+  .slice(0, 6);
+const weekday = (iso: string) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+
+// Escalera: hasta 18 meses de mensualidades.
+const ladder = plans?.months.slice(0, 18) ?? [];
+const ladderMax = Math.max(1, ...ladder.map((row) => row.amountMinor));
+
+const categoryName = (id: string | null) => (id ? (categories.find((category) => category.id === id)?.name ?? '') : t(locale, 'spending.tile.uncategorized'));
+const categoryColor = (id: string | null) => (id ? (categories.find((category) => category.id === id)?.color ?? 'var(--sky)') : 'var(--line)');
+const catMax = Math.max(1, ...(sections?.categories ?? []).flatMap((line) => [line.amountMinor, line.averageMinor]));
+const histMax = Math.max(1, ...(sections?.history ?? []).map((point) => point.planMinor + point.purchasesMinor + point.antMinor));
+const percent = (share: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(share);
+const pct = (part: number, whole: number) => `${Math.min(100, Math.max(0, (part / whole) * 100)).toFixed(1)}%`;
+
+// A media oración: «noviembre de 2026», sin mayúscula.
+const thisMonthName = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${today.slice(0, 7)}-01T00:00:00Z`));
+const monthName = selection.month ? formatMonthLong(selection.month, locale) : '';
+const corteHref = (month: string | null) => (month ? `/app?corte=${month}` : null);
+const period = selection.month ? { label: t(locale, 'movements.period.cutoffName', { month: monthName }), short: formatMonth(selection.month, locale), prev: corteHref(selection.prev), next: corteHref(selection.next) } : undefined;
 ---
 
-<AppLayout title={t(locale, 'app.dashboard.title')} active="dashboard">
-  <h1>{t(locale, 'app.dashboard.welcome', { name: user.name })}</h1>
+<AppLayout title={t(locale, 'app.dashboard.title')} active="dashboard" period={period}>
+  <h1 class="sr-only">{t(locale, 'app.dashboard.welcome', { name: user.name })}</h1>
 
-  {
-    hasAgenda && agenda && (
-      <section class="card home-agenda">
-        <h2>{t(locale, 'app.dashboard.agenda')}<Help topic="agenda.available" /></h2>
-        {agenda.results.map((r) => (
-          <div class:list={['agenda-result', r.resultMinor > 0 ? 'tone-good' : r.resultMinor < 0 ? 'tone-bad' : 'tone-zero']}>
-            <p class="agenda-answer">
-              {r.resultMinor > 0 ? t(locale, 'agenda.result.surplus', { amount: money(r.resultMinor, r.currency) }) : r.resultMinor < 0 ? t(locale, 'agenda.result.short', { amount: money(-r.resultMinor, r.currency) }) : t(locale, 'agenda.result.zero')}
-            </p>
-            <p class="muted">{t(locale, 'agenda.math', { available: money(r.availableMinor, r.currency), receivable: money(r.receivableMinor, r.currency), payable: money(r.payableMinor, r.currency) })}</p>
-          </div>
-        ))}
-        {upcoming.length > 0 && (
+  <div class="home-hero">
+    <section class="home-answer" aria-labelledby="home-verdict">
+      <img class="home-pup" src="/brand/mascota/saluda.webp" alt="" width="481" height="560" />
+      <p class="home-hello">{t(locale, result ? 'home.hello.math' : 'home.hello', { name: user.name, month: thisMonthName })}</p>
+      {
+        result ? (
           <>
-            <h3>{t(locale, 'app.dashboard.agendaNext')}</h3>
-            <UpcomingList entries={upcoming} today={today} tomorrow={addDays(today, 1)} agenda={agenda} group="upcoming-home" />
-          </>
-        )}
-        <a class="touch-link" href="/app/agenda">{t(locale, 'app.dashboard.agendaLink')} →</a>
-      </section>
-    )
-  }
-
-  {
-    summaries.map((summary) => (
-      <section class="card">
-        <div class="stats">
-          <div class="stat">
-            <span class="muted">{t(locale, 'plans.summary.thisMonth')} · {summary.currency}</span>
-            <strong>{formatMinor(summary.thisMonthMinor, summary.currency, locale)}</strong>
-          </div>
-          <div class="stat">
-            <span class="muted">{t(locale, 'plans.summary.remaining')}</span>
-            <strong>{formatMinor(summary.remainingBalanceMinor, summary.currency, locale)}</strong>
-          </div>
-          {summary.debtFreeDate && (
-            <div class="stat">
-              <span class="muted">{t(locale, 'plans.summary.debtFree')}</span>
-              <strong class="milestone">{formatDate(summary.debtFreeDate, locale)}</strong>
+            <p class="home-verdict" id="home-verdict">
+              {result.resultMinor > 0 ? t(locale, 'agenda.result.surplus', { amount: money(result.resultMinor) }) : result.resultMinor < 0 ? t(locale, 'agenda.result.short', { amount: money(-result.resultMinor) }) : t(locale, 'agenda.result.zero')}
+            </p>
+            <div class="home-eq">
+              <div><span>{t(locale, 'home.eq.available')}</span><strong>{money(result.availableMinor)}</strong></div>
+              <span class="home-op" aria-hidden="true">−</span>
+              <div><span>{t(locale, 'home.eq.payable')}</span><strong>{money(result.payableMinor)}</strong></div>
+              <span class="home-op" aria-hidden="true">=</span>
+              <div class:list={['home-eq-result', result.resultMinor < 0 && 'is-short']}>
+                <span>{t(locale, result.resultMinor < 0 ? 'home.eq.short' : 'home.eq.left')}</span><strong>{money(Math.abs(result.resultMinor))}</strong>
+              </div>
             </div>
-          )}
-        </div>
-        <a class="touch-link" href="/app/planes">{t(locale, 'app.dashboard.plans')} →</a>
-      </section>
-    ))
+            {result.receivableMinor > 0 && <p class="home-note">{t(locale, 'home.eq.receivable', { amount: money(result.receivableMinor), after: money(result.resultMinor + result.receivableMinor) })}</p>}
+          </>
+        ) : (
+          <p class="home-verdict" id="home-verdict">{t(locale, 'home.noAgenda')}</p>
+        )
+      }
+      <div class="home-links">
+        <a class="home-pill is-primary" href="/app/agenda">{t(locale, result ? 'app.dashboard.agendaLink' : 'home.setupAgenda')}</a>
+        {canWrite && <a class="home-pill" href="/app/importar">{t(locale, 'app.dashboard.import')}</a>}
+      </div>
+    </section>
+
+    <section class="home-ladder" aria-labelledby="home-ladder-t">
+      <h2 id="home-ladder-t">{t(locale, 'home.ladder.title')} <small>{t(locale, 'home.ladder.sub')}</small></h2>
+      {
+        plans && ladder.length > 0 ? (
+          <>
+            <ol class="home-steps" aria-label={t(locale, 'home.ladder.title')}>
+              {ladder.map((row, index) => (
+                <li class:list={[index === 0 && 'is-now']} title={`${formatMonth(row.month, locale)}: ${money(row.amountMinor)}`}>
+                  <span class="home-step" style={`height:${pct(row.amountMinor, ladderMax)}`}></span>
+                  <span class="home-step-label">{formatMonth(row.month, locale).replace(/\.?\s\d{4}$/, '')}</span>
+                  <span class="sr-only">{formatMonth(row.month, locale)}: {money(row.amountMinor)}</span>
+                </li>
+              ))}
+            </ol>
+            <div class="home-ladder-foot">
+              <div><span>{t(locale, 'plans.summary.thisMonth')}</span><strong>{money(plans.thisMonthMinor)}</strong></div>
+              <div><span>{t(locale, 'plans.summary.remaining')}</span><strong>{money(plans.remainingBalanceMinor)}</strong></div>
+              <div><span>{t(locale, 'plans.summary.active')}</span><strong>{plans.openPlans}</strong></div>
+              {plans.debtFreeDate && <div><span>{t(locale, 'plans.summary.debtFree')}</span><strong class="home-free">{formatMonthLong(plans.debtFreeDate.slice(0, 7), locale)}</strong></div>}
+            </div>
+          </>
+        ) : (
+          <p class="home-empty">{t(locale, 'home.ladder.empty')}</p>
+        )
+      }
+    </section>
+  </div>
+
+  {
+    dash.otherCurrencies.length > 0 && (
+      <p class="hint">{t(locale, 'home.otherCurrencies', { main: currency, others: dash.otherCurrencies.join(', ') })} <a href="/app/planes">{t(locale, 'nav.plans')}</a> · <a href="/app/gastos">{t(locale, 'nav.spending')}</a></p>
+    )
   }
 
   {
-    goalViews.length > 0 && (
+    !dash.hasAccounts && (
       <section class="card">
-        <h2>{t(locale, 'goals.dashboard.title')}<Help topic="goals.dashboard.title" /></h2>
-        <div class="goal-list">{goalViews.map((view) => <GoalCard view={view} compact />)}</div>
-        <a class="touch-link" href="/app/metas">{t(locale, 'goals.dashboard.all')} →</a>
+        <p class="empty">{t(locale, 'accounts.empty')}</p>
+        {canWrite && <a class="btn btn-link" href="/app/bienvenida">{t(locale, 'welcome.title')}</a>}
       </section>
     )
   }
 
-  <section class="card">
-    {
-      accounts.length === 0 ? (
-        <>
-          <p class="empty">{t(locale, 'accounts.empty')}</p>
-          {workspace?.role !== 'viewer' && (
-            <a class="btn btn-link" href="/app/bienvenida">
-              {t(locale, 'welcome.title')}
-            </a>
-          )}
-        </>
-      ) : (
-        <>
-          <h2>{t(locale, 'app.dashboard.accountsList')}<Help topic="app.dashboard.accountsList" /></h2>
-          <ul class="account-links">
-            {accounts.map((account) => (
-              <li>
-                <a href={`/app/cuentas/${account.id}`}>
-                  <span class="activity-icon"><Icon name="landmark" size={20} /></span>
-                  <span>
-                    <strong>{account.name}</strong>
-                    <span class="muted activity-sub">{account.bank} · {tn(locale, 'app.dashboard.cardsCount', account.cards.filter((card) => !card.archivedAt).length)}</span>
+  <div class="home-band">
+    <section class="card home-sec" aria-labelledby="home-pay-t">
+      <div class="home-head"><h2 id="home-pay-t">{t(locale, 'home.pay.title')}</h2><a href="/app/cuentas">{t(locale, 'nav.accounts')}</a></div>
+      {
+        sections && sections.cards.length > 0 ? (
+          <>
+            <p class="home-total"><strong>{money(sections.payTotalMinor)}</strong> <span class="muted">{t(locale, 'home.pay.sub', { month: monthName })}</span></p>
+            <div class="home-stack" aria-hidden="true">{sections.cards.map((card) => <i class={`tone-${card.tone}`} style={`flex:${Math.max(card.payMinor, 1)}`}></i>)}</div>
+            <ul class="home-rows">
+              {sections.cards.map((card) => (
+                <li>
+                  <span class={`tone-dot tone-${card.tone}`} aria-hidden="true"></span>
+                  <span class="home-row-name">
+                    {card.accountName} {card.last4 && <span class="muted">··{card.last4}</span>}
+                    <small class="muted">
+                      {card.dueDate && t(locale, 'home.pay.due', { date: formatDate(card.dueDate, locale) })}
+                      {card.planChargesMinor > 0 && ` · ${t(locale, 'home.pay.plans', { amount: money(card.planChargesMinor) })}`}
+                    </small>
                   </span>
-                </a>
+                  <span class="home-row-money">
+                    {money(card.payMinor)}
+                    {card.basis === 'estimate' && <small class="muted">{t(locale, 'home.pay.estimate')}</small>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p class="empty">{t(locale, 'home.noCuts')}</p>
+        )
+      }
+    </section>
+
+    <section class="card home-sec" aria-labelledby="home-cat-t">
+      <div class="home-head"><h2 id="home-cat-t">{t(locale, 'home.cat.title')}</h2><a href={selection.month ? `/app/gastos?mes=corte:${selection.month}` : '/app/gastos'}>{t(locale, 'nav.spending')}</a></div>
+      {
+        sections && sections.categories.length > 0 ? (
+          <>
+            <p class="home-total"><strong>{money(sections.spendMinor)}</strong> <span class="muted">{t(locale, 'home.cat.sub')}</span></p>
+            <ul class="home-cats">
+              {sections.categories.map((line) => {
+                const delta = line.averageMinor > 0 ? (line.amountMinor - line.averageMinor) / line.averageMinor : 0;
+                return (
+                  <li>
+                    <span>{categoryName(line.categoryId)}</span>
+                    <span>
+                      <b>{money(line.amountMinor)}</b>{' '}
+                      {selection.window.length > 1 && Math.abs(delta) >= 0.05 && <span class:list={['home-delta', delta > 0 ? 'is-up' : 'is-down']}>{delta > 0 ? '+' : ''}{percent(delta)}</span>}
+                    </span>
+                    <span class="home-bar" aria-hidden="true">
+                      <i style={`width:${pct(line.amountMinor, catMax)};background:${categoryColor(line.categoryId)}`}></i>
+                      {selection.window.length > 1 && <b style={`left:${pct(line.averageMinor, catMax)}`}></b>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            {selection.window.length > 1 && <p class="home-legend"><b aria-hidden="true"></b>{t(locale, 'home.cat.average', { n: String(selection.window.length) })}</p>}
+          </>
+        ) : (
+          <p class="empty">{t(locale, sections ? 'home.cat.empty' : 'home.noCuts')}</p>
+        )
+      }
+    </section>
+
+    <section class="card home-sec" aria-labelledby="home-soon-t">
+      <div class="home-head"><h2 id="home-soon-t">{t(locale, 'home.soon.title')}</h2><a href="/app/agenda">{t(locale, 'nav.agenda')}</a></div>
+      {
+        soon.length > 0 ? (
+          <ol class="home-timeline">
+            {soon.map((entry) => (
+              <li class:list={[entry.dueDate === today && 'is-today']}>
+                <span class="home-day"><b>{Number(entry.dueDate.slice(8))}</b><small>{entry.dueDate === today ? t(locale, 'home.soon.today') : weekday(entry.dueDate)}</small></span>
+                <span class="home-what">{entry.description}<small class="muted">{t(locale, entry.kind === 'receivable' ? 'home.soon.receivable' : 'home.soon.payable')}</small></span>
+                <span class:list={['home-row-money', entry.kind === 'receivable' && 'is-in']}>{entry.kind === 'receivable' ? '+' : ''}{money(entry.amountMinor)}</span>
               </li>
             ))}
-          </ul>
-          <div class="row-actions">
-            <a class="touch-link" href="/app/cuentas">{t(locale, 'nav.accounts')} →</a>
-            {workspace?.role !== 'viewer' && summaries.length === 0 && (
-              <a class="btn btn-link" href="/app/importar">
-                <Icon name="upload" size={18} /> {t(locale, 'app.dashboard.import')}
-              </a>
-            )}
-          </div>
-        </>
-      )
-    }
-  </section>
+          </ol>
+        ) : (
+          <p class="empty">{t(locale, 'home.soon.empty')}</p>
+        )
+      }
+    </section>
+  </div>
 
+  {
+    sections && (
+      <div class="home-grid">
+        <section class="card home-sec" aria-labelledby="home-hist-t">
+          <div class="home-head"><h2 id="home-hist-t">{t(locale, 'home.hist.title', { n: String(sections.history.length) })}</h2><a href="/app/gastos">{t(locale, 'nav.spending')}</a></div>
+          <ol class="home-hist">
+            {sections.history.map((point) => (
+              <li class:list={[point.month === selection.month && 'is-now']}>
+                <span class="home-hist-bar" aria-hidden="true">
+                  <i class="is-ant" style={`height:${pct(point.antMinor, histMax)}`}></i>
+                  <i class="is-buy" style={`height:${pct(point.purchasesMinor, histMax)}`}></i>
+                  <i class="is-plan" style={`height:${pct(point.planMinor, histMax)}`}></i>
+                </span>
+                <span class="home-hist-label">{formatMonth(point.month, locale)}</span>
+                <span class="sr-only">{t(locale, 'home.hist.sr', { plans: money(point.planMinor), buys: money(point.purchasesMinor), ant: money(point.antMinor) })}</span>
+              </li>
+            ))}
+          </ol>
+          <p class="home-key"><span><i class="is-plan"></i>{t(locale, 'home.hist.plans')}</span><span><i class="is-buy"></i>{t(locale, 'home.hist.buys')}</span><span><i class="is-ant"></i>{t(locale, 'home.hist.ant')}</span></p>
+        </section>
+
+        <section class="card home-sec" aria-labelledby="home-ant-t">
+          <div class="home-head"><h2 id="home-ant-t">{t(locale, 'home.ant.title')}<Help topic="spending.ant.title" /></h2><a href={`/app/gastos?mes=corte:${selection.month}`}>{t(locale, 'nav.spending')}</a></div>
+          {
+            sections.ant.count > 0 ? (
+              <>
+                <p class="home-total"><strong>{money(sections.ant.amountMinor)}</strong> <span class="muted">{tn(locale, 'home.ant.sub', sections.ant.count)}</span></p>
+                <p>{t(locale, 'home.ant.year', { amount: money(sections.ant.yearlyMinor) })}</p>
+                <ul class="home-rows">
+                  {sections.ant.top.map((merchant) => (
+                    <li>
+                      <span class="home-row-name">{merchant.key}<small class="muted">{tn(locale, 'home.ant.times', merchant.count)}</small></span>
+                      <span class="home-row-money">{money(merchant.amountMinor)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p class="empty">{t(locale, 'home.ant.empty')}</p>
+            )
+          }
+        </section>
+      </div>
+    )
+  }
+
+  {
+    (lines.length > 0 || goalViews.length > 0) && (
+      <div class="home-grid">
+        {lines.length > 0 && (
+          <section class="card home-sec" aria-labelledby="home-line-t">
+            <div class="home-head"><h2 id="home-line-t">{t(locale, 'home.lines.title')}</h2><a href="/app/cuentas">{t(locale, 'nav.accounts')}</a></div>
+            <ul class="home-lines">
+              {lines.map((line) => (
+                <li>
+                  <span class="home-row-name">
+                    <span class={`tone-dot tone-${line.tone}`} aria-hidden="true"></span> {line.accountName} {line.last4 && <span class="muted">··{line.last4}</span>}
+                  </span>
+                  <span class="home-row-money">{percent(line.share)}</span>
+                  <span class="home-bar is-line" aria-hidden="true">
+                    <i class="is-plan" style={`width:${pct(line.plansMinor, line.limitMinor)}`}></i>
+                    <i class="is-buy" style={`width:${pct(line.openChargesMinor, line.limitMinor)}`}></i>
+                  </span>
+                  <small class="muted home-line-sub">{t(locale, 'home.lines.sub', { plans: money(line.plansMinor), buys: money(line.openChargesMinor), limit: money(line.limitMinor) })}</small>
+                </li>
+              ))}
+            </ul>
+            <p class="home-key"><span><i class="is-plan"></i>{t(locale, 'home.lines.plans')}</span><span><i class="is-buy"></i>{t(locale, 'home.lines.buys')}</span></p>
+            <p class="hint">{t(locale, 'home.lines.note')}</p>
+          </section>
+        )}
+        {goalViews.length > 0 && (
+          <section class="card home-sec" aria-labelledby="home-goal-t">
+            <div class="home-head"><h2 id="home-goal-t">{t(locale, 'goals.dashboard.title')}</h2><a href="/app/metas">{t(locale, 'goals.dashboard.all')}</a></div>
+            <div class="goal-list">{goalViews.slice(0, 3).map((view) => <GoalCard view={view} compact />)}</div>
+          </section>
+        )}
+      </div>
+    )
+  }
 </AppLayout>
+
+<style>
+  /* Héroe: banda de marca (navy en claro, grafito en oscuro) con la respuesta y la escalera. */
+  .home-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 1.5rem;
+    margin: 0 0 1.25rem;
+    padding: 1.75rem;
+    border-radius: 20px;
+    color: var(--header-ink);
+    background: var(--header-bg);
+  }
+
+  .home-answer {
+    position: relative;
+    padding-right: 6.5rem;
+  }
+
+  .home-pup {
+    position: absolute;
+    top: -0.5rem;
+    right: 0;
+    width: 6.5rem;
+    height: auto;
+  }
+
+  .home-hello {
+    margin: 0;
+    color: var(--footer-muted);
+  }
+
+  .home-verdict {
+    margin: 0.4rem 0 1rem;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .home-eq {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .home-eq div {
+    display: grid;
+  }
+
+  .home-eq span {
+    font-size: 0.8rem;
+    color: var(--footer-muted);
+  }
+
+  .home-eq strong {
+    font-size: 1.15rem;
+  }
+
+  .home-op {
+    font-size: 1.2rem !important;
+  }
+
+  .home-eq-result {
+    padding: 0.35rem 0.7rem;
+    border-radius: 10px;
+    color: var(--step-text);
+    background: var(--step);
+  }
+
+  .home-eq-result span {
+    color: inherit !important;
+  }
+
+  .home-eq-result.is-short {
+    color: #ffffff;
+    background: var(--terra);
+  }
+
+  .home-note {
+    margin: 0.75rem 0 0;
+    font-size: 0.86rem;
+    color: var(--footer-muted);
+  }
+
+  .home-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+
+  .home-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border: 1px solid var(--header-line);
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--header-ink);
+    text-decoration: none;
+  }
+
+  .home-pill.is-primary {
+    border-color: transparent;
+    color: var(--step-text);
+    background: var(--step);
+  }
+
+  .home-ladder h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+  }
+
+  .home-ladder h2 small {
+    display: block;
+    font-weight: 500;
+    font-size: 0.8rem;
+    color: var(--footer-muted);
+  }
+
+  .home-steps {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 10rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-steps li {
+    flex: 1;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    height: 100%;
+    min-width: 0;
+  }
+
+  .home-step {
+    align-self: end;
+    min-height: 2px;
+    border-radius: 3px 3px 0 0;
+    background: color-mix(in srgb, var(--header-ink) 24%, transparent);
+  }
+
+  .home-steps .is-now .home-step {
+    background: var(--step);
+  }
+
+  .home-step-label {
+    padding-top: 0.25rem;
+    overflow: hidden;
+    font-size: 0.62rem;
+    text-align: center;
+    white-space: nowrap;
+    color: var(--footer-muted);
+  }
+
+  .home-ladder-foot {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--header-line);
+  }
+
+  .home-ladder-foot div {
+    display: grid;
+  }
+
+  .home-ladder-foot span {
+    font-size: 0.75rem;
+    color: var(--footer-muted);
+  }
+
+  .home-free {
+    color: var(--step);
+  }
+
+  .home-empty {
+    color: var(--footer-muted);
+  }
+
+  /* Secciones */
+  .home-band {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .home-sec {
+    margin: 0;
+  }
+
+  .home-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .home-head h2 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .home-head a {
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .home-total {
+    margin: 0 0 0.75rem;
+  }
+
+  .home-total strong {
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .home-stack {
+    display: flex;
+    gap: 2px;
+    height: 10px;
+    margin-bottom: 0.75rem;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .home-stack i {
+    background: var(--tone);
+  }
+
+  .home-rows,
+  .home-cats,
+  .home-timeline,
+  .home-lines {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-rows li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .home-rows li:not(:has(.tone-dot)) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .home-row-name {
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .home-row-name small,
+  .home-what small,
+  .home-row-money small {
+    display: block;
+    font-weight: 500;
+    font-size: 0.78rem;
+  }
+
+  .home-row-money {
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .home-row-money.is-in {
+    color: var(--good);
+  }
+
+  .home-cats li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.25rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .home-bar {
+    position: relative;
+    grid-column: 1 / -1;
+    display: flex;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--bg);
+  }
+
+  .home-bar i {
+    height: 100%;
+    border-radius: 999px;
+  }
+
+  .home-bar b {
+    position: absolute;
+    top: -3px;
+    width: 2px;
+    height: 14px;
+    background: var(--text);
+  }
+
+  .home-delta {
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .home-delta.is-up {
+    color: var(--warn);
+  }
+
+  .home-delta.is-down {
+    color: var(--good);
+  }
+
+  .home-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .home-legend b {
+    width: 2px;
+    height: 14px;
+    background: var(--text);
+  }
+
+  .home-timeline li {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .home-day {
+    display: grid;
+    justify-items: center;
+    padding: 0.3rem 0;
+    border-radius: 10px;
+    background: var(--bg);
+  }
+
+  .home-day b {
+    font-size: 1.05rem;
+    line-height: 1.1;
+  }
+
+  .home-day small {
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .is-today .home-day {
+    color: var(--step-text);
+    background: var(--step-soft);
+    box-shadow: inset 0 0 0 2px var(--step);
+  }
+
+  .home-what {
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  /* Historial: barras apiladas por corte */
+  .home-hist {
+    display: flex;
+    align-items: stretch;
+    gap: 0.75rem;
+    height: 12rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-hist li {
+    flex: 1;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    min-width: 0;
+  }
+
+  .home-hist-bar {
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    align-self: stretch;
+    overflow: hidden;
+    border-radius: 6px 6px 0 0;
+  }
+
+  .home-hist-bar i {
+    display: block;
+    flex: none;
+  }
+
+  .home-hist-label {
+    padding-top: 0.3rem;
+    font-size: 0.75rem;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .home-hist .is-now .home-hist-label {
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  .is-plan {
+    background: var(--bar-a);
+  }
+
+  .is-buy {
+    background: var(--sky);
+  }
+
+  .is-ant {
+    background: var(--step);
+  }
+
+  .home-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0.75rem 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .home-key span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .home-key i {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+
+  .home-lines li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.3rem 0.75rem;
+  }
+
+  .home-bar.is-line {
+    height: 10px;
+    overflow: hidden;
+  }
+
+  .home-bar.is-line i {
+    border-radius: 0;
+  }
+
+  .home-line-sub {
+    grid-column: 1 / -1;
+    font-size: 0.78rem;
+  }
+
+  @media (max-width: 62rem) {
+    .home-hero,
+    .home-band,
+    .home-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .home-hero {
+      padding: 1.25rem;
+      margin-inline: -0.25rem;
+    }
+
+    .home-answer {
+      padding-right: 5rem;
+    }
+
+    .home-pup {
+      width: 5rem;
+    }
+
+    /* Tienes hoy − Por pagar en una fila y el resultado abajo. */
+    .home-eq {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .home-op {
+      display: none;
+    }
+
+    .home-eq-result {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+
+    .home-step-label {
+      font-size: 0.55rem;
+    }
+
+    .home-hist {
+      gap: 0.4rem;
+    }
+  }
+</style>
