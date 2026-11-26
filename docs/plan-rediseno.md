@@ -9,15 +9,13 @@ Base visual: las maquetas de `docs/propuestas/` (empieza por `index.html`). Cada
 - Lo que hoy funciona no se rompe: cada pantalla nueva reemplaza a la anterior en el mismo PR, con sus pruebas de humo (`pnpm smoke:*`).
 - Migraciones de D1 con respaldo previo de producción, como hasta ahora.
 
-## Fase 0 · Cimientos visuales
+## Fase 0 · Cimientos visuales (hecha)
 
-1. **Tokens**: sumar a `global.css` los acompañantes de las maquetas (salvia, terracota, cielo, marfil, `--gold-soft`, `--bar-a`) en claro y oscuro. El tema efectivo siempre en `data-theme`, también cuando viene del sistema.
-2. **Encabezado fijo** (sticky) y selector de corte en el encabezado.
-3. **Tarjetas**: migración que agrega a `cards`:
-   - `tone` (color de la tarjeta en toda la app; se asigna automático al crearla y se puede cambiar),
-   - `network` (`visa` | `mastercard` | `amex` | `other`; se elige al dar de alta, porque con los últimos 4 dígitos no se puede saber).
-4. **Mascota**: pasar las poses sin fondo a `public/brand/mascota/` en WebP optimizado (saluda, teléfono, lista, sobre, alcancía, presentando).
-5. **Componentes base**: `Plastic` (tarjeta con red y uso), `StepChart` (escalera), `Donut`, `Meter`, `Segments` (avance por pago), `MascotCard`.
+1. **Tokens**: acompañantes de las maquetas (salvia, terracota, cielo, marfil, `--gold-soft`, `--bar-a`) en `global.css`. `data-theme` lleva siempre el tema efectivo, también cuando viene del sistema.
+2. **Encabezado fijo** y **selector de corte**: elige el *mes del corte* (`?corte=AAAA-MM`) y cada tarjeta usa su corte de ese mes. Solo aparece en las páginas que lo pasan a `AppLayout` (`period`); hoy, `/app/gastos/corte`. En el celular muestra el mes corto y el botón de tema se queda en el menú.
+3. **Tarjetas** (migración 0021): `tone` (`navy` | `sage` | `terra` | `gold` | `sky` | `graphite`; nulo = automático, un color por cuenta en orden de alta) y `network` (`visa` | `mastercard` | `amex` | `other`; nulo = no la eligió). Se eligen en el formulario de tarjeta.
+4. **Mascota**: `public/brand/mascota/` en WebP (listo, lista, saluda, sobre, teléfono). Faltan alcancía y presentando sin fondo.
+5. **Componentes base**: `Plastic` ya está en `/app/cuentas`. `StepChart`, `Donut`, `Meter`, `Segments` y `MascotCard` llegan con la primera pantalla que los use (Fases 2–4), para no tener código sin usar.
 
 ## Fase 1 · Beta pública: landing, entrar y pedir invitación
 
@@ -27,7 +25,7 @@ Base visual: las maquetas de `docs/propuestas/` (empieza por `index.html`). Cada
 - Formulario «Pide tu invitación» en la landing.
 
 ### Datos
-Migración 0021: toda solicitud se guarda como usuario en `user`, para que aparezca en **Cuentas** del admin.
+Migración 0022: toda solicitud se guarda como usuario en `user`, para que aparezca en **Cuentas** del admin.
 - `approval_status`: `approved` (por defecto; los usuarios actuales quedan así) | `pending` | `rejected`.
 - `requested_at`, `reviewed_at`, `reviewed_by`, `review_note`.
 - `signup_interest` (lo que eligió: tarjetas, pagos y cobros, gastos, ahorro).

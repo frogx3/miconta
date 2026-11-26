@@ -1,6 +1,7 @@
 import { t } from '../../i18n/messages';
 import type { Locale } from '../locale';
 import { formatMinor } from '../money-format';
+import { CARD_TONES, type CardTone } from './validation';
 
 /** Nombre legible de una tarjeta para listados y selectores: "Mi Banorte ···· 4172 · Física". */
 export function cardDisplay(card: { accountName: string; last4: string | null; label?: string | null }): string {
@@ -46,4 +47,17 @@ export function cardFacts(
     cutoff: isCredit ? day(card.cutoffDay) : '',
     due: isCredit ? day(card.paymentDueDay) : '',
   };
+}
+
+/**
+ * Color de cada tarjeta: el que eligió la persona o, si no eligió, uno automático por cuenta (las tarjetas de una cuenta
+ * comparten color). Las cuentas se ordenan por fecha de alta para que el color no cambie al archivar o renombrar.
+ */
+export function cardTones(accounts: { id: string; createdAt: Date; cards: { id: string; tone: CardTone | null }[] }[]): Map<string, CardTone> {
+  const byAge = [...accounts].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
+  const tones = new Map<string, CardTone>();
+  byAge.forEach((account, index) => {
+    for (const card of account.cards) tones.set(card.id, card.tone ?? CARD_TONES[index % CARD_TONES.length]!);
+  });
+  return tones;
 }

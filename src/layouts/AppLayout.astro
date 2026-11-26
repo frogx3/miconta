@@ -5,19 +5,21 @@ import SiteFooter from '../components/SiteFooter.astro';
 import Notices from '../components/Notices.astro';
 import { t } from '../i18n/messages';
 import type { NavKey } from '../lib/nav';
+import type { ComponentProps } from 'astro/types';
 
 interface Props {
   title: string;
   active?: NavKey;
+  period?: ComponentProps<typeof SiteHeader>['period'];
 }
 
-const { title, active } = Astro.props;
+const { title, active, period } = Astro.props;
 const { locale, workspace } = Astro.locals;
 const readOnly = workspace?.role === 'viewer';
 ---
 
 <Base title={title}>
-  <SiteHeader area="app" active={active} readOnly={readOnly} />
+  <SiteHeader area="app" active={active} readOnly={readOnly} period={period} />
   <main class="shell" id="main" tabindex="-1">
     {readOnly && <p class="alert">{t(locale, 'common.readOnly')}</p>}
     <Notices />

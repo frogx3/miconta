@@ -13,8 +13,8 @@ import { messagesFor, t, tn } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { formatDate, todayISO } from '../../../lib/date-format';
 import { formatMinor } from '../../../lib/money-format';
-import { accountActivity, cardsInUse, getAccount } from '../../../lib/accounts/repo';
-import { cardFacts } from '../../../lib/accounts/format';
+import { accountActivity, cardsInUse, getAccount, listAccounts } from '../../../lib/accounts/repo';
+import { cardFacts, cardTones } from '../../../lib/accounts/format';
 import { listPlans, payDateResolver } from '../../../lib/plans/repo';
 import { summarize } from '../../../lib/plans/schedule';
 
@@ -25,6 +25,7 @@ const db = getDb();
 const account = await getAccount(db, workspace.id, Astro.params.id!);
 if (!account) return Astro.redirect('/app/cuentas');
 const inUse = await cardsInUse(db, workspace.id, account.id);
+const tones = cardTones(await listAccounts(db, workspace.id, true));
 const activity = await accountActivity(db, workspace.id, account.id, account.cards.map((card) => card.id));
 // Lo que cuesta esta cuenta: el mismo cálculo del Panel, solo con los planes de esta cuenta.
 const status = summarize((await listPlans(db, workspace.id)).filter((plan) => plan.accountId === account.id), todayISO(Astro.locals.timeZone), 36, await payDateResolver(db, workspace.id));
@@ -141,7 +142,7 @@ const addMovementHref = `/app/gastos/movimientos?mes=todo&filtro=${scopeLinks}&a
               <div class="card-head">
                 <div class="card-head-main">
                   <span class="card-row-title">
-                    <Icon name="card" size={20} />
+                    <span class={`tone-dot tone-${tones.get(card.id)}`} aria-hidden="true"></span>
                     <strong data-fact="type">{facts.type}</strong>
                     <span class="chip" data-fact="last4">{facts.last4}</span>
                     <span class="muted" data-fact="label">{facts.label}</span>

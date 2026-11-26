@@ -3,6 +3,11 @@ import { currencyDigits, parseMoneyInput } from '../money-format';
 
 export const CARD_KINDS = ['credit', 'debit'] as const;
 export type CardKindValue = (typeof CARD_KINDS)[number];
+/** Colores de tarjeta, en el orden en que se asignan automáticamente por cuenta. */
+export const CARD_TONES = ['navy', 'sage', 'terra', 'gold', 'sky', 'graphite'] as const;
+export type CardTone = (typeof CARD_TONES)[number];
+export const CARD_NETWORKS = ['visa', 'mastercard', 'amex', 'other'] as const;
+export type CardNetwork = (typeof CARD_NETWORKS)[number];
 
 export type ValidationCode = 'required' | 'too_long' | 'invalid_kind' | 'invalid_currency' | 'invalid_amount' | 'invalid_day' | 'invalid_digits';
 export interface FieldError {
@@ -28,6 +33,8 @@ export interface CardInput {
   creditLimitMinor: number | null;
   cutoffDay: number | null;
   paymentDueDay: number | null;
+  tone: CardTone | null;
+  network: CardNetwork | null;
 }
 
 type Result<T> = { ok: true; value: T } | { ok: false; errors: FieldError[] };
@@ -105,6 +112,9 @@ export function validateCardInput(raw: Record<string, unknown>, locale: string):
     errors.push({ field: 'cutoffDay', code: 'required' });
   }
   const paymentDueDay = optionalDay(raw.paymentDueDay, 'paymentDueDay', errors);
+  // Vacío o desconocido = automático / sin elegir; no es un error.
+  const tone = oneOf(CARD_TONES, raw.tone);
+  const network = oneOf(CARD_NETWORKS, raw.network);
 
   if (errors.length > 0 || !kind) return { ok: false, errors };
   return {
@@ -118,6 +128,8 @@ export function validateCardInput(raw: Record<string, unknown>, locale: string):
       creditLimitMinor,
       cutoffDay: kind === 'credit' ? cutoffDay : null,
       paymentDueDay: kind === 'credit' ? paymentDueDay : null,
+      tone,
+      network,
     },
   };
 }

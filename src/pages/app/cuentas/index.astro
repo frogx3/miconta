@@ -2,6 +2,8 @@
 import AppLayout from '../../../layouts/AppLayout.astro';
 import Help from '../../../components/Help.astro';
 import Icon from '../../../components/Icon.astro';
+import Plastic from '../../../components/Plastic.astro';
+import { cardTones } from '../../../lib/accounts/format';
 import { t } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { listAccounts } from '../../../lib/accounts/repo';
@@ -14,7 +16,10 @@ const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
 
 const showArchived = Astro.url.searchParams.get('archivadas') === '1';
-const accounts = await listAccounts(getDb(), workspace.id, showArchived);
+// Todas, también las archivadas, para que el color automático de cada tarjeta no cambie al mostrarlas u ocultarlas.
+const allAccounts = await listAccounts(getDb(), workspace.id, true);
+const tones = cardTones(allAccounts);
+const accounts = showArchived ? allAccounts : allAccounts.filter((account) => !account.archivedAt);
 const canWrite = workspace.role !== 'viewer';
 const [allPlans, payDateOf] = await Promise.all([listPlans(getDb(), workspace.id), payDateResolver(getDb(), workspace.id)]);
 const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => plan.accountId === accountId), todayISO(Astro.locals.timeZone), 36, payDateOf).find((entry) => entry.thisMonthMinor > 0);
@@ -62,16 +67,12 @@ const thisMonth = (accountId: string) => summarize(allPlans.filter((plan) => pla
                 {active.length === 0 ? (
                   <span class="muted">{t(locale, 'accounts.noCards')}</span>
                 ) : (
-                  <ul class="card-lines">
+                  <ul class="plastics">
                     {active.map((card) => (
                       <li>
-                        <Icon name="card" size={18} />
-                        <span>
-                          {t(locale, `card.type.${card.kind}${card.isDigital ? '.digital' : ''}`)}
-                          {card.last4 ? ` ···· ${card.last4}` : ''}
-                        </span>
+                        <Plastic kind={card.kind} isDigital={card.isDigital} last4={card.last4} tone={tones.get(card.id)!} network={card.network} />
                         {card.kind === 'credit' && card.paymentDueDay != null && (
-                          <span class="muted">· {t(locale, 'accounts.cardLine.due', { day: String(card.paymentDueDay) })}</span>
+                          <span class="plastic-facts muted">{t(locale, 'accounts.cardLine.due', { day: String(card.paymentDueDay) })}</span>
                         )}
                       </li>
                     ))}

@@ -149,7 +149,8 @@ if (section) {
 
       const row = form.closest<HTMLElement>('[data-card-row]');
       const facts = result.facts;
-      // Si cambió entre crédito y débito, la fila cambia de forma: se recarga.
+      // Si cambió entre crédito y débito, o el color o la red, la fila cambia de forma: se recarga.
+      if (`${data.tone ?? ''}|${data.network ?? ''}` !== form.dataset.look) return location.reload();
       if (!facts || !row || (facts.isCredit === true) !== (row.querySelector('[data-fact="limit"]') !== null)) return location.reload();
       for (const [key, value] of Object.entries(facts)) {
         const el = row.querySelector<HTMLElement>(`[data-fact="${key}"]`);

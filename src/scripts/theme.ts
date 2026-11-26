@@ -18,10 +18,9 @@ const stored = (): Choice => {
 };
 
 function apply(choice: Choice) {
-  if (choice === 'system') root.removeAttribute('data-theme');
-  else root.setAttribute('data-theme', choice);
+  // data-theme lleva siempre el tema efectivo, también cuando sigue al sistema.
   const effective = choice === 'system' ? (dark.matches ? 'dark' : 'light') : choice;
-  root.setAttribute('data-mode', effective);
+  root.setAttribute('data-theme', effective);
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', effective === 'dark' ? '#1b1917' : '#ffffff');
   document.querySelectorAll<HTMLInputElement>('input[data-theme-choice]').forEach((input) => (input.checked = input.value === choice));
 }
@@ -42,6 +41,6 @@ dark.addEventListener('change', () => {
 });
 
 document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]').forEach((button) =>
-  button.addEventListener('click', () => choose(root.getAttribute('data-mode') === 'dark' ? 'light' : 'dark')),
+  button.addEventListener('click', () => choose(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark')),
 );
 document.querySelectorAll<HTMLInputElement>('input[data-theme-choice]').forEach((input) => input.addEventListener('change', () => choose(input.value as Choice)));

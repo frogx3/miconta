@@ -220,6 +220,10 @@ export const cards = sqliteTable(
     /** Día del mes del corte (1-31). */
     cutoffDay: integer('cutoff_day'),
     paymentDueDay: integer('payment_due_day'),
+    /** Color de la tarjeta en toda la app (ver CARD_TONES); nulo = automático por cuenta. */
+    tone: text('tone', { enum: ['navy', 'sage', 'terra', 'gold', 'sky', 'graphite'] }),
+    /** Red de la tarjeta; con los últimos 4 dígitos no se puede deducir, la elige la persona. */
+    network: text('network', { enum: ['visa', 'mastercard', 'amex', 'other'] }),
     archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

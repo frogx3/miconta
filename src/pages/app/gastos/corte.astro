@@ -6,7 +6,7 @@ import { listAccounts } from '../../../lib/accounts/repo';
 import { messagesFor, t } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { lastCutoffDate } from '../../../lib/cutoff';
-import { formatDate, formatMonthLong, todayISO } from '../../../lib/date-format';
+import { formatDate, formatMonth, formatMonthLong, todayISO } from '../../../lib/date-format';
 import { formatMinor, toInputString } from '../../../lib/money-format';
 import { listPlans } from '../../../lib/plans/repo';
 import { shiftMonth, thresholdFor } from '../../../lib/spending/analysis';
@@ -124,9 +124,11 @@ const official = view?.recorded?.officialPayMinor ?? null;
 const messages = messagesFor(locale, ['statement.', 'validation.', 'common.']);
 const periodLabel = view?.kind === 'cut' ? t(locale, 'statement.period', { from: formatDate(view.from!, locale), to: formatDate(view.to!, locale) }) : view?.kind === 'open' ? `${t(locale, 'movements.period.sinceLast')} · ${t(locale, 'movements.period.from', { from: formatDate(view.from!, locale) })}` : '';
 const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName', { month: formatMonthLong(view.key, locale) }) : '';
+const cutHref = (key: string | null | undefined) => (key ? `/app/gastos/corte?${accountQuery}corte=${key}` : null);
+const headerPeriod = view && view.kind !== 'none' ? { label: cutTitle || t(locale, 'movements.period.sinceLast'), short: view.kind === 'cut' ? formatMonth(view.key, locale) : t(locale, 'statement.open'), prev: cutHref(view.prev), next: cutHref(view.next) } : undefined;
 ---
 
-<AppLayout title={t(locale, 'statement.title')} active="spending">
+<AppLayout title={t(locale, 'statement.title')} active="spending" period={headerPeriod}>
   <h1>{t(locale, 'spending.title')}<Help topic="spending.statement" term={t(locale, 'spending.title')} /></h1>
   <SpendingTabs active="statement" />
 
@@ -155,12 +157,10 @@ const cutTitle = view?.kind === 'cut' ? t(locale, 'movements.period.cutoffName',
         {
           view.kind !== 'none' ? (
             <>
-              <div class="month-nav">
-                {view.prev ? <a href={`/app/gastos/corte?${accountQuery}corte=${view.prev}`} aria-label={t(locale, 'statement.prev')}>←</a> : <span class="muted">←</span>}
+              <p class="period-line">
                 <strong>{cutTitle && `${cutTitle} · `}{periodLabel}</strong>
-                {view.next ? <a href={`/app/gastos/corte?${accountQuery}corte=${view.next}`} aria-label={t(locale, 'statement.next')}>→</a> : <span class="muted">→</span>}
                 {view.kind === 'open' && <span class="badge">{t(locale, 'statement.open')}</span>}
-              </div>
+              </p>
               <p class="muted">{t(locale, 'statement.scope', { account: account.name, count: String(selected!.entry.cards.filter((card) => !card.archivedAt).length) })}</p>
               {view.kind === 'open' && <p class="hint">{t(locale, 'statement.openNote')}</p>}
               <aside class="notice" role="note">
