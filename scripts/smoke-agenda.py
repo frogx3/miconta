@@ -7,7 +7,7 @@ Requiere:
        WHATSAPP_NOTIFICATIONS=true, KAPSO_API_KEY=test-key, KAPSO_PHONE_NUMBER_ID=000,
        KAPSO_WEBHOOK_SECRET=<aleatorio>, KAPSO_REMINDER_TEMPLATE=recordatorio_pago, KAPSO_BUSINESS_PHONE=5210000000000
      y `pnpm exec astro dev --background` (reiniciarlo tras editar .dev.vars).
-  2. SMOKE_KAPSO_SECRET=<el mismo KAPSO_WEBHOOK_SECRET> en el entorno.
+  2. SMOKE_KAPSO_SECRET=<el mismo KAPSO_WEBHOOK_SECRET> en el entorno. Sin ella, la sección del webhook se salta con aviso.
   3. Opcional, para el cron: `pnpm build && pnpm exec wrangler dev --local --persist-to .wrangler/state --port 8788` (misma D1 que astro dev) y
      SMOKE_CRON_URL=http://localhost:8788. Sin esa variable la sección del cron se salta.
 No necesita una D1 vacía: crea espacios y usuarios nuevos (@miconta.test, correos aleatorios) con invitaciones
@@ -38,8 +38,6 @@ RUN = secrets.token_hex(4)
 SECRET = os.environ.get("SMOKE_KAPSO_SECRET", "")
 CRON_URL = os.environ.get("SMOKE_CRON_URL", "")
 FAILED = False
-if not SECRET:
-    sys.exit("Falta SMOKE_KAPSO_SECRET (debe coincidir con KAPSO_WEBHOOK_SECRET de .dev.vars)")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -102,6 +100,7 @@ def new_user(label, workspace, role):
     token = secrets.token_urlsafe(24)
     expires = int((datetime.datetime.now().timestamp() + 3600) * 1000)
     d1(f"INSERT INTO workspace_invitations (id, workspace_id, token_hash, role, created_by, expires_at) VALUES ('inv-{RUN}-{label}', '{workspace}', '{hashlib.sha256(token.encode()).hexdigest()}', '{role}', '{creator}', {expires})")
+    time.sleep(6)  # Better Auth limita los registros (3 cada 10 s por IP): con 6 s nunca caen 3 en la misma ventana.
     client = Client()
     email = f"agenda-{label}-{RUN}@miconta.test"
     status, body = client.call("POST", "/api/auth/sign-up/email", {"name": f"Agenda {label}", "email": email, "password": PW}, headers={"x-invite-token": token})
@@ -130,13 +129,19 @@ next_after_anchor = next_after_anchor.replace(day=calendar.monthrange(next_after
 print("1) Saldos, pagos y cobros del dueño")
 d1(f"INSERT INTO accounts (id, workspace_id, name, bank) VALUES ('acc-deb-{RUN}', '{ws_a}', 'Nómina', 'Banorte')")
 d1(f"INSERT INTO cards (id, workspace_id, account_id, kind, last4, currency) VALUES ('card-deb-{RUN}', '{ws_a}', 'acc-deb-{RUN}', 'debit', '1111', 'MXN')")
-status, body = a.call("PUT", "/api/agenda/balances", {"cardId": f"card-deb-{RUN}", "amount": "10,000.00"})
-check("saldo de la tarjeta de débito", 200, status)
-# Sin cuerpo: esta ruta (fuera de la agenda) no lo lee al rechazar y en desarrollo eso rompería la siguiente petición.
-check("quitar la débito con saldo: 409 CARD_IN_USE (no 500)", 409, a.call("DELETE", f"/api/accounts/acc-deb-{RUN}/cards/card-deb-{RUN}")[0])
-status, body = a.call("PUT", "/api/agenda/balances", {"label": "Efectivo", "amount": "2000"})
-check("renglón libre de saldo", 200, status)
-free_balance = body.get("id")
+
+def balance_of(ws):
+    return scalar(f"SELECT coalesce(sum(amount_minor), 0) FROM balance_movements WHERE workspace_id='{ws}'")
+
+
+# Saldo global por espacio (historial en balance_movements): cada captura guarda la diferencia como ajuste.
+status, body = a.call("PUT", "/api/agenda/balances", {"amount": "10,000.00"})
+check("saldo inicial", (200, "saved"), (status, body.get("result")))
+status, body = a.call("PUT", "/api/agenda/balances", {"amount": "12,000.00"})
+check("corregir el saldo guarda la diferencia como ajuste", (200, "saved", 1200000), (status, body.get("result"), balance_of(ws_a)))
+check("…con un movimiento inicial y un ajuste", [("opening", 1000000), ("adjustment", 200000)], [tuple(r.values()) for r in d1(f"SELECT kind, amount_minor FROM balance_movements WHERE workspace_id='{ws_a}' ORDER BY kind DESC")])
+check("el mismo saldo no guarda nada", (200, "unchanged"), (lambda r: (r[0], r[1].get("result")))(a.call("PUT", "/api/agenda/balances", {"amount": "12000"})))
+check("validación: saldo inválido", 400, a.call("PUT", "/api/agenda/balances", {"amount": "abc"})[0])
 status, body = a.call("POST", "/api/agenda/items", {"kind": "payable", "description": "Renta", "amount": "5,000.00", "dueDate": anchor.isoformat(), "recurrence": "monthly"})
 check(f"pago mensual el {anchor.isoformat()}", 201, status)
 rent = body.get("id")
@@ -153,12 +158,14 @@ while d <= month_end:
     rent_count += 1
     nxt = datetime.date(d.year + d.month // 12, d.month % 12 + 1, 1)
     d = nxt.replace(day=calendar.monthrange(nxt.year, nxt.month)[1])
-expected = 12000 + 3000 - 5000 * rent_count
+expected = 12000 - 5000 * rent_count
 status, html = a.call("GET", "/app/agenda", raw=True)
 page = text_of(html)
 check("la página carga", 200, status)
 check("muestra Renta y Cobro cliente", (True, True), ("Renta" in page, "Cobro cliente" in page))
-check(f"disponible $12,000.00 + por cobrar $3,000.00 − por pagar ${5000 * rent_count:,}.00", True, bool(re.search(rf"disponible \$12,000\.00 \+ por cobrar \$3,000\.00 − por pagar \${5000 * rent_count:,}\.00", page)))
+# Un cobro cuenta hasta que se marca cobrado: el resultado solo resta lo por pagar.
+math = f"disponible $12,000.00 − por pagar ${5000 * rent_count:,}.00 · por cobrar $3,000.00 (cuenta al cobrarlo)"
+check(math, True, math in page)
 answer = f"te sobran ${expected:,}.00" if expected > 0 else f"te faltan ${-expected:,}.00"
 check(f"resultado: {answer}", True, answer in page)
 
@@ -222,21 +229,24 @@ check("V no crea pagos", 403, v.call("POST", "/api/agenda/items", {"kind": "paya
 check("V no edita", 403, v.call("PATCH", f"/api/agenda/items/{receivable}", {"kind": "receivable", "description": "x", "amount": "1", "dueDate": month_end.isoformat()})[0])
 check("V no cancela", 403, v.call("DELETE", f"/api/agenda/items/{receivable}", {})[0])
 check("V no marca como hecho", 403, v.call("POST", f"/api/agenda/items/{receivable}/done", {})[0])
-check("V no guarda saldos", 403, v.call("PUT", "/api/agenda/balances", {"label": "x", "amount": "1"})[0])
-check("V no quita saldos", 403, v.call("DELETE", f"/api/agenda/balances/{free_balance}", {})[0])
+check("V no guarda el saldo", 403, v.call("PUT", "/api/agenda/balances", {"amount": "1"})[0])
 html_b = text_of(b.call("GET", "/app/agenda", raw=True)[1])
 check("B no ve los registros de A", (False, False), ("Renta" in html_b, "Cobro cliente" in html_b))
 check("B no edita el cobro de A", 404, b.call("PATCH", f"/api/agenda/items/{receivable}", {"kind": "receivable", "description": "x", "amount": "1", "dueDate": month_end.isoformat()})[0])
 check("B no lo cancela", 404, b.call("DELETE", f"/api/agenda/items/{receivable}", {})[0])
 check("B no lo marca como hecho", 404, b.call("POST", f"/api/agenda/items/{receivable}/done", {})[0])
 check("B no lo deshace", 404, b.call("POST", f"/api/agenda/items/{rent}/undo", {})[0])
-check("B no edita el saldo libre de A", 404, b.call("PUT", "/api/agenda/balances", {"id": free_balance, "label": "x", "amount": "1"})[0])
-check("B no quita el saldo libre de A", 404, b.call("DELETE", f"/api/agenda/balances/{free_balance}", {})[0])
-check("B no guarda saldo en la débito de A", 404, b.call("PUT", "/api/agenda/balances", {"cardId": f"card-deb-{RUN}", "amount": "1"})[0])
+# El saldo es del espacio activo: lo que B mande (aun con ids de A) solo toca el saldo de B.
+balance_a = balance_of(ws_a)
+status = b.call("PUT", "/api/agenda/balances", {"id": "x", "cardId": f"card-deb-{RUN}", "workspaceId": ws_a, "amount": "1"})[0]
+check("B guarda su propio saldo y no toca el de A", (200, 100, balance_a), (status, balance_of(ws_b), balance_of(ws_a)))
 check("el cobro de A sigue intacto", ("Cobro cliente", "pending"), tuple(d1(f"SELECT description, status FROM agenda_items WHERE id='{receivable}'")[0].values()))
 check("cancelar el cobro (A)", (200, "cancelled"), (a.call("DELETE", f"/api/agenda/items/{receivable}", {})[0], scalar(f"SELECT status FROM agenda_items WHERE id='{receivable}'")))
-check("quitar el saldo libre (A)", 200, a.call("DELETE", f"/api/agenda/balances/{free_balance}", {})[0])
 
+if not SECRET:
+    print("5) Webhook de Kapso: SE SALTA. Falta SMOKE_KAPSO_SECRET (igual a KAPSO_WEBHOOK_SECRET de .dev.vars, con WHATSAPP_NOTIFICATIONS=true)")
+    print("TODO OK (sin WhatsApp)" if not FAILED else "HAY FALLOS")
+    sys.exit(1 if FAILED else 0)
 print("5) Webhook de Kapso")
 PHONE_A, PHONE_V = f"52100{secrets.randbelow(10**8):08d}", f"52100{secrets.randbelow(10**8):08d}"
 
