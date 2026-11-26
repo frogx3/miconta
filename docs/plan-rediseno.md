@@ -120,6 +120,11 @@ Lógica en `src/lib/spending/insights.ts`.
 - **Gastos:** dona animada, gasto día por día, presupuesto con tope, hormiga y tendencia por categoría; movimientos con selección múltiple y «crear regla».
 
 ## Fase 5 · Metas, Importar y Tu cuenta
+
+**Metas (hecho):** «Vas bien en X de tus N metas» con la mascota y la que más pide atención; cada tipo con su forma:
+ahorro = frasco que se llena, libre de pagos y liquidar un plan = línea de tiempo de hoy a la fecha con el último pago,
+tope de hormiga = barra con la marca del tope y los meses ✓/✕. En la portada sigue la barra simple
+(`src/lib/goals/visual.ts`).
 - **Metas:** una forma por tipo de meta (frasco, escalera con fecha, tope de hormiga, liquidar con abono extra).
 - **Importar:** primero se elige CSV o PDF (como ya hace `/app/importar`). CSV: asistente en 4 pasos con el mosaico del archivo y la plantilla descargable. PDF (`/app/importar/pdf`): mismos 4 pasos visuales sobre el flujo que ya existe (tablas → revisar → diferencias → guardar lo marcado → listo con botón al historial); el mosaico muestra qué renglones coinciden, faltan o difieren. Las capas bajo modales, menú y avisos ya oscurecen y desenfocan lo de atrás; el rediseño las conserva.
 - **Tu cuenta:** tarjeta de miembro (muestra «Beta» si `beta_member`), personas, avisos, respaldo y zona de peligro.
