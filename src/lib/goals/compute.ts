@@ -120,6 +120,8 @@ export interface AntGoalProgress {
   /** De los últimos meses completos con movimientos, en cuántos estuvo bajo el tope. */
   monthsUnder: number;
   monthsMeasured: number;
+  /** Los meses cerrados medidos, del más antiguo al más reciente, y si quedaron bajo el tope. */
+  months: { month: string; antMinor: number; under: boolean }[];
 }
 
 /** Tope mensual de gasto hormiga: el mes en curso contra el tope y el historial de los meses ya cerrados. */
@@ -131,5 +133,6 @@ export function antGoalProgress(capMinor: number, points: readonly { month: stri
     status: budgetStatus(current, capMinor),
     monthsUnder: closed.filter((point) => point.antMinor <= capMinor).length,
     monthsMeasured: closed.length,
+    months: closed.map((point) => ({ month: point.month, antMinor: point.antMinor, under: point.antMinor <= capMinor })),
   };
 }

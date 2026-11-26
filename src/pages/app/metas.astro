@@ -9,6 +9,7 @@ import { buildGoalViews } from '../../lib/goals/view';
 import { GOAL_TYPES } from '../../lib/goals/validation';
 import { listPlans } from '../../lib/plans/repo';
 import { isOpen } from '../../lib/plans/schedule';
+import { goalsTally } from '../../lib/goals/visual';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -16,12 +17,17 @@ if (!workspace) return Astro.redirect('/login');
 const db = getDb();
 const showArchived = Astro.url.searchParams.get('archivadas') === '1';
 const canWrite = workspace.role !== 'viewer';
-const [views, plans] = await Promise.all([buildGoalViews(db, workspace.id, todayISO(Astro.locals.timeZone), showArchived), canWrite ? listPlans(db, workspace.id) : Promise.resolve([])]);
+const today = todayISO(Astro.locals.timeZone);
+const [views, plans] = await Promise.all([buildGoalViews(db, workspace.id, today, showArchived), canWrite ? listPlans(db, workspace.id) : Promise.resolve([])]);
 const openPlans = plans.filter(isOpen);
 const active = views.filter((view) => !view.goal.archivedAt);
 const archived = views.filter((view) => view.goal.archivedAt);
 const messages = messagesFor(locale, ['goals.', 'validation.', 'common.']);
 const currency = workspace.defaultCurrency;
+const tally = goalsTally(active);
+const onTrack = tally.done + tally.good;
+// La que más pide atención: primero las pasadas o vencidas, luego las atrasadas.
+const attention = active.find((view) => view.tone === 'bad') ?? active.find((view) => view.tone === 'warn');
 ---
 
 <AppLayout title={t(locale, 'goals.title')} active="goals">
@@ -32,15 +38,31 @@ const currency = workspace.defaultCurrency;
     <div id="goals-error" class="alert" role="alert" hidden></div>
 
     {active.length === 0 && <section class="card"><p class="empty">{t(locale, 'goals.empty')}</p></section>}
+    {
+      active.length > 0 && (
+        <section class="card goals-cheer" aria-labelledby="goals-cheer-t">
+          <img src="/brand/mascota/lista.webp" alt="" width="481" height="560" />
+          <div>
+            <h2 id="goals-cheer-t">{t(locale, 'goals.cheer.title', { n: String(onTrack), total: String(active.length) })}</h2>
+            {attention && <p>{t(locale, 'goals.cheer.attention', { name: attention.goal.name })}</p>}
+            <p class="goals-score">
+              {onTrack > 0 && <span><i class="is-good"></i>{t(locale, 'goals.cheer.good', { n: String(onTrack) })}</span>}
+              {tally.warn > 0 && <span><i class="is-warn"></i>{t(locale, 'goals.cheer.warn', { n: String(tally.warn) })}</span>}
+              {tally.bad > 0 && <span><i class="is-bad"></i>{t(locale, 'goals.cheer.bad', { n: String(tally.bad) })}</span>}
+            </p>
+          </div>
+        </section>
+      )
+    }
     <div class="goal-list">
-      {active.map((view) => <GoalCard view={view} canWrite={canWrite} />)}
+      {active.map((view) => <GoalCard view={view} canWrite={canWrite} today={today} />)}
     </div>
 
     {
       archived.length > 0 && (
         <>
           <h2>{t(locale, 'goals.archived.badge')}</h2>
-          <div class="goal-list">{archived.map((view) => <GoalCard view={view} canWrite={canWrite} />)}</div>
+          <div class="goal-list">{archived.map((view) => <GoalCard view={view} canWrite={canWrite} today={today} />)}</div>
         </>
       )
     }
@@ -94,3 +116,57 @@ const currency = workspace.defaultCurrency;
 <script>
   import '../../scripts/goals';
 </script>
+
+<style>
+  .goals-cheer {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .goals-cheer img {
+    flex: none;
+    width: 5.5rem;
+    height: auto;
+  }
+
+  .goals-cheer h2 {
+    margin: 0;
+  }
+
+  .goals-cheer p {
+    margin: 0.4rem 0 0;
+  }
+
+  .goals-score {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .goals-score span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .goals-score i {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+  }
+
+  .goals-score .is-good {
+    background: var(--good);
+  }
+
+  .goals-score .is-warn {
+    background: var(--step);
+  }
+
+  .goals-score .is-bad {
+    background: var(--terra);
+  }
+</style>

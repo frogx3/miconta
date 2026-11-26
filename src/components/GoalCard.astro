@@ -3,15 +3,18 @@ import { t, type MessageKey } from '../i18n/messages';
 import { formatDate } from '../lib/date-format';
 import { formatMinor, toInputString } from '../lib/money-format';
 import type { GoalView } from '../lib/goals/view';
+import { goalTimeline } from '../lib/goals/visual';
 
 interface Props {
   view: GoalView;
-  /** Versión corta para Inicio: sin acciones ni aportes. */
+  /** Versión corta para Inicio: sin acciones ni aportes, y la barra simple en lugar de la forma de cada tipo. */
   compact?: boolean;
   canWrite?: boolean;
+  /** Hoy (`YYYY-MM-DD`), para la línea de tiempo de las metas de planes. */
+  today?: string;
 }
 
-const { view, compact = false, canWrite = false } = Astro.props;
+const { view, compact = false, canWrite = false, today } = Astro.props;
 const { locale } = Astro.locals;
 const { goal } = view;
 const money = (minor: number) => formatMinor(minor, goal.currency, locale);
@@ -43,6 +46,12 @@ if (view.kind === 'plans') {
   if (!compact) lines.push(p.monthsMeasured > 0 ? tr('goals.ant.history', { n: String(p.monthsUnder), total: String(p.monthsMeasured) }) : tr('goals.ant.noHistory'));
 }
 const editDate = goal.targetDate ?? '';
+const monthShort = (month: string) => new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`));
+const timeline = !compact && view.kind === 'plans' && today && goal.targetDate ? goalTimeline(today, goal.targetDate, view.progress.naturalEnd) : null;
+// Tope de hormiga: la barra llega a 1.5× el tope para que pasarse se vea; la marca es el tope.
+// Una etiqueta cerca de la orilla se alinea hacia adentro para no salirse de la tarjeta.
+const edge = (pct: number) => (pct > 80 ? 'at-right' : pct < 20 ? 'at-left' : '');
+const antScale = view.kind === 'ant' ? Math.max(goal.targetAmountMinor ?? 0, 1) * 1.5 : 1;
 const editAmount = goal.targetAmountMinor != null ? toInputString(goal.targetAmountMinor, locale, goal.currency) : '';
 ---
 
@@ -57,9 +66,49 @@ const editAmount = goal.targetAmountMinor != null ? toInputString(goal.targetAmo
     <span class:list={['badge', `badge-${view.tone}`]}>{tr(`goals.status.${status}`)}</span>
   </header>
 
-  <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent} aria-label={goal.name}>
-    <span style={`width:${Math.min(100, percent)}%`}></span>
-  </div>
+  {
+    compact || (view.kind === 'plans' && !timeline) ? (
+      <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent} aria-label={goal.name}>
+        <span style={`width:${Math.min(100, percent)}%`}></span>
+      </div>
+    ) : view.kind === 'savings' ? (
+      <div class="goal-jar-row">
+        <div class="goal-jar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent} aria-label={goal.name}>
+          <span class="goal-jar-fill" style={`height:${Math.min(100, percent)}%`}></span>
+          <span class="goal-jar-tick" style="bottom:25%"></span>
+          <span class="goal-jar-tick" style="bottom:50%"></span>
+          <span class="goal-jar-tick" style="bottom:75%"></span>
+        </div>
+        <p class="goal-big"><strong>{money(view.progress.savedMinor)}</strong><span class="muted">{tr('goals.visual.of', { target: money(goal.targetAmountMinor ?? 0) })}</span></p>
+      </div>
+    ) : view.kind === 'plans' && timeline ? (
+      <div class="goal-lane" role="img" aria-label={tr('goals.visual.laneSr', { paid: String(percent), target: formatDate(goal.targetDate!, locale), end: view.progress.naturalEnd ? formatDate(view.progress.naturalEnd, locale) : '—' })}>
+        <span class="goal-lane-track"></span>
+        {timeline.endPct !== null && <span class="goal-lane-run" style={`width:${timeline.endPct}%`}></span>}
+        <span class:list={['goal-lane-flag is-target', edge(timeline.targetPct)]} style={`left:${timeline.targetPct}%`}><span>{tr('goals.visual.target')}</span></span>
+        {timeline.endPct !== null && <span class:list={['goal-lane-flag is-end', edge(timeline.endPct)]} style={`left:${timeline.endPct}%`}><span>{tr('goals.visual.end')}</span></span>}
+        <span class="goal-lane-today">{tr('goals.visual.today')}</span>
+      </div>
+    ) : view.kind === 'ant' ? (
+      <div class="goal-cap">
+        <div class="goal-cap-bar" role="progressbar" aria-valuemin="0" aria-valuemax={goal.targetAmountMinor ?? 0} aria-valuenow={view.progress.currentMinor} aria-label={goal.name}>
+          <span class="goal-cap-fill" style={`width:${Math.min(100, (view.progress.currentMinor / antScale) * 100).toFixed(1)}%`}></span>
+          <b class="goal-cap-mark" style={`left:${(100 / 1.5).toFixed(1)}%`}></b>
+        </div>
+        {view.progress.months.length > 0 && (
+          <ol class="goal-months" aria-label={tr('goals.visual.months')}>
+            {view.progress.months.slice(-6).map((entry) => (
+              <li class:list={[entry.under ? 'is-under' : 'is-over']}>
+                <i aria-hidden="true">{entry.under ? '✓' : '✕'}</i>
+                <span>{monthShort(entry.month)}</span>
+                <span class="sr-only">{tr(entry.under ? 'goals.visual.under' : 'goals.visual.over')}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    ) : null
+  }
   {lines.map((line) => <p class="goal-line">{line}</p>)}
   {!compact && view.kind === 'plans' && <p class="hint">{tr('goals.plans.note')}</p>}
 
@@ -112,3 +161,200 @@ const editAmount = goal.targetAmountMinor != null ? toInputString(goal.targetAmo
     )
   }
 </article>
+
+<style>
+  .goal-jar-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    margin: 0.5rem 0 0.75rem;
+  }
+
+  /* Frasco: se llena de abajo hacia arriba en salvia. */
+  .goal-jar {
+    position: relative;
+    flex: none;
+    width: 4.5rem;
+    height: 6rem;
+    border: 3px solid var(--line);
+    border-top-width: 6px;
+    border-radius: 10px 10px 16px 16px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .goal-jar-fill {
+    position: absolute;
+    inset: auto 0 0;
+    background: var(--sage);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .goal-jar-fill {
+      animation: jar-fill 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    @keyframes jar-fill {
+      from {
+        height: 0;
+      }
+    }
+  }
+
+  .goal-jar-tick {
+    position: absolute;
+    left: 0;
+    width: 30%;
+    height: 2px;
+    background: color-mix(in srgb, var(--text) 25%, transparent);
+  }
+
+  .goal-big {
+    display: grid;
+    margin: 0;
+  }
+
+  .goal-big strong {
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  /* Línea de tiempo: de hoy a la fecha más lejana; la meta en dorado y el último pago en navy. */
+  .goal-lane {
+    position: relative;
+    height: 3.25rem;
+    margin: 1.5rem 0 0.5rem;
+  }
+
+  .goal-lane-track,
+  .goal-lane-run {
+    position: absolute;
+    left: 0;
+    top: 1.25rem;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .goal-lane-track {
+    right: 0;
+    background: var(--bg);
+  }
+
+  .goal-lane-run {
+    background: var(--bar-a);
+  }
+
+  .goal-lane-flag {
+    position: absolute;
+    top: 0.5rem;
+    width: 3px;
+    height: 1.75rem;
+    transform: translateX(-50%);
+  }
+
+  .goal-lane-flag span {
+    position: absolute;
+    top: -1.25rem;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 700;
+    transform: translateX(-50%);
+  }
+
+  .goal-lane-flag.at-right span {
+    right: 0;
+    transform: none;
+  }
+
+  .goal-lane-flag.at-left span {
+    left: 0;
+    transform: none;
+  }
+
+  .goal-lane-flag.is-target {
+    background: var(--step);
+  }
+
+  .goal-lane-flag.is-end {
+    background: var(--bar-a);
+  }
+
+  .goal-lane-flag.is-end span {
+    top: 2rem;
+  }
+
+  .goal-lane-today {
+    position: absolute;
+    top: 2.1rem;
+    left: 0;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .goal-cap {
+    margin: 0.5rem 0 0.75rem;
+  }
+
+  .goal-cap-bar {
+    position: relative;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--bg);
+  }
+
+  .goal-cap-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 999px;
+    background: var(--sky);
+  }
+
+  .tone-bad .goal-cap-fill {
+    background: var(--terra);
+  }
+
+  .goal-cap-mark {
+    position: absolute;
+    top: -4px;
+    width: 3px;
+    height: 20px;
+    background: var(--text);
+  }
+
+  .goal-months {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .goal-months li {
+    display: grid;
+    justify-items: center;
+    gap: 0.15rem;
+  }
+
+  .goal-months i {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    font-style: normal;
+    font-weight: 800;
+  }
+
+  .goal-months .is-under i {
+    color: var(--good);
+    background: color-mix(in srgb, var(--sage) 20%, transparent);
+  }
+
+  .goal-months .is-over i {
+    color: var(--warn);
+    background: color-mix(in srgb, var(--terra) 18%, transparent);
+  }
+</style>
