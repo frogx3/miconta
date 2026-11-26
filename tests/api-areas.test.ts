@@ -8,7 +8,8 @@ describe('APIs de datos de usuario', () => {
     const listed = /WORKSPACE_APIS = \[([^\]]*)\]/.exec(middleware)![1]!;
     const areas = readdirSync(new URL('../src/pages/api', import.meta.url), { withFileTypes: true })
       // kapso: webhook público sin sesión; se autentica con la firma HMAC, no con el espacio activo.
-      .filter((entry) => entry.isDirectory() && !['auth', 'admin', 'kapso'].includes(entry.name))
+      // invitations: formulario público de la landing, sin sesión.
+      .filter((entry) => entry.isDirectory() && !['auth', 'admin', 'kapso', 'invitations'].includes(entry.name))
       .map((entry) => entry.name);
     for (const area of areas) expect(listed, area).toContain(`'/api/${area}'`);
   });

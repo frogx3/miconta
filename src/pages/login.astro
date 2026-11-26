@@ -3,6 +3,7 @@ import AuthLayout from '../layouts/AuthLayout.astro';
 import { t, messagesFor } from '../i18n/messages';
 import { getDb, isSignupAllowedByConfig } from '../lib/auth';
 import { isSignupOpen } from '../lib/auth/hooks';
+import { CONTACT_EMAIL } from '../lib/email/send-access';
 
 const { locale } = Astro.locals;
 const { open } = await isSignupOpen(getDb(), isSignupAllowedByConfig());
@@ -45,18 +46,24 @@ const messages = messagesFor(locale, ['auth.']);
     </details>
     <button class="btn" type="submit">{t(locale, 'auth.login.submit')}</button>
   </form>
-  <p class="switch">
+  <p class="auth-or">{t(locale, 'auth.login.or')}</p>
+  <div class="auth-alt">
+    <a href="/acceso">
+      <span><b>{t(locale, 'auth.login.alt.code')}</b><span>{t(locale, 'auth.login.alt.codeText')}</span></span>
+    </a>
     {
       open ? (
-        <>
-          {t(locale, 'auth.login.noAccount')} <a href="/registro">{t(locale, 'auth.login.signupLink')}</a>
-        </>
+        <a href="/registro">
+          <span><b>{t(locale, 'auth.login.noAccount')}</b><span>{t(locale, 'auth.login.signupLink')}</span></span>
+        </a>
       ) : (
-        t(locale, 'auth.login.noAccountClosed')
+        <a href="/#invitacion">
+          <span><b>{t(locale, 'auth.login.noAccount')}</b><span>{t(locale, 'auth.login.alt.inviteText')}</span></span>
+        </a>
       )
     }
-  </p>
-  <p class="switch"><a href="/acceso">{t(locale, 'access.loginLink')}</a></p>
+  </div>
+  <p class="auth-help">{t(locale, 'auth.help')} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
 </AuthLayout>
 
 <script>

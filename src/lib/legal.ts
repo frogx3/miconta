@@ -12,7 +12,7 @@ export const LEGAL = {
   /** Ciudad cuyos tribunales resuelven controversias. */
   jurisdiccion: '[Ciudad y estado]',
   /** Fecha de la última actualización de ambos documentos. */
-  actualizado: '14 de octubre de 2026',
+  actualizado: '26 de noviembre de 2026',
   sitio: 'donbigo.com',
 } as const;
 

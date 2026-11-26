@@ -1,0 +1,105 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { messagesFor, t } from '../../i18n/messages';
+import { getDb } from '../../lib/auth';
+import { listPending } from '../../lib/invitations/repo';
+import { INTERESTS } from '../../lib/invitations/validation';
+
+const { user, locale } = Astro.locals;
+if (user?.role !== 'admin') return Astro.redirect('/app');
+
+const pending = await listPending(getDb());
+const when = (date: Date | null) => (date ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: Astro.locals.timeZone }).format(date) : '');
+const interest = (value: string | null) => ((INTERESTS as readonly string[]).includes(value ?? '') ? t(locale, `invite.interest.${value as (typeof INTERESTS)[number]}`) : '');
+const messages = messagesFor(locale, ['admin.approvals.']);
+---
+
+<AdminLayout title={t(locale, 'admin.approvals')} active="approvals">
+  <h1>{t(locale, 'admin.approvals')}</h1>
+  <p class="hint">{t(locale, 'admin.approvals.hint')}</p>
+  <div id="approvals-status" class="alert" role="status" tabindex="-1" hidden></div>
+
+  {
+    pending.length === 0 ? (
+      <section class="card">
+        <p class="empty">{t(locale, 'admin.approvals.empty')}</p>
+      </section>
+    ) : (
+      <form class="card" id="approvals" data-messages={JSON.stringify(messages)}>
+        <ul class="pending-invites approvals-list">
+          {pending.map((row) => (
+            <li>
+              <label class="approval-pick">
+                <input type="checkbox" name="id" value={row.id} aria-label={t(locale, 'admin.approvals.pick', { name: row.name })} />
+                <span>
+                  <strong>{row.name}</strong> <span class="muted">{row.email}</span>
+                  <br />
+                  <span class="muted">
+                    {when(row.requestedAt)}
+                    {interest(row.signupInterest) && ` · ${interest(row.signupInterest)}`}
+                  </span>
+                </span>
+              </label>
+              <span class="row-actions">
+                <button type="button" class="btn btn-small" data-one="approve" data-id={row.id}>{t(locale, 'admin.approvals.approve')}</button>
+                <button type="button" class="btn btn-ghost btn-small" data-one="reject" data-id={row.id}>{t(locale, 'admin.approvals.reject')}</button>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div class="field">
+          <label for="note">{t(locale, 'admin.approvals.note')}</label>
+          <input id="note" name="note" type="text" maxlength="500" autocomplete="off" />
+          <span class="hint">{t(locale, 'admin.approvals.noteHint')}</span>
+        </div>
+        <div class="form-actions row-actions">
+          <button type="button" class="btn" data-many="approve">{t(locale, 'admin.approvals.approveSelected')}</button>
+          <button type="button" class="btn btn-ghost" data-many="reject">{t(locale, 'admin.approvals.rejectSelected')}</button>
+        </div>
+      </form>
+    )
+  }
+</AdminLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#approvals');
+  const status = document.querySelector<HTMLElement>('#approvals-status')!;
+  if (form) {
+    const messages = JSON.parse(form.dataset.messages!) as Record<string, string>;
+    const say = (text: string, ok: boolean) => {
+      status.textContent = text;
+      status.classList.toggle('ok', ok);
+      status.hidden = false;
+      status.focus();
+    };
+
+    const run = async (action: 'approve' | 'reject', ids: string[], buttons: HTMLButtonElement[]) => {
+      if (ids.length === 0) return say(messages['admin.approvals.noneSelected']!, false);
+      if (action === 'reject' && !window.confirm(messages['admin.approvals.confirmReject']!.replace('{count}', String(ids.length)))) return;
+      buttons.forEach((button) => (button.disabled = true));
+      const note = form.querySelector<HTMLInputElement>('#note')!.value;
+      const response = await fetch('/api/admin/approvals', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ids, action, note }) }).catch(() => null);
+      const result = (await response?.json().catch(() => null)) as { approved?: number; emailFailed?: number } | null;
+      if (!response?.ok) {
+        buttons.forEach((button) => (button.disabled = false));
+        return say(messages['admin.approvals.error']!, false);
+      }
+      // Si algún correo falló, se avisa antes de recargar: la aprobación ya quedó y se reenvía desde la ficha del usuario.
+      if (result?.emailFailed) {
+        say(messages['admin.approvals.emailFailed']!.replace('{count}', String(result.emailFailed)), false);
+        return setTimeout(() => location.reload(), 4000);
+      }
+      location.reload();
+    };
+
+    form.querySelectorAll<HTMLButtonElement>('[data-one]').forEach((button) =>
+      button.addEventListener('click', () => run(button.dataset.one as 'approve' | 'reject', [button.dataset.id!], [button])),
+    );
+    form.querySelectorAll<HTMLButtonElement>('[data-many]').forEach((button) =>
+      button.addEventListener('click', () => {
+        const ids = [...form.querySelectorAll<HTMLInputElement>('input[name="id"]:checked')].map((input) => input.value);
+        run(button.dataset.many as 'approve' | 'reject', ids, [button]);
+      }),
+    );
+  }
+</script>

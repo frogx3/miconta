@@ -1,19 +1,1458 @@
 ---
 import Base from '../layouts/Base.astro';
 import BrandIcon from '../components/BrandIcon.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import { messagesFor, t } from '../i18n/messages';
+import { INTERESTS } from '../lib/invitations/validation';
+import { CONTACT_EMAIL } from '../lib/email/send-access';
+import { LEGAL_PATHS } from '../lib/legal';
+
+const { locale } = Astro.locals;
+const messages = messagesFor(locale, ['landing.form.']);
+const steps = [1, 2, 3, 4] as const;
+const promises = [1, 2, 3, 4] as const;
+const faqs = [1, 2, 3, 4] as const;
 ---
 
-<Base title="Don Bigo">
-  <main class="home-logo">
-    <BrandIcon size={160} source={240} />
-  </main>
+<Base title={t(locale, 'landing.title')} fullTitle indexable description={t(locale, 'landing.description')}>
+  <div class="lp">
+    <p class="lp-beta">
+      <strong>{t(locale, 'landing.beta.label')}</strong>{' '}
+      {t(locale, 'landing.beta.text')}
+      <a href="#invitacion">{t(locale, 'landing.cta')}</a>
+    </p>
+
+    <header class="lp-nav">
+      <div class="lp-wrap">
+        <a class="lp-logo" href="/" aria-label={t(locale, 'app.name')}>
+          <BrandIcon size={40} />
+          <span aria-hidden="true">Don <span class="brand-bigo">Bigo</span></span>
+        </a>
+        <nav aria-label={t(locale, 'landing.nav.label')}>
+          <a href="#como">{t(locale, 'landing.how.kicker')}</a>
+          <a href="#avisos">{t(locale, 'landing.alerts.kicker')}</a>
+          <a href="#pagos">{t(locale, 'landing.agenda.kicker')}</a>
+          <a href="#beta">{t(locale, 'landing.nav.beta')}</a>
+        </nav>
+        <div class="lp-acts">
+          <ThemeToggle />
+          <a class="lp-ghost" href="/login">{t(locale, 'landing.nav.login')}</a>
+          <a class="lp-cta" href="#invitacion">{t(locale, 'landing.cta')}</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <section class="lp-hero" aria-labelledby="hero-t">
+        <div class="lp-wrap">
+          <div>
+            <h1 id="hero-t">{t(locale, 'landing.hero.title')}</h1>
+            <p class="lp-sub">{t(locale, 'landing.hero.sub1')} <strong>{t(locale, 'landing.hero.subStrong')}</strong>{t(locale, 'landing.hero.sub2')}</p>
+            <div class="lp-row">
+              <a class="lp-cta" href="#invitacion">{t(locale, 'landing.cta')}</a>
+              <a class="lp-ghost" href="/login">{t(locale, 'landing.hasAccount')}</a>
+            </div>
+            <p class="lp-fine">{t(locale, 'landing.hero.fine')}</p>
+          </div>
+          <div class="lp-stage" aria-hidden="true">
+            <div class="lp-disc"></div>
+            <img class="lp-pup" src="/brand/mascota/saluda.webp" alt="" width="481" height="560" />
+            <p class="lp-ping n1"><i class="i-pay">−</i><b>{t(locale, 'landing.ping1.title')}</b><span>{t(locale, 'landing.ping1.text')}</span></p>
+            <p class="lp-ping n2"><i class="i-get">+</i><b>{t(locale, 'landing.ping2.title')}</b><span>{t(locale, 'landing.ping2.text')}</span></p>
+            <p class="lp-ping n3"><i class="i-free">★</i><b>{t(locale, 'landing.ping3.title')}</b><span>{t(locale, 'landing.ping3.text')}</span></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-s" id="como" aria-labelledby="como-t">
+        <div class="lp-wrap">
+          <p class="lp-kicker">{t(locale, 'landing.how.kicker')}</p>
+          <h2 class="lp-t" id="como-t">{t(locale, 'landing.how.title')}</h2>
+          <ol class="lp-journey">
+            {steps.map((n) => (
+              <li>
+                <b>{t(locale, `landing.how.step${n}.title`)}</b>
+                <span>{t(locale, `landing.how.step${n}.text`)}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section class="lp-s lp-band" id="avisos" aria-labelledby="av-t">
+        <div class="lp-wrap lp-feature">
+          <div>
+            <p class="lp-kicker">{t(locale, 'landing.alerts.kicker')}</p>
+            <h2 class="lp-t" id="av-t">{t(locale, 'landing.alerts.title')}</h2>
+            <p class="lp-lead">{t(locale, 'landing.alerts.lead')}</p>
+            <ul class="lp-checks">
+              <li>{t(locale, 'landing.alerts.check1')}</li>
+              <li>{t(locale, 'landing.alerts.check2')}</li>
+              <li>{t(locale, 'landing.alerts.check3')}</li>
+            </ul>
+            <p class="lp-channels"><span>{t(locale, 'landing.alerts.channelApp')}</span><span>{t(locale, 'landing.alerts.channelPush')}</span></p>
+          </div>
+          <div class="lp-phone" role="img" aria-label={t(locale, 'landing.alerts.example')}>
+            <div class="lp-when"><span>{t(locale, 'landing.alerts.when1')}</span><div class="lp-bubble"><b>{t(locale, 'landing.alerts.b1.title')}</b>{t(locale, 'landing.alerts.b1.text')}</div></div>
+            <div class="lp-when"><span>{t(locale, 'landing.alerts.when2')}</span><div class="lp-bubble"><b>{t(locale, 'landing.alerts.b2.title')}</b>{t(locale, 'landing.alerts.b2.text')}</div></div>
+            <div class="lp-when"><span>{t(locale, 'landing.alerts.when3')}</span><div class="lp-bubble is-today"><b>{t(locale, 'landing.alerts.b3.title')}</b>{t(locale, 'landing.alerts.b3.text')}</div></div>
+            <img class="lp-pup" src="/brand/mascota/telefono.webp" alt="" width="481" height="560" loading="lazy" />
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-s" id="pagos" aria-labelledby="pa-t">
+        <div class="lp-wrap lp-feature is-flip">
+          <div class="lp-copy">
+            <p class="lp-kicker">{t(locale, 'landing.agenda.kicker')}</p>
+            <h2 class="lp-t" id="pa-t">{t(locale, 'landing.agenda.title')}</h2>
+            <p class="lp-lead">{t(locale, 'landing.agenda.lead')}</p>
+            <ul class="lp-checks">
+              <li>{t(locale, 'landing.agenda.check1')}</li>
+              <li>{t(locale, 'landing.agenda.check2')}</li>
+              <li>{t(locale, 'landing.agenda.check3')}</li>
+            </ul>
+          </div>
+          <div class="lp-agenda" role="img" aria-label={t(locale, 'landing.agenda.example')}>
+            <div class="lp-verdict"><strong>{t(locale, 'landing.agenda.verdict')}</strong><span>{t(locale, 'landing.agenda.verdictText')}</span></div>
+            <ul>
+              <li><i class="i-pay">−</i><b>{t(locale, 'landing.agenda.item1')}</b><span class="a">$8,500</span><small>{t(locale, 'landing.agenda.item1.meta')}</small></li>
+              <li><i class="i-pay">−</i><b>{t(locale, 'landing.agenda.item2')}</b><span class="a">$12,480</span><small>{t(locale, 'landing.agenda.item2.meta')}</small></li>
+              <li><i class="i-get">+</i><b>{t(locale, 'landing.agenda.item3')}</b><span class="a in">+$6,500</span><small>{t(locale, 'landing.agenda.item3.meta')}</small></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-s lp-band" aria-labelledby="mas-t">
+        <div class="lp-wrap">
+          <p class="lp-kicker">{t(locale, 'landing.more.kicker')}</p>
+          <h2 class="lp-t" id="mas-t">{t(locale, 'landing.more.title')}</h2>
+          <div class="lp-more">
+            <div class="lp-card">
+              <div class="lp-viz lp-stairs" aria-hidden="true">{[100, 84, 70, 52, 36, 20, 8].map((h) => <i style={`height:${h}%`}></i>)}</div>
+              <b>{t(locale, 'landing.more.plans.title')}</b><span>{t(locale, 'landing.more.plans.text')}</span>
+            </div>
+            <div class="lp-card">
+              <div class="lp-viz lp-ants" aria-hidden="true">{Array.from({ length: 20 }, (_, i) => <i class:list={[[2, 6, 11, 17].includes(i) && 'big']}></i>)}</div>
+              <b>{t(locale, 'landing.more.ants.title')}</b><span>{t(locale, 'landing.more.ants.text')}</span>
+            </div>
+            <div class="lp-card">
+              <div class="lp-viz lp-goal" aria-hidden="true"><i></i></div>
+              <b>{t(locale, 'landing.more.goals.title')}</b><span>{t(locale, 'landing.more.goals.text')}</span>
+            </div>
+            <div class="lp-card">
+              <div class="lp-viz lp-fam" aria-hidden="true"><i class="tone-navy">JA</i><i class="tone-sage">MR</i><i class="tone-gold">+</i></div>
+              <b>{t(locale, 'landing.more.family.title')}</b><span>{t(locale, 'landing.more.family.text')}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-s" aria-labelledby="pe-t">
+        <div class="lp-wrap lp-people">
+          <div>
+            <p class="lp-kicker">{t(locale, 'landing.people.kicker')}</p>
+            <h2 class="lp-t" id="pe-t">{t(locale, 'landing.people.title')}</h2>
+            <p class="lp-lead">{t(locale, 'landing.people.lead')}</p>
+          </div>
+          <div class="lp-promise">
+            {promises.map((n) => (
+              <div>
+                <b>{t(locale, `landing.people.p${n}.title`)}</b>
+                <span>{t(locale, `landing.people.p${n}.text`)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-s" id="beta" aria-labelledby="be-t">
+        <div class="lp-wrap">
+          <div class="lp-invite" id="invitacion">
+            <div>
+              <p class="lp-kicker">{t(locale, 'landing.beta.kicker')}</p>
+              <h2 class="lp-t" id="be-t">{t(locale, 'landing.beta.title')}</h2>
+              <p class="lp-lead">{t(locale, 'landing.beta.lead')}</p>
+              <ol class="lp-road">
+                <li><span><b>{t(locale, 'landing.beta.road1.title')}</b>{t(locale, 'landing.beta.road1.text')}</span></li>
+                <li class="is-next">
+                  <span>
+                    <b>{t(locale, 'landing.beta.road2.title')}</b>{t(locale, 'landing.beta.road2.text')}<br />
+                    <span class="lp-perk">{t(locale, 'landing.beta.perk')}</span>
+                  </span>
+                </li>
+              </ol>
+              <p class="lp-later">{t(locale, 'landing.beta.later')}</p>
+            </div>
+
+            <form class="lp-form" id="invite-form" data-messages={JSON.stringify(messages)} novalidate>
+              <img class="lp-form-pup" src="/brand/mascota/sobre.webp" alt="" width="481" height="560" loading="lazy" />
+              <div class="lp-form-fields">
+                <h3>{t(locale, 'landing.form.title')}</h3>
+                <p>{t(locale, 'landing.form.lead')}</p>
+                <div class="alert" role="alert" tabindex="-1" hidden></div>
+                <div class="field">
+                  <label for="inv-name">{t(locale, 'landing.form.name')}</label>
+                  <input id="inv-name" name="name" type="text" maxlength="80" autocomplete="name" placeholder={t(locale, 'landing.form.namePlaceholder')} aria-describedby="inv-name-error" required />
+                  <span class="field-error" id="inv-name-error" data-error-for="name"></span>
+                </div>
+                <div class="field">
+                  <label for="inv-email">{t(locale, 'landing.form.email')}</label>
+                  <input id="inv-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder={t(locale, 'landing.form.emailPlaceholder')} aria-describedby="inv-email-hint inv-email-error" required />
+                  <span class="hint" id="inv-email-hint">{t(locale, 'landing.form.emailHint')}</span>
+                  <span class="field-error" id="inv-email-error" data-error-for="email"></span>
+                </div>
+                <div class="field">
+                  <label for="inv-interest">{t(locale, 'landing.form.interest')}</label>
+                  <select id="inv-interest" name="interest">
+                    {INTERESTS.map((value) => <option value={value}>{t(locale, `invite.interest.${value}`)}</option>)}
+                  </select>
+                </div>
+                {/* Trampa para bots: oculta para personas y lectores de pantalla. */}
+                <div class="lp-trap" aria-hidden="true">
+                  <label for="inv-website">Website</label>
+                  <input id="inv-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+                </div>
+                <label class="lp-consent">
+                  <input type="checkbox" name="consent" aria-describedby="inv-consent-error" />
+                  <span>{t(locale, 'landing.form.consentA')} <a href={LEGAL_PATHS.privacy}>{t(locale, 'legal.privacy')}</a> {t(locale, 'landing.form.consentB')}</span>
+                </label>
+                <span class="field-error" id="inv-consent-error" data-error-for="consent"></span>
+                <button class="lp-cta" type="submit">{t(locale, 'landing.form.submit')}</button>
+              </div>
+              <div class="lp-sent" role="status" tabindex="-1" hidden>
+                <b>{t(locale, 'landing.form.sentTitle')}</b>
+                <p>{t(locale, 'landing.form.sentText')}</p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-s lp-tight" aria-labelledby="faq-t">
+        <div class="lp-wrap">
+          <h2 class="lp-t" id="faq-t">{t(locale, 'landing.faq.title')}</h2>
+          <div class="lp-faq">
+            {faqs.map((n) => (
+              <details open={n === 1}>
+                <summary>{t(locale, `landing.faq.q${n}`)}</summary>
+                <p>{t(locale, `landing.faq.a${n}`)}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-s lp-tight" aria-labelledby="co-t">
+        <div class="lp-wrap">
+          <div class="lp-contact">
+            <div>
+              <h2 class="lp-t" id="co-t">{t(locale, 'landing.contact.title')}</h2>
+              <p class="lp-lead">{t(locale, 'landing.contact.lead')}</p>
+            </div>
+            <a class="lp-way" href={`mailto:${CONTACT_EMAIL}`}>
+              <i aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg></i>
+              <small>{t(locale, 'landing.contact.email')}</small>
+              <b>{CONTACT_EMAIL}</b>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="lp-foot">
+      <div class="lp-wrap">
+        <span class="lp-foot-brand">Don <span class="brand-bigo">Bigo</span></span>
+        <nav class="lp-foot-links" aria-label={t(locale, 'legal.nav')}>
+          <a href={LEGAL_PATHS.privacy}>{t(locale, 'legal.privacy')}</a>
+          <a href={LEGAL_PATHS.terms}>{t(locale, 'legal.terms')}</a>
+          <a href="/login">{t(locale, 'landing.nav.login')}</a>
+        </nav>
+        <span>{t(locale, 'landing.footer')}</span>
+      </div>
+    </footer>
+  </div>
 </Base>
 
+<script>
+  const form = document.querySelector<HTMLFormElement>('#invite-form')!;
+  const messages = JSON.parse(form.dataset.messages!) as Record<string, string>;
+  const alertBox = form.querySelector<HTMLElement>('.alert')!;
+  const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  const fields = form.querySelector<HTMLElement>('.lp-form-fields')!;
+  const sent = form.querySelector<HTMLElement>('.lp-sent')!;
+  const idle = button.textContent!;
+
+  const fieldError = (field: string, text: string) => {
+    const slot = form.querySelector<HTMLElement>(`[data-error-for="${field}"]`);
+    if (slot) slot.textContent = text;
+    form.querySelector<HTMLInputElement>(`[name="${field}"]`)?.setAttribute('aria-invalid', 'true');
+  };
+  const clear = () => {
+    alertBox.hidden = true;
+    form.querySelectorAll<HTMLElement>('[data-error-for]').forEach((slot) => (slot.textContent = ''));
+    form.querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clear();
+    const data = new FormData(form);
+    const body = {
+      name: String(data.get('name') ?? '').trim(),
+      email: String(data.get('email') ?? '').trim(),
+      interest: String(data.get('interest') ?? ''),
+      consent: data.get('consent') === 'on',
+      website: String(data.get('website') ?? ''),
+    };
+    // Revisión rápida en el navegador; el servidor vuelve a validar todo.
+    if (!body.name) fieldError('name', messages['landing.form.error.name']!);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) fieldError('email', messages['landing.form.error.email']!);
+    if (!body.consent) fieldError('consent', messages['landing.form.error.consent']!);
+    const firstBad = form.querySelector<HTMLInputElement>('[aria-invalid="true"]');
+    if (firstBad) return firstBad.focus();
+
+    button.disabled = true;
+    button.textContent = messages['landing.form.sending']!;
+    const response = await fetch('/api/invitations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
+    button.disabled = false;
+    button.textContent = idle;
+    if (response?.ok) {
+      fields.hidden = true;
+      sent.hidden = false;
+      return sent.focus();
+    }
+    const result = (await response?.json().catch(() => null)) as { code?: string; errors?: { field: string }[] } | null;
+    if (result?.code === 'VALIDATION') {
+      for (const error of result.errors ?? []) fieldError(error.field, messages[`landing.form.error.${error.field}`] ?? messages['landing.form.error.generic']!);
+      return form.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
+    }
+    alertBox.textContent = messages[response?.status === 429 ? 'landing.form.error.tooMany' : 'landing.form.error.generic']!;
+    alertBox.hidden = false;
+    alertBox.focus();
+  });
+</script>
+
 <style>
-  .home-logo {
-    min-height: 100vh;
-    min-height: 100dvh;
+  .lp {
+    --lp-navy: #1d3557;
+    --lp-ink-on-gold: #0e1a2c;
+    font-size: 1rem;
+  }
+
+  .lp-wrap {
+    max-width: 74rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .lp-beta {
+    margin: 0;
+    padding: 0.6rem 1rem;
+    text-align: center;
+    font-size: 0.86rem;
+    color: #ffffff;
+    background: var(--lp-navy);
+  }
+
+  .lp-beta strong {
+    color: var(--step);
+  }
+
+  .lp-beta a {
+    color: #ffffff;
+    font-weight: 700;
+    text-underline-offset: 3px;
+  }
+
+  :global(:root[data-theme='dark']) .lp-beta {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .lp-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .lp-nav .lp-wrap {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    min-height: 4.25rem;
+  }
+
+  .lp-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 800;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+    color: var(--brand-ink);
+    text-decoration: none;
+  }
+
+  .lp-nav nav {
+    display: flex;
+    gap: 1.4rem;
+    margin-left: auto;
+  }
+
+  .lp-nav nav a {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .lp-nav nav a:hover {
+    color: var(--text);
+  }
+
+  .lp-acts {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .lp-nav nav + .lp-acts {
+    margin-left: 0;
+  }
+
+  .lp-acts :global(.icon-btn) {
+    color: var(--text);
+  }
+
+  .lp-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.75rem 1.4rem;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 800;
+    font-size: 0.95rem;
+    text-decoration: none;
+    color: var(--lp-ink-on-gold);
+    background: var(--step);
+    cursor: pointer;
+  }
+
+  .lp-cta:hover {
+    filter: brightness(1.05);
+  }
+
+  .lp-cta:disabled {
+    opacity: 0.7;
+    cursor: progress;
+  }
+
+  .lp-ghost {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .lp :is(a, button, input, select, summary):focus-visible {
+    outline: 2px solid var(--step);
+    outline-offset: 2px;
+  }
+
+  /* Héroe */
+  .lp-hero {
+    padding: 3.5rem 0 1.5rem;
+  }
+
+  .lp-hero .lp-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 2.5rem;
+    align-items: center;
+  }
+
+  .lp-hero h1 {
+    margin: 0;
+    font-size: clamp(2.3rem, 5.4vw, 4.1rem);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    font-weight: 800;
+    color: var(--brand-ink);
+  }
+
+  .lp-sub {
+    max-width: 34ch;
+    margin: 1.25rem 0 0;
+    font-size: 1.15rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  .lp-sub strong {
+    color: var(--text);
+  }
+
+  .lp-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+  }
+
+  .lp-fine {
+    margin: 0.9rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .lp-stage {
+    position: relative;
+    min-height: 32rem;
+  }
+
+  .lp-disc {
+    position: absolute;
+    left: 8%;
+    right: 4%;
+    top: 6%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--gold-soft);
+  }
+
+  .lp-stage .lp-pup {
+    position: absolute;
+    left: 14%;
+    bottom: 0;
+    width: 72%;
+    height: auto;
+  }
+
+  .lp-ping {
+    position: absolute;
+    display: grid;
+    grid-template-columns: 2.1rem minmax(0, 1fr);
+    gap: 0.1rem 0.6rem;
+    align-items: center;
+    width: 17rem;
+    margin: 0;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    font-size: 0.84rem;
+  }
+
+  .lp-ping i,
+  .lp-agenda li i {
+    grid-row: span 2;
     display: grid;
     place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 10px;
+    font-style: normal;
+    font-weight: 800;
+  }
+
+  .lp-ping span {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .n1 { top: 4%; right: 0; }
+  .n2 { top: 40%; left: -4%; }
+  .n3 { bottom: 8%; right: 2%; }
+
+  .i-pay {
+    color: var(--terra);
+    background: color-mix(in srgb, var(--terra) 15%, transparent);
+  }
+
+  .i-get {
+    color: var(--good);
+    background: color-mix(in srgb, var(--sage) 18%, transparent);
+  }
+
+  .i-free {
+    color: var(--lp-ink-on-gold);
+    background: var(--step);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .lp-ping {
+      animation: lp-pop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .n1 { animation-delay: 0.5s; }
+    .n2 { animation-delay: 0.9s; }
+    .n3 { animation-delay: 1.3s; }
+
+    @keyframes lp-pop {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.96);
+      }
+    }
+  }
+
+  /* Secciones */
+  .lp-s {
+    padding: 5.25rem 0;
+    scroll-margin-top: 4.25rem;
+  }
+
+  .lp-tight {
+    padding-top: 1.25rem;
+  }
+
+  .lp-band {
+    background: var(--surface);
+    border-block: 1px solid var(--line);
+  }
+
+  /* El dorado no va como texto sobre claro: en claro el kicker es navy. */
+  .lp-kicker {
+    margin: 0 0 0.6rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--brand-ink);
+  }
+
+  :global(:root[data-theme='dark']) .lp-kicker {
+    color: var(--step);
+  }
+
+  .lp-t {
+    max-width: 22ch;
+    margin: 0;
+    font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+  }
+
+  .lp-lead {
+    max-width: 56ch;
+    margin: 1rem 0 0;
+    font-size: 1.08rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .lp-journey {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.1rem;
+    margin: 2.5rem 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: j;
+  }
+
+  .lp-journey::before {
+    content: '';
+    position: absolute;
+    top: 22px;
+    left: 22px;
+    right: 22px;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--line) 0 8px, transparent 8px 14px);
+  }
+
+  .lp-journey li {
+    position: relative;
+    counter-increment: j;
+  }
+
+  .lp-journey li::before {
+    content: counter(j);
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    margin-bottom: 1rem;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: #ffffff;
+    background: var(--lp-navy);
+  }
+
+  .lp-journey li:last-child::before {
+    color: var(--lp-ink-on-gold);
+    background: var(--step);
+  }
+
+  .lp-journey b,
+  .lp-promise b,
+  .lp-road b {
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+
+  .lp-journey span,
+  .lp-card span,
+  .lp-promise span {
+    color: var(--muted);
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .lp-feature {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: center;
+  }
+
+  .lp-feature.is-flip .lp-copy {
+    order: 2;
+  }
+
+  .lp-checks {
+    display: grid;
+    gap: 0.75rem;
+    margin: 1.4rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lp-checks li {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 0.6rem;
+    line-height: 1.5;
+  }
+
+  .lp-checks li::before {
+    content: '✓';
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-top: 1px;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 0.8rem;
+    background: var(--gold-soft);
+  }
+
+  .lp-channels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 1.5rem 0 0;
+  }
+
+  .lp-channels span {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    background: var(--bg);
+  }
+
+  .lp-phone {
+    position: relative;
+    display: grid;
+    gap: 0.75rem;
+    max-width: 25rem;
+    padding-top: 1.25rem;
+  }
+
+  .lp-phone .lp-pup {
+    position: absolute;
+    right: -11rem;
+    bottom: -5rem;
+    width: 12rem;
+    height: auto;
+  }
+
+  .lp-when {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .lp-when > span {
+    text-align: right;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--muted);
+  }
+
+  .lp-bubble {
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    background: var(--bg);
+  }
+
+  .lp-bubble b {
+    display: block;
+  }
+
+  .lp-bubble.is-today {
+    border: 2px solid var(--step);
+    background: var(--surface);
+  }
+
+  .lp-agenda {
+    max-width: 30rem;
+    margin: 0 auto;
+    padding: 1.4rem;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: var(--surface);
+  }
+
+  .lp-verdict {
+    padding: 1rem 1.1rem;
+    border-radius: 16px;
+    color: #ffffff;
+    background: var(--lp-navy);
+  }
+
+  :global(:root[data-theme='dark']) .lp-verdict {
+    color: var(--text);
+    background: var(--ivory);
+  }
+
+  .lp-verdict strong {
+    display: block;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .lp-verdict span {
+    font-size: 0.86rem;
+    opacity: 0.85;
+  }
+
+  .lp-agenda ul {
+    margin: 0.9rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lp-agenda li {
+    display: grid;
+    grid-template-columns: 2.1rem minmax(0, 1fr) auto;
+    gap: 0.1rem 0.75rem;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--line);
+    font-size: 0.9rem;
+  }
+
+  .lp-agenda li:first-child {
+    border-top: 0;
+  }
+
+  .lp-agenda li small {
+    grid-column: 2;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .lp-agenda .a {
+    grid-row: span 2;
+    font-weight: 800;
+    text-align: right;
+  }
+
+  .lp-agenda .a.in {
+    color: var(--good);
+  }
+
+  .lp-more {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.1rem;
+    margin-top: 2.5rem;
+  }
+
+  .lp-card {
+    display: grid;
+    align-content: start;
+    gap: 0.6rem;
+    padding: 1.4rem;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--bg);
+  }
+
+  .lp-viz {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 5.25rem;
+  }
+
+  .lp-stairs i {
+    flex: 1;
+    border-radius: 4px 4px 0 0;
+    background: var(--bar-a);
+  }
+
+  .lp-stairs i:last-child {
+    background: var(--step);
+  }
+
+  .lp-ants {
+    flex-wrap: wrap;
+    align-content: flex-end;
+  }
+
+  .lp-ants i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--sky);
+  }
+
+  .lp-ants i.big {
+    background: var(--terra);
+  }
+
+  .lp-goal {
+    align-items: center;
+  }
+
+  .lp-goal i {
+    position: relative;
+    width: 100%;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--line);
+    overflow: hidden;
+  }
+
+  .lp-goal i::after {
+    content: '';
+    position: absolute;
+    inset: 0 35% 0 0;
+    border-radius: inherit;
+    background: var(--sage);
+  }
+
+  .lp-fam {
+    align-items: center;
+  }
+
+  .lp-fam i {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin-right: -14px;
+    border: 3px solid var(--bg);
+    border-radius: 50%;
+    font-style: normal;
+    font-weight: 800;
+    color: var(--tone-ink);
+    background: var(--tone);
+  }
+
+  .lp-people {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 3.5rem;
+    align-items: start;
+  }
+
+  .lp-promise {
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .lp-promise div {
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--surface);
+  }
+
+  /* Beta e invitación */
+  .lp-invite {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2.75rem;
+    padding: 2.75rem;
+    border-radius: 28px;
+    color: #ffffff;
+    background: var(--lp-navy);
+  }
+
+  :global(:root[data-theme='dark']) .lp-invite {
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+
+  .lp-invite .lp-kicker {
+    color: var(--step);
+  }
+
+  .lp-invite .lp-lead {
+    color: #c9d4e5;
+  }
+
+  :global(:root[data-theme='dark']) .lp-invite .lp-lead {
+    color: var(--muted);
+  }
+
+  .lp-road {
+    display: grid;
+    margin: 1.6rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lp-road li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 0.9rem;
+    padding-bottom: 1.1rem;
+  }
+
+  .lp-road li::before {
+    content: '';
+    width: 16px;
+    height: 16px;
+    margin: 4px 0 0 6px;
+    border-radius: 50%;
+    background: var(--step);
+  }
+
+  .lp-road li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 13px;
+    top: 24px;
+    bottom: 0;
+    width: 2px;
+    background: rgb(255 255 255 / 0.25);
+  }
+
+  :global(:root[data-theme='dark']) .lp-road li:not(:last-child)::after {
+    background: var(--line);
+  }
+
+  .lp-road li.is-next::before {
+    width: 14px;
+    height: 14px;
+    border: 2px dashed var(--step);
+    background: transparent;
+  }
+
+  .lp-road span {
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  .lp-perk {
+    display: inline-block;
+    margin-top: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--lp-ink-on-gold);
+    background: var(--step);
+  }
+
+  .lp-later {
+    margin: 0.4rem 0 0;
+    font-size: 0.86rem;
+    opacity: 0.85;
+  }
+
+  .lp-form {
+    position: relative;
+    display: grid;
+    align-content: start;
+    padding: 1.6rem;
+    border-radius: 22px;
+    color: var(--text);
+    background: var(--surface);
+  }
+
+  :global(:root[data-theme='dark']) .lp-form {
+    background: var(--bg);
+  }
+
+  .lp-form-fields {
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .lp-form h3 {
+    margin: 0;
+    padding-right: 7rem;
+    font-size: 1.25rem;
+    font-weight: 800;
+  }
+
+  .lp-form-fields > p {
+    margin: 0;
+    padding-right: 7rem;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .lp-form-pup {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.6rem;
+    width: 7rem;
+    height: auto;
+  }
+
+  .lp-form .lp-cta,
+  .lp-form select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .lp-consent {
+    display: grid;
+    grid-template-columns: 1.25rem minmax(0, 1fr);
+    gap: 0.6rem;
+    align-items: start;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .lp-consent input {
+    width: 1.15rem;
+    height: 1.15rem;
+    margin: 0.1rem 0 0;
+    accent-color: var(--accent);
+  }
+
+  .lp-consent a {
+    color: var(--text);
+  }
+
+  .lp-trap {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .lp-sent {
+    display: grid;
+    gap: 0.6rem;
+    padding: 6rem 0 1rem;
+    text-align: center;
+  }
+
+  .lp-sent[hidden] {
+    display: none;
+  }
+
+  .lp-sent b {
+    font-size: 1.15rem;
+  }
+
+  .lp-sent p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  /* Preguntas */
+  .lp-faq {
+    display: grid;
+    gap: 0.6rem;
+    max-width: 52rem;
+    margin-top: 2rem;
+  }
+
+  .lp-faq details {
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+  }
+
+  .lp-faq summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-weight: 700;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .lp-faq summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .lp-faq summary::after {
+    content: '+';
+    font-weight: 800;
+    color: var(--muted);
+  }
+
+  .lp-faq details[open] summary::after {
+    content: '−';
+  }
+
+  .lp-faq p {
+    margin: 0.6rem 0 0;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .lp-contact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1.75rem;
+    align-items: center;
+    padding: 2.1rem;
+    border-radius: 24px;
+    background: var(--gold-soft);
+  }
+
+  .lp-contact .lp-t {
+    font-size: clamp(1.5rem, 2.6vw, 2rem);
+  }
+
+  .lp-contact .lp-lead {
+    margin-top: 0.5rem;
+  }
+
+  .lp-way {
+    display: grid;
+    grid-template-columns: 2.5rem auto;
+    gap: 0 0.75rem;
+    align-items: center;
+    padding: 0.75rem 1.1rem 0.75rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    color: var(--text);
+    text-decoration: none;
+    background: var(--surface);
+  }
+
+  .lp-way i {
+    grid-row: span 2;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 12px;
+    color: #ffffff;
+    background: var(--lp-navy);
+  }
+
+  .lp-way small {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .lp-way b {
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+  }
+
+  .lp-foot {
+    margin-top: 4rem;
+    padding: 2.5rem 0 2rem;
+    font-size: 0.86rem;
+    color: var(--footer-muted);
+    background: var(--footer-bg);
+  }
+
+  .lp-foot .lp-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .lp-foot-brand {
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: #ffffff;
+  }
+
+  .lp-foot-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+  }
+
+  .lp-foot a {
+    color: #ffffff;
+    text-underline-offset: 3px;
+  }
+
+  main {
+    overflow-x: clip;
+  }
+
+  @media (max-width: 77.5rem) {
+    .lp-phone .lp-pup {
+      right: -7rem;
+      bottom: -4rem;
+      width: 9.5rem;
+    }
+  }
+
+  @media (max-width: 62.5rem) {
+    .lp-nav nav {
+      display: none;
+    }
+
+    .lp-acts {
+      margin-left: auto;
+    }
+
+    .lp-hero .lp-wrap,
+    .lp-feature,
+    .lp-people,
+    .lp-invite,
+    .lp-contact {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lp-feature.is-flip .lp-copy {
+      order: 0;
+    }
+
+    .lp-stage {
+      width: 100%;
+      max-width: 32rem;
+      min-height: 30rem;
+      margin: 0 auto;
+    }
+
+    .lp-journey,
+    .lp-more {
+      grid-template-columns: 1fr 1fr;
+      row-gap: 1.9rem;
+    }
+
+    .lp-journey::before {
+      display: none;
+    }
+
+    .lp-phone {
+      margin: 0 auto;
+      padding-bottom: 9rem;
+    }
+
+    .lp-phone .lp-pup {
+      right: auto;
+      left: 50%;
+      bottom: -2.5rem;
+      width: 10.5rem;
+      transform: translateX(-50%);
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .lp-wrap {
+      padding: 0 1rem;
+    }
+
+    .lp-nav .lp-wrap {
+      gap: 0.5rem;
+    }
+
+    .lp-logo {
+      font-size: 1.1rem;
+    }
+
+    /* En el celular el tema sigue al sistema; el botón queda en /login. */
+    .lp-nav .lp-ghost,
+    .lp-acts :global(.theme-toggle) {
+      display: none;
+    }
+
+    .lp-logo,
+    .lp-nav .lp-cta {
+      white-space: nowrap;
+    }
+
+    .lp-nav .lp-cta {
+      padding: 0.6rem 0.9rem;
+      font-size: 0.85rem;
+    }
+
+    .lp-hero {
+      padding-top: 2rem;
+    }
+
+    .lp-stage {
+      min-height: 25rem;
+    }
+
+    .lp-ping {
+      width: 13.75rem;
+      font-size: 0.8rem;
+    }
+
+    .n1 {
+      top: 0;
+    }
+
+    .n2 {
+      display: none;
+    }
+
+    .lp-s {
+      padding: 3.75rem 0;
+    }
+
+    .lp-journey,
+    .lp-more {
+      grid-template-columns: 1fr;
+    }
+
+    .lp-invite {
+      padding: 1.5rem 1.1rem;
+      border-radius: 22px;
+    }
+
+    .lp-form {
+      padding: 1.25rem;
+    }
+
+    .lp-contact {
+      padding: 1.5rem;
+    }
   }
 </style>

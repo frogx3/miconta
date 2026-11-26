@@ -2,17 +2,30 @@
 import Base from './Base.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
+import { t } from '../i18n/messages';
+import { getDb } from '../lib/auth';
+import { countPending } from '../lib/invitations/repo';
 
 interface Props {
   title: string;
+  active?: 'users' | 'approvals';
 }
 
-const { title } = Astro.props;
+const { title, active = 'users' } = Astro.props;
+const { locale } = Astro.locals;
+const pending = await countPending(getDb());
 ---
 
 <Base title={title}>
-  <SiteHeader area="admin" active="users" />
+  <SiteHeader area="admin" active={active} badges={{ approvals: pending }} />
   <main class="shell" id="main" tabindex="-1">
+    <nav class="subnav" aria-label={t(locale, 'admin.title')}>
+      <a href="/admin" aria-current={active === 'users' ? 'page' : undefined}>{t(locale, 'admin.users')}</a>
+      <a href="/admin/por-aprobar" aria-current={active === 'approvals' ? 'page' : undefined}>
+        {t(locale, 'admin.approvals')}
+        {pending > 0 && <span class="badge badge-warn">{pending}</span>}
+      </a>
+    </nav>
     <slot />
   </main>
   <SiteFooter area="admin" />

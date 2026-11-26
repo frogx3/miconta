@@ -9,24 +9,42 @@ interface Props {
   title: string;
   heading?: string;
   lead?: string;
+  /** Saludo del panel de la mascota; por defecto, el de volver a entrar. */
+  side?: { heading: string; lead: string };
 }
 
 const { title, heading, lead } = Astro.props;
 const { locale } = Astro.locals;
+const side = Astro.props.side ?? { heading: t(locale, 'auth.side.heading'), lead: t(locale, 'auth.side.lead') };
 ---
 
 <Base title={title}>
-  <div class="auth-theme"><ThemeToggle /></div>
-  <main class="auth-wrap">
-    <div class="auth-card">
-      <a class="brand brand-stack" href="/" aria-label={t(locale, 'app.name')}>
-        <BrandIcon size={80} source={240} class="brand-icon-lg" />
-        <span aria-hidden="true">Don <span class="brand-bigo">Bigo</span></span>
-      </a>
-      <h1>{heading ?? title}</h1>
-      {lead && <p class="lead">{lead}</p>}
-      <slot />
-    </div>
-    <LegalLinks class="auth-legal" />
-  </main>
+  <div class="auth-split">
+    <aside class="auth-side">
+      <div class="auth-side-top">
+        <a class="brand" href="/" aria-label={t(locale, 'app.name')}>
+          <BrandIcon size={42} />
+          <span aria-hidden="true">Don <span class="brand-bigo">Bigo</span></span>
+        </a>
+        <ThemeToggle />
+      </div>
+      <div class="auth-pup" aria-hidden="true">
+        <div class="auth-disc"></div>
+        <img src="/brand/mascota/saluda.webp" alt="" width="481" height="560" />
+      </div>
+      <div class="auth-hello">
+        <p class="auth-hello-title">{side.heading}</p>
+        <p>{side.lead}</p>
+        <p class="auth-beta"><b>{t(locale, 'landing.beta.kicker')}</b> {t(locale, 'auth.side.beta')}</p>
+      </div>
+    </aside>
+    <main class="auth-wrap" id="main" tabindex="-1">
+      <div class="auth-card">
+        <h1>{heading ?? title}</h1>
+        {lead && <p class="lead">{lead}</p>}
+        <slot />
+      </div>
+      <LegalLinks class="auth-legal" />
+    </main>
+  </div>
 </Base>

@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply miconta --local",
     "smoke:auth": "bash scripts/smoke-auth.sh",
+    "smoke:invitations": "python3 -I scripts/smoke-invitations.py",
     "smoke:accounts": "bash scripts/smoke-accounts.sh",
     "smoke:import": "python3 -I scripts/smoke-import.py",
     "smoke:plans": "python3 -I scripts/smoke-plans.py",

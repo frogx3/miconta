@@ -40,6 +40,9 @@ export function createAuthInstance({ db, secret, baseURL, allowSignup, setupCode
         timeZone: { type: 'string', required: false, input: false },
         inAppNotifications: { type: 'boolean', required: false, defaultValue: true, input: false },
         deletedAt: { type: 'date', required: false, input: false },
+        // Para que el admin (listUsers) distinga solicitudes pendientes y miembros de la beta.
+        approvalStatus: { type: 'string', required: false, defaultValue: 'approved', input: false },
+        betaMember: { type: 'boolean', required: false, defaultValue: false, input: false },
       },
     },
     plugins: [admin({ defaultRole: 'user' })],
