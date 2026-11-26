@@ -3,13 +3,15 @@ import AppLayout from '../../../layouts/AppLayout.astro';
 import Help from '../../../components/Help.astro';
 import SpendingTabs from '../../../components/SpendingTabs.astro';
 import { listAccounts } from '../../../lib/accounts/repo';
-import { messagesFor, t } from '../../../i18n/messages';
+import { messagesFor, t, tn } from '../../../i18n/messages';
 import { getDb } from '../../../lib/auth';
 import { formatDate, formatMonth, formatMonthLong } from '../../../lib/date-format';
 import { formatMinor, toInputString } from '../../../lib/money-format';
 import { analyzeRows, annualized, budgetStatus, thresholdFor } from '../../../lib/spending/analysis';
 import { getWorkspaceSettings, listCategories, listCutoffs, movementsForAccount } from '../../../lib/spending/repo';
 import { cutPeriod, realCuts, selectCut } from '../../../lib/spending/statement';
+import { categoryTrends, dailySpend, dayAverages, donutSlices, versusAverage } from '../../../lib/spending/insights';
+import { todayISO } from '../../../lib/date-format';
 
 const { workspace, locale } = Astro.locals;
 if (!workspace) return Astro.redirect('/login');
@@ -41,6 +43,11 @@ const series = trendKeys.map((key, index) => {
   return { key, spendMinor: found?.spendMinor ?? 0, antMinor: found?.antMinor ?? 0 };
 });
 const analyses = selection.kind === 'none' ? [] : analyzeRows(trendRows.at(-1) ?? [], selection.key, thresholdOf);
+// Día por día del periodo elegido (hasta hoy si sigue abierto) y tendencia por categoría en los mismos cortes.
+const today = todayISO(Astro.locals.timeZone);
+const days = selection.from && selection.to ? dailySpend(trendRows.at(-1) ?? [], selection.from < '2000-01-01' ? (trendRows.at(-1) ?? []).reduce((min, row) => (row.date < min ? row.date : min), selection.to) : selection.from, selection.to < today ? selection.to : today) : [];
+const averages = dayAverages(days);
+const analysesByKey = trendKeys.map((key, index) => ({ key, rows: trendRows[index]! }));
 const byId = new Map(categories.map((category) => [category.id, category]));
 
 const cutLabel = (key: string) => (key === 'actual' ? t(locale, 'statement.open') : formatMonth(key, locale));
@@ -109,6 +116,38 @@ const thresholdMinor = thresholdOf(settings.currency);
           const maxSpend = Math.max(...series.map((p) => p.spendMinor), 1);
           return (
             <section class="card">
+              {(() => {
+                const previous = series.slice(0, -1).map((point) => point.spendMinor);
+                const delta = versusAverage(analysis.spendMinor, previous);
+                const slices = donutSlices(analysis.byCategory);
+                const colorOf = (id: string | null | 'other') => (id === 'other' ? 'var(--line)' : id ? (byId.get(id)?.color ?? 'var(--muted)') : 'var(--muted)');
+                let at = 0;
+                const gradient = slices.map((slice) => `${colorOf(slice.categoryId)} ${(at * 100).toFixed(2)}% ${((at += slice.share) * 100).toFixed(2)}%`).join(', ');
+                return (
+                  <div class="spend-hero">
+                    <div>
+                      <p class="spend-title">{tn(locale, 'spending.hero.spent', analysis.spendCount, { amount: money(analysis.spendMinor) })}</p>
+                      <p class="muted">
+                        {delta === null ? t(locale, 'spending.hero.noAverage') : Math.abs(delta.delta) < 0.05 ? tn(locale, 'spending.hero.same', delta.count) : tn(locale, delta.delta > 0 ? 'spending.hero.more' : 'spending.hero.less', delta.count, { percent: percent(Math.abs(delta.delta)) })}
+                      </p>
+                    </div>
+                    {slices.length > 0 && (
+                      <div class="spend-mix">
+                        <div class="donut" style={`--mix: conic-gradient(${gradient})`} role="img" aria-label={slices.map((slice) => `${slice.categoryId === 'other' ? t(locale, 'spending.hero.other') : slice.categoryId ? byId.get(slice.categoryId)?.name : t(locale, 'spending.category.none')} ${percent(slice.share)}`).join(', ')}></div>
+                        <ul class="donut-legend">
+                          {slices.map((slice) => (
+                            <li>
+                              <i style={`background:${colorOf(slice.categoryId)}`}></i>
+                              <span>{slice.categoryId === 'other' ? t(locale, 'spending.hero.other') : slice.categoryId ? byId.get(slice.categoryId)?.name : t(locale, 'spending.category.none')}</span>
+                              <b>{percent(slice.share)}</b>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div class="stats">
                 <div class="stat">
                   <span class="muted">{t(locale, 'spending.tile.spend')} · {analysis.currency}<Help topic="spending.tile.spend" /></span>
@@ -167,6 +206,28 @@ const thresholdMinor = thresholdOf(settings.currency);
                   );
                 })()
               }
+              {days.length > 1 && (() => {
+                const top = Math.max(1, ...days.map((day) => day.spendMinor));
+                return (
+                  <>
+                    <h2>{t(locale, 'spending.days.title')}</h2>
+                    <p class="hint">{t(locale, 'spending.days.hint')}</p>
+                    <ol class="spend-days" aria-label={t(locale, 'spending.days.title')}>
+                      {days.map((day) => (
+                        <li class:list={[day.weekend && 'is-weekend']} title={`${formatDate(day.date, locale)}: ${money(day.spendMinor)}`}>
+                          <span class="spend-day-bar" style={`height:${((day.spendMinor / top) * 100).toFixed(1)}%`}></span>
+                          <span class="sr-only">{formatDate(day.date, locale)}: {money(day.spendMinor)}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    <p class="spend-days-foot">
+                      <span>{t(locale, 'spending.days.avg')} <b>{money(averages.allMinor)}</b></span>
+                      {averages.weekendMinor > 0 && <span>{t(locale, 'spending.days.weekend')} <b>{money(averages.weekendMinor)}</b></span>}
+                      <span>{t(locale, 'spending.days.weekday')} <b>{money(averages.weekdayMinor)}</b></span>
+                    </p>
+                  </>
+                );
+              })()}
               <h2>{t(locale, 'spending.category.title')}<Help topic="spending.category.title" /></h2>
               <ul class="category-bars">
                 {allCategories.map((entry) => {
@@ -245,6 +306,32 @@ const thresholdMinor = thresholdOf(settings.currency);
                 </tbody>
               </table>
               </div>
+              {series.length > 1 && (() => {
+                const trends = categoryTrends(analysesByKey.map(({ key, rows }) => ({ key, analysis: analyzeRows(rows, key, thresholdOf).find((entry) => entry.currency === analysis.currency) })));
+                if (trends.length === 0) return null;
+                return (
+                  <>
+                    <h2>{t(locale, 'spending.multiples.title', { n: String(series.length) })}</h2>
+                    <div class="multiples">
+                      {trends.map((trend) => {
+                        const category = trend.categoryId ? byId.get(trend.categoryId) : undefined;
+                        const top = Math.max(1, ...trend.points.map((point) => point.amountMinor));
+                        const last = trend.points.at(-1)!.amountMinor;
+                        return (
+                          <div class="multiple">
+                            <span class="multiple-name"><span class="dot" style={`background:${category?.color ?? 'var(--muted)'}`}></span>{category?.name ?? t(locale, 'spending.category.none')}</span>
+                            <b>{money(last)}</b>
+                            <span class="multiple-bars" aria-hidden="true">
+                              {trend.points.map((point, index) => <i class:list={[index === trend.points.length - 1 && 'is-now']} style={`height:${((point.amountMinor / top) * 100).toFixed(1)}%;--c:${category?.color ?? 'var(--muted)'}`}></i>)}
+                            </span>
+                            <span class="sr-only">{trend.points.map((point) => `${cutLabel(point.key)}: ${money(point.amountMinor)}`).join(', ')}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
             </section>
           );
         })}
@@ -279,3 +366,173 @@ const thresholdMinor = thresholdOf(settings.currency);
 <script>
   import '../../../scripts/spending-settings';
 </script>
+
+<style>
+  .spend-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem 2rem;
+    align-items: center;
+    margin-bottom: 1.25rem;
+  }
+
+  .spend-title {
+    margin: 0 0 0.35rem;
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .spend-hero .muted {
+    margin: 0;
+  }
+
+  .spend-mix {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  /* Dona: un conic-gradient con un hueco; entra girando (salvo con movimiento reducido). */
+  .donut {
+    width: 8.5rem;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--mix);
+    mask: radial-gradient(circle, transparent 54%, #000 55%);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .donut {
+      animation: donut-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    @keyframes donut-in {
+      from {
+        opacity: 0;
+        transform: rotate(-90deg) scale(0.85);
+      }
+    }
+  }
+
+  .donut-legend {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.85rem;
+  }
+
+  .donut-legend li {
+    display: grid;
+    grid-template-columns: 0.75rem minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .donut-legend i {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 3px;
+  }
+
+  .spend-days {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 7rem;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .spend-days li {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+    min-width: 0;
+    border-radius: 3px 3px 0 0;
+  }
+
+  .spend-days li.is-weekend {
+    background: var(--bg);
+  }
+
+  .spend-day-bar {
+    width: 100%;
+    min-height: 1px;
+    border-radius: 3px 3px 0 0;
+    background: var(--sky);
+  }
+
+  .spend-days-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.25rem;
+    margin: 0.6rem 0 1.25rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .spend-days-foot b {
+    color: var(--text);
+  }
+
+  .multiples {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 1rem;
+  }
+
+  .multiple {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  .multiple-name {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .multiple-bars {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 3rem;
+  }
+
+  .multiple-bars i {
+    flex: 1;
+    min-height: 1px;
+    border-radius: 2px 2px 0 0;
+    background: color-mix(in srgb, var(--c) 45%, transparent);
+  }
+
+  .multiple-bars i.is-now {
+    background: var(--c);
+  }
+
+  @media (max-width: 40rem) {
+    .spend-hero {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .donut {
+      width: 7rem;
+    }
+  }
+</style>
