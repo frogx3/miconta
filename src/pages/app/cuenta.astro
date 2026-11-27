@@ -237,6 +237,7 @@ const expiresOn = (date: Date) => iso(new Date(date.getTime() + BACKUP_DAYS * 86
                 <span class="row-actions">
                   <a class="btn btn-ghost btn-small" href={`/api/me/backups/${b.id}/gastos`} download>{t(locale, 'me.backup.movements')}</a>
                   <a class="btn btn-ghost btn-small" href={`/api/me/backups/${b.id}/pagos`} download>{t(locale, 'me.backup.payments')}</a>
+                  <a class="btn btn-ghost btn-small" href={`/api/me/backups/${b.id}/saldo`} download>{t(locale, 'me.backup.balance')}</a>
                   <span class="muted">{t(locale, 'me.backup.expires', { date: formatDate(expiresOn(b.createdAt), locale) })}</span>
                 </span>
               )}
