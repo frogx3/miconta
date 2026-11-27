@@ -103,6 +103,7 @@ def seed(client, ws, user_id, tag):
         f"VALUES ('mov-{tag}', '{ws}', '{account}', '{card}', 'batch-{tag}', 'k#1', '2026-07-06', '=SEGURO, \"AXA\"', 'SEGURO', 123456, 'MXN', 'cat-{tag}', 'plan-{tag}', 1)",
         f"INSERT INTO plan_events (id, workspace_id, plan_id, type, movement_id, batch_id, actor_user_id) VALUES ('ev-{tag}', '{ws}', 'plan-{tag}', 'created', 'mov-{tag}', 'batch-{tag}', '{user_id}')",
         f"INSERT INTO agenda_items (id, workspace_id, kind, description, amount_minor, currency, due_date, card_id) VALUES ('ag-card-{tag}', '{ws}', 'payable', 'Pago tarjeta', 50000, 'MXN', '2026-01-10', '{card}')",
+        f"INSERT INTO balance_movements (id, workspace_id, currency, amount_minor, kind, date, description) VALUES ('bm-{tag}', '{ws}', 'MXN', -25075, 'adjustment', '2026-07-07', 'Ajuste {tag}')",
         f"INSERT INTO cash_balances (id, workspace_id, card_id, currency, amount_minor) VALUES ('bal-{tag}', '{ws}', '{card}', 'MXN', 100000)",
     ]:
         d1(statement)
@@ -170,6 +171,8 @@ status, csv, _ = a.call("GET", f"/api/me/backups/{backup}/gastos", raw=True)
 check("descarga gastos.csv con el movimiento escapado y el monto decimal", (200, True, True), (status, "\"'=SEGURO, \"\"AXA\"\"\"" in csv, "1234.56" in csv))
 status, csv, _ = a.call("GET", f"/api/me/backups/{backup}/pagos", raw=True)
 check("descarga pagos.csv con la agenda", (200, True, True), (status, "Luz a" in csv, "850.50" in csv))
+status, csv, _ = a.call("GET", f"/api/me/backups/{backup}/saldo", raw=True)
+check("descarga saldo.csv con el historial del saldo", (200, True, True, False), (status, "Ajuste a" in csv, "-250.75" in csv, "Ajuste b" in csv))
 check("otro espacio no lo puede descargar: 404", 404, b.call("GET", f"/api/me/backups/{backup}/gastos", raw=True)[0])
 check("archivo desconocido: 404", 404, a.call("GET", f"/api/me/backups/{backup}/otro", raw=True)[0])
 check("aviso de respaldo listo", True, "data-notice-backup" in a.call("GET", "/app", raw=True)[1])

@@ -6,7 +6,7 @@ import { currencyDigits } from '../money-format';
 
 /** Días que un respaldo listo se puede descargar antes de que el cron lo borre. */
 export const BACKUP_DAYS = 7;
-export const BACKUP_FILES = ['gastos', 'pagos'] as const;
+export const BACKUP_FILES = ['gastos', 'pagos', 'saldo'] as const;
 export type BackupFile = (typeof BACKUP_FILES)[number];
 
 export interface BackupJob {
@@ -144,6 +144,31 @@ async function buildPaymentsCsv(db: Db, workspaceId: string): Promise<string> {
   );
 }
 
+async function buildBalanceCsv(db: Db, workspaceId: string): Promise<string> {
+  const s = schema;
+  const by = alias(s.user, 'created_by');
+  const rows = await db
+    .select({
+      date: s.balanceMovements.date,
+      kind: s.balanceMovements.kind,
+      description: s.balanceMovements.description,
+      amount: s.balanceMovements.amountMinor,
+      currency: s.balanceMovements.currency,
+      agenda: s.agendaItems.description,
+      by: by.name,
+    })
+    .from(s.balanceMovements)
+    .leftJoin(s.agendaItems, eq(s.agendaItems.id, s.balanceMovements.agendaItemId))
+    .leftJoin(by, eq(by.id, s.balanceMovements.createdByUserId))
+    .where(eq(s.balanceMovements.workspaceId, workspaceId))
+    .orderBy(asc(s.balanceMovements.date), asc(s.balanceMovements.createdAt));
+  const kind = { opening: 'saldo inicial', agenda: 'agenda', adjustment: 'ajuste' } as const;
+  return csv(
+    ['fecha', 'tipo', 'descripcion', 'monto', 'moneda', 'pago_o_cobro', 'registrado_por'],
+    rows.map((r) => [r.date, kind[r.kind], r.description, decimal(r.amount, r.currency), r.currency, r.agenda, r.by]),
+  );
+}
+
 /**
  * Lo corre el consumidor de la cola. El UPDATE condicionado "reclama" el trabajo: un reintento de la cola sobre un
  * respaldo que ya terminó no hace nada.
@@ -157,10 +182,11 @@ export async function runBackup(db: Db, files: R2Bucket, backupId: string): Prom
     .returning();
   if (!job) return 'skipped';
   try {
-    const [movements, payments] = await Promise.all([buildMovementsCsv(db, job.workspaceId), buildPaymentsCsv(db, job.workspaceId)]);
+    const [movements, payments, balance] = await Promise.all([buildMovementsCsv(db, job.workspaceId), buildPaymentsCsv(db, job.workspaceId), buildBalanceCsv(db, job.workspaceId)]);
     const meta = { httpMetadata: { contentType: 'text/csv; charset=utf-8' } };
     await files.put(backupKey(job.workspaceId, job.id, 'gastos'), movements, meta);
     await files.put(backupKey(job.workspaceId, job.id, 'pagos'), payments, meta);
+    await files.put(backupKey(job.workspaceId, job.id, 'saldo'), balance, meta);
     await db.update(schema.backupExports).set({ status: 'ready', finishedAt: new Date(), error: null }).where(eq(schema.backupExports.id, job.id));
     return 'ready';
   } catch (e) {
