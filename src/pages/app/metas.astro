@@ -37,7 +37,14 @@ const attention = active.find((view) => view.tone === 'bad') ?? active.find((vie
   <div id="goals" data-messages={JSON.stringify(messages)}>
     <div id="goals-error" class="alert" role="alert" hidden></div>
 
-    {active.length === 0 && <section class="card"><p class="empty">{t(locale, 'goals.empty')}</p></section>}
+    {
+      active.length === 0 && (
+        <section class="card goals-cheer">
+          <img src="/brand/mascota/lista.webp" alt="" width="481" height="560" />
+          <p class="empty">{t(locale, 'goals.empty')}</p>
+        </section>
+      )
+    }
     {
       active.length > 0 && (
         <section class="card goals-cheer" aria-labelledby="goals-cheer-t">
@@ -118,16 +125,38 @@ const attention = active.find((view) => view.tone === 'bad') ?? active.find((vie
 </script>
 
 <style>
+  /* La mascota se para en el borde inferior de la tarjeta, del tamaño de un acompañante y no de un icono. */
   .goals-cheer {
     display: flex;
     align-items: center;
-    gap: 1.25rem;
+    gap: 1.5rem;
+    padding-bottom: 0;
   }
 
   .goals-cheer img {
     flex: none;
-    width: 5.5rem;
+    align-self: flex-end;
+    width: 8.5rem;
     height: auto;
+    margin-top: -0.5rem;
+  }
+
+  .goals-cheer > :last-child {
+    padding-bottom: 1.25rem;
+  }
+
+  .goals-cheer .empty {
+    margin: 0;
+  }
+
+  @media (max-width: 30rem) {
+    .goals-cheer {
+      gap: 1rem;
+    }
+
+    .goals-cheer img {
+      width: 6.5rem;
+    }
   }
 
   .goals-cheer h2 {

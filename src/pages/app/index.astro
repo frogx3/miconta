@@ -314,7 +314,7 @@ const period = selection.month ? { label: t(locale, 'movements.period.cutoffName
   /* Héroe: banda de marca (navy en claro, grafito en oscuro) con la respuesta y la escalera. */
   .home-hero {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
     gap: 1.5rem;
     margin: 0 0 1.25rem;
     padding: 1.75rem;
@@ -323,16 +323,17 @@ const period = selection.month ? { label: t(locale, 'movements.period.cutoffName
     background: var(--header-bg);
   }
 
+  /* La mascota se para en el borde inferior de la banda, a un lado de la respuesta (no es un icono en la esquina). */
   .home-answer {
     position: relative;
-    padding-right: 6.5rem;
+    padding-right: 10.5rem;
   }
 
   .home-pup {
     position: absolute;
-    top: -0.5rem;
     right: 0;
-    width: 6.5rem;
+    bottom: -1.75rem;
+    width: 10rem;
     height: auto;
   }
 
@@ -438,6 +439,7 @@ const period = selection.month ? { label: t(locale, 'movements.period.cutoffName
   .home-ladder h2 {
     margin: 0;
     font-size: 1rem;
+    color: inherit;
   }
 
   .home-ladder h2 small {
@@ -812,6 +814,11 @@ const period = selection.month ? { label: t(locale, 'movements.period.cutoffName
     .home-grid {
       grid-template-columns: minmax(0, 1fr);
     }
+
+    /* Con la escalera debajo, la respuesta ya no toca el borde de la banda. */
+    .home-pup {
+      bottom: 0;
+    }
   }
 
   @media (max-width: 40rem) {
@@ -820,12 +827,30 @@ const period = selection.month ? { label: t(locale, 'movements.period.cutoffName
       margin-inline: -0.25rem;
     }
 
+    /* En el celular comparte solo la fila del saludo; lo demás usa todo el ancho. */
     .home-answer {
-      padding-right: 5rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 7.5rem;
+      column-gap: 1rem;
+      padding-right: 0;
     }
 
-    .home-pup {
-      width: 5rem;
+    .home-answer > * {
+      grid-column: 1 / -1;
+    }
+
+    .home-answer > .home-hello {
+      grid-column: 1;
+      grid-row: 1;
+      align-self: center;
+    }
+
+    .home-answer > .home-pup {
+      position: static;
+      grid-column: 2;
+      grid-row: 1;
+      width: 100%;
+      margin-top: -0.5rem;
     }
 
     /* Tienes hoy − Por pagar en una fila y el resultado abajo. */
